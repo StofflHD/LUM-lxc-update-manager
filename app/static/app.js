@@ -52,7 +52,7 @@ function appCell(c) {
   if (!c.community_script) return `<span class="muted">–</span>`;
   const name = esc(c.app_script || "?");
   if (!c.app_repo) return `${name}<br><span class="tag" title="Script does not use GitHub releases">Version unknown</span>`;
-  const repo = `<a class="tag" href="https://github.com/${esc(c.app_repo)}/releases" target="_blank" rel="noopener">${esc(c.app_repo)}</a>`;
+  const repo = `<a class="tag repo" href="https://github.com/${esc(c.app_repo)}/releases" target="_blank" rel="noopener" title="${esc(c.app_repo)}">${esc(c.app_repo)}</a>`;
   if (!c.app_installed || !c.app_latest) return `${name}<br>${repo}`;
   const badge = c.app_update
     ? `<span class="badge warn">${esc(c.app_installed)} → ${esc(c.app_latest)}</span>`
