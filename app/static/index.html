@@ -65,6 +65,24 @@
     <table><tbody id="snap-list"></tbody></table>
   </dialog>
 
+  <dialog id="upd-dialog">
+    <div class="dialog-head">
+      <h3 id="upd-title">Start update</h3>
+      <button id="upd-close" type="button" aria-label="Close">✕</button>
+    </div>
+    <form id="upd-form">
+      <label class="check">
+        <input type="checkbox" name="backup" checked>
+        <span id="upd-backup-label">Create a snapshot before the update</span>
+      </label>
+      <p id="upd-note" class="muted"></p>
+      <div class="dialog-actions">
+        <button type="button" id="upd-cancel">Cancel</button>
+        <button class="primary" type="submit">Start update</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="pw-dialog">
     <div class="dialog-head">
       <h3>Change password</h3>

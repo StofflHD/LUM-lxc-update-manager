@@ -232,7 +232,7 @@ async def check(vmid: int):
 
 
 @app.post("/api/containers/{vmid}/update", status_code=202)
-async def update(vmid: int, kind: Literal["os", "app"] = "os"):
+async def update(vmid: int, kind: Literal["os", "app"] = "os", backup: bool = True):
     s = svc()
     c = s.db.container(vmid)
     if not c:
@@ -242,7 +242,7 @@ async def update(vmid: int, kind: Literal["os", "app"] = "os"):
     if kind == "app" and not c["community_script"]:
         raise HTTPException(409, "container has no community-scripts update command")
     try:
-        return s.start_job(vmid, kind).as_dict()
+        return s.start_job(vmid, kind, backup=backup).as_dict()
     except RuntimeError as err:
         raise HTTPException(409, str(err))
 
@@ -256,6 +256,22 @@ async def snapshots(vmid: int):
         return await s.host.snapshots(vmid)
     except Exception as err:
         raise HTTPException(502, f"cannot list snapshots: {err}")
+
+
+@app.delete("/api/containers/{vmid}/snapshots/{name}")
+async def delete_snapshot(vmid: int, name: str):
+    s = svc()
+    if not s.db.container(vmid):
+        raise HTTPException(404, "unknown container")
+    if not re.fullmatch(r"lum_[0-9_]{1,30}", name):
+        raise HTTPException(400, "only snapshots created by the update manager (lum_*) can be deleted")
+    try:
+        await s.delete_snapshot(vmid, name)
+    except RuntimeError as err:
+        raise HTTPException(409, str(err))
+    except Exception as err:
+        raise HTTPException(502, f"cannot delete snapshot: {err}")
+    return {"deleted": name}
 
 
 @app.post("/api/containers/{vmid}/rollback", status_code=202)

@@ -92,6 +92,12 @@ class DemoHostClient:
         del self._snapshots[vmid][keep:]
         return self._fake_stream([f"deleted snapshot {x['name']}" for x in drop])
 
+    async def delete_snapshot(self, vmid: int, name: str) -> None:
+        await asyncio.sleep(0.5)
+        if not any(x["name"] == name for x in self._snapshots[vmid]):
+            raise HostCommandError("delete-snapshot", 2, f"snapshot {name} does not exist (anymore)")
+        self._snapshots[vmid] = [x for x in self._snapshots[vmid] if x["name"] != name]
+
     def rollback(self, vmid: int, name: str) -> AsyncIterator[str]:
         if not any(x["name"] == name for x in self._snapshots[vmid]):
             return self._fake_stream([f"error: snapshot {name} does not exist (anymore)"], 2)

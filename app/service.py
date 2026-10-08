@@ -28,6 +28,7 @@ class Job:
     vmid: int
     kind: str  # "os" | "app" | "rollback"
     target: str | None = None  # rollback: snapshot name
+    backup: bool = True  # update: make a snapshot/vzdump first (LUM_BACKUP_MODE)
     lines: list[str] = field(default_factory=list)
     done: bool = False
     success: bool | None = None
@@ -59,7 +60,7 @@ class Job:
 
     def as_dict(self) -> dict:
         return {
-            "id": self.id, "vmid": self.vmid, "kind": self.kind, "target": self.target,
+            "id": self.id, "vmid": self.vmid, "kind": self.kind, "target": self.target, "backup": self.backup,
             "done": self.done, "success": self.success,
         }
 
@@ -123,11 +124,12 @@ class UpdateService:
 
     # --- jobs --------------------------------------------------------------
 
-    def start_job(self, vmid: int, kind: str, target: str | None = None) -> Job:
-        """kind: "os" | "app" update, or "rollback" to the lum_ snapshot <target>."""
+    def start_job(self, vmid: int, kind: str, target: str | None = None, backup: bool = True) -> Job:
+        """kind: "os" | "app" update, or "rollback" to the lum_ snapshot <target>.
+        backup=False skips the safety copy for this one update."""
         if vmid in self._busy:
             raise RuntimeError(f"container {vmid} already has a running job")
-        job = Job(id=next(self._job_ids), vmid=vmid, kind=kind, target=target)
+        job = Job(id=next(self._job_ids), vmid=vmid, kind=kind, target=target, backup=backup)
         self.jobs[job.id] = job
         self._busy.add(vmid)
         run = self._run_rollback if kind == "rollback" else self._run_update
@@ -143,7 +145,8 @@ class UpdateService:
             if job.kind == "app" and err.exit_status in APP_UPDATE_SKIPPED:
                 job.emit(f"### {APP_UPDATE_SKIPPED[err.exit_status]}")
                 # nothing was changed, so the copy we just made is safe to rotate
-                await self._prune(job)
+                if job.backup:
+                    await self._prune(job)
             else:
                 job.emit(f"### Error: {err}")
         except (OSError, ValueError) as err:
@@ -158,7 +161,10 @@ class UpdateService:
         await self.check(job.vmid)
 
     async def _run_update(self, job: Job, history_id: int) -> bool:
-        await self._make_backup(job, history_id)
+        if job.backup:
+            await self._make_backup(job, history_id)
+        else:
+            job.emit("### No backup (turned off for this update)")
 
         job.emit("### OS update" if job.kind == "os" else "### App update (PHS_SILENT=1)")
         stream = self.host.upgrade(job.vmid) if job.kind == "os" else self.host.app_update(job.vmid)
@@ -166,7 +172,8 @@ class UpdateService:
             job.emit(line)
 
         # only after success: after a failure every copy may still be needed
-        await self._prune(job)
+        if job.backup:
+            await self._prune(job)
         job.emit("### Done")
         return True
 
@@ -208,6 +215,17 @@ class UpdateService:
                 self.db.mark_vzdump_pruned(job.vmid, storage, keep)
         except (HostCommandError, OSError, ValueError) as err:
             job.emit(f"### Warning: cleanup failed: {err}")
+
+    async def delete_snapshot(self, vmid: int, name: str) -> None:
+        """Delete one lum_ snapshot; blocks the container like a job meanwhile."""
+        if vmid in self._busy:
+            raise RuntimeError(f"container {vmid} has a running job")
+        self._busy.add(vmid)
+        try:
+            await self.host.delete_snapshot(vmid, name)
+            self.db.mark_snapshots_removed(vmid, [name])
+        finally:
+            self._busy.discard(vmid)
 
     async def _run_rollback(self, job: Job, history_id: int) -> bool:
         job.emit(f"### Rollback to snapshot {job.target}")

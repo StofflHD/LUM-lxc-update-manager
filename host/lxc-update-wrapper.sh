@@ -20,6 +20,7 @@
 #   snapshot  <vmid> <name>            create snapshot (name must start with lum_)
 #   snapshots <vmid>                   JSON list of this container's lum_ snapshots
 #   prune-snapshots <vmid> <keep>      delete all but the <keep> newest lum_ snapshots
+#   delete-snapshot <vmid> <name>      delete one lum_ snapshot
 #   rollback  <vmid> <name>            roll back to a lum_ snapshot (stops/starts the CT)
 #   backup    <vmid> <storage> <mode>  vzdump with marker note, mode snapshot|suspend|stop
 #   prune-backups <vmid> <storage> <keep>  delete all but the <keep> newest marked backups
@@ -163,6 +164,14 @@ case "$VERB" in
       pct delsnapshot "$VMID" "$name" 2>&1
       echo "deleted snapshot $name"
     done
+    ;;
+
+  delete-snapshot)
+    require_vmid
+    NAME="${ARGS[2]:-}"; require_snapname "$NAME"
+    lum_snapshots_json | grep -q "\"$NAME\"" || die "snapshot $NAME does not exist (anymore)"
+    pct delsnapshot "$VMID" "$NAME" 2>&1
+    echo "deleted snapshot $NAME"
     ;;
 
   rollback)

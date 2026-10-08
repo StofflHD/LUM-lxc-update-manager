@@ -105,6 +105,9 @@ class HostClient:
     def prune_snapshots(self, vmid: int, keep: int) -> AsyncIterator[str]:
         return self._stream("prune-snapshots", vmid, keep)
 
+    async def delete_snapshot(self, vmid: int, name: str) -> None:
+        await self._run("delete-snapshot", vmid, name)
+
     def rollback(self, vmid: int, name: str) -> AsyncIterator[str]:
         return self._stream("rollback", vmid, name)
 

@@ -18,7 +18,7 @@ LXC 101, 102, 103 …
 
 On the host the manager can **only** run the verbs of the wrapper script (`list`, `info`,
 `check`, `upgrade`, `app-version`, `app-update`, `snapshot`, `snapshots`,
-`prune-snapshots`, `rollback`, `backup`, `prune-backups`). It never gets a shell.
+`prune-snapshots`, `delete-snapshot`, `rollback`, `backup`, `prune-backups`). It never gets a shell.
 
 ## Features
 
@@ -30,9 +30,11 @@ On the host the manager can **only** run the verbs of the wrapper script (`list`
   (taken from `check_for_gh_release` in the matching `ct/<app>.sh`)
 - App update through the community-scripts `update` command in the official silent mode
   (`PHS_SILENT=1`, the same call the official `tools/pve/update-apps.sh` makes)
-- Backup before every update: snapshot, vzdump backup or none (`LUM_BACKUP_MODE`)
+- Backup before every update: snapshot, vzdump backup or none (`LUM_BACKUP_MODE`),
+  can be turned off per update with a checkbox in the update dialog
 - Automatic cleanup of old backups after a successful update
 - Rollback to a snapshot with one click (history or the ⟲ button of a container)
+- Delete the manager's snapshots from the web UI (⟲ button of a container)
 - History with stored logs
 - Login for the web UI (one admin account)
 
@@ -58,6 +60,8 @@ can still be updated.
 | `none` | nothing | – |
 
 - If the backup fails, the update does **not** run.
+- The update dialog has a checkbox to skip the backup for that one update. Without a
+  backup the update cannot be rolled back.
 - Cleanup only runs after a successful (or deliberately skipped) update. After a failure
   every backup is kept.
 - The manager **only** touches its own backups: snapshots named `lum_*` and backups with
@@ -68,6 +72,7 @@ can still be updated.
 - **Rollback** shuts the container down, rolls it back and starts it again if it was
   running. On **ZFS** this only works for the newest snapshot: Proxmox refuses the
   rollback while newer snapshots exist.
+- Snapshots can also be deleted by hand: ⟲ button of a container → **Delete**.
 - A vzdump backup is restored in the Proxmox UI (container → Backup → Restore), not in
   the manager.
 
@@ -169,10 +174,11 @@ creates the login `admin` / `demo`.
 | GET | `/api/containers` | All containers with update status |
 | POST | `/api/refresh` | Check all containers (async) |
 | POST | `/api/containers/{id}/check` | Check one container |
-| POST | `/api/containers/{id}/update?kind=os\|app` | Start an update → job |
+| POST | `/api/containers/{id}/update?kind=os\|app&backup=true\|false` | Start an update → job |
 | GET | `/api/jobs/{id}` | Job status + log |
 | WS | `/ws/jobs/{id}` | Live log of a job |
 | GET | `/api/containers/{id}/snapshots` | The manager's snapshots (`lum_*`) |
+| DELETE | `/api/containers/{id}/snapshots/{name}` | Delete one of the manager's snapshots |
 | POST | `/api/containers/{id}/rollback?snapshot=lum_…` | Start a rollback → job |
 | GET | `/api/history` | History |
 | GET | `/api/history/{id}/log` | Stored log |

@@ -112,17 +112,22 @@ function renderHistory(list) {
 async function showSnapshots(vmid) {
   $("#snap-title").textContent = `Snapshots of CT ${vmid}`;
   $("#snap-list").innerHTML = `<tr><td class="muted">Loading …</td></tr>`;
-  $("#snap-dialog").showModal();
+  if (!$("#snap-dialog").open) $("#snap-dialog").showModal();
   try {
     const snaps = await api(`/api/containers/${vmid}/snapshots`);
     $("#snap-list").innerHTML = snaps.map((x) => `<tr>
         <td>${esc(x.name)}</td><td class="muted">${fmtTime(x.snaptime)}</td>
-        <td class="actions"><button data-act="rollback" data-id="${vmid}" data-snap="${esc(x.name)}">Rollback</button></td>
+        <td class="actions">
+          <button data-act="rollback" data-id="${vmid}" data-snap="${esc(x.name)}">Rollback</button>
+          <button data-act="delsnap" data-id="${vmid}" data-snap="${esc(x.name)}" class="danger">Delete</button>
+        </td>
       </tr>`).join("") || `<tr><td class="muted">No snapshots made by the update manager.</td></tr>`;
   } catch (err) {
     $("#snap-list").innerHTML = `<tr><td class="err">${esc(err.message)}</td></tr>`;
   }
 }
+
+let backupCfg = null;
 
 function backupText(b) {
   if (b.mode === "snapshot") return `Backup: snapshot (keeps ${b.keep})`;
@@ -137,12 +142,62 @@ async function load() {
       + `Last check: ${fmtTime(status.last_refresh)} · ${backupText(status.backup)}`
       + (status.demo ? " · DEMO mode" : "");
     $("#refresh").disabled = status.refreshing;
+    backupCfg = status.backup;
     renderSummary(containers);
     renderContainers(containers);
     renderHistory(history);
   } catch (err) {
     $("#status").textContent = `Error: ${err.message}`;
   }
+}
+
+// Ask before an update; resolves to { backup: bool } or null when cancelled.
+function askUpdate(vmid, kind) {
+  return new Promise((resolve) => {
+    const dlg = $("#upd-dialog");
+    const form = $("#upd-form");
+    const box = form.backup;
+    const mode = backupCfg?.mode || "none";
+    $("#upd-title").textContent = `${kind === "os" ? "OS update" : "App update (community script)"} – CT ${vmid}`;
+    $("#upd-backup-label").textContent = {
+      snapshot: "Create a snapshot before the update",
+      vzdump: `Create a vzdump backup to ${backupCfg?.storage} before the update`,
+    }[mode] || "Create a backup before the update";
+    box.disabled = mode === "none";
+    box.checked = mode !== "none";
+
+    const note = () => {
+      const el = $("#upd-note");
+      if (mode === "none") {
+        el.textContent = "Backups are turned off (LUM_BACKUP_MODE=none).";
+        el.className = "muted";
+      } else if (!box.checked) {
+        el.textContent = "Without a backup this update cannot be rolled back.";
+        el.className = "warn-text";
+      } else {
+        el.textContent = mode === "snapshot"
+          ? "You can roll back to it from the history or the ⟲ button."
+          : "Restore it in the Proxmox UI if needed.";
+        el.className = "muted";
+      }
+    };
+    box.onchange = note;
+    note();
+
+    const finish = (value) => {
+      if (dlg.open) dlg.close();
+      resolve(value);
+    };
+    form.onsubmit = (ev) => {
+      ev.preventDefault();
+      finish({ backup: box.checked });
+    };
+    $("#upd-cancel").onclick = () => finish(null);
+    $("#upd-close").onclick = () => finish(null);
+    dlg.oncancel = () => resolve(null); // Esc
+    dlg.showModal();
+    form.querySelector('button[type="submit"]').focus();
+  });
 }
 
 function openLog(title) {
@@ -184,9 +239,18 @@ document.addEventListener("click", async (ev) => {
         break;
       case "os":
       case "app": {
-        const what = btn.dataset.act === "os" ? "OS update" : "App update (community script)";
-        if (!confirm(`Start ${what} for CT ${id}?`)) return;
-        followJob(await api(`/api/containers/${id}/update?kind=${btn.dataset.act}`, { method: "POST" }));
+        const choice = await askUpdate(id, btn.dataset.act);
+        if (!choice) return;
+        followJob(await api(`/api/containers/${id}/update?kind=${btn.dataset.act}&backup=${choice.backup}`, { method: "POST" }));
+        break;
+      }
+      case "delsnap": {
+        const snap = btn.dataset.snap;
+        if (!confirm(`Delete snapshot ${snap} of CT ${id}?\n\nYou can no longer roll back to it.`)) return;
+        btn.disabled = true;
+        btn.textContent = "…";
+        await api(`/api/containers/${id}/snapshots/${encodeURIComponent(snap)}`, { method: "DELETE" });
+        await showSnapshots(id);
         break;
       }
       case "snapshots":
