@@ -4,6 +4,8 @@ Manage OS updates (apt/apk) and application updates of all LXC containers on a
 Proxmox host from one web UI. Built for containers created with the
 [Proxmox VE Community Scripts](https://github.com/community-scripts/ProxmoxVE).
 
+What changed in which version: [CHANGELOG.md](CHANGELOG.md).
+
 ## Architecture
 
 ```

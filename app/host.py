@@ -17,8 +17,17 @@ from .config import Settings
 _SAFE_ARG = re.compile(r"^[A-Za-z0-9._-]{1,60}$")
 
 
+OUTDATED_HINT = (
+    "the host script on the Proxmox host is too old for this LUM version - run on the host: "
+    "bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update"
+)
+
+
 class HostCommandError(Exception):
     def __init__(self, verb: str, exit_status: int | None, stderr: str):
+        # an old wrapper rejects verbs it doesn't know - say what to do instead
+        if "verb not allowed" in stderr:
+            stderr = OUTDATED_HINT
         super().__init__(f"{verb} failed ({exit_status}): {stderr.strip()}")
         self.exit_status = exit_status
 
@@ -61,11 +70,13 @@ class HostClient:
     async def _stream(self, verb: str, *args: str | int) -> AsyncIterator[str]:
         async with self._connect() as conn:
             proc = await conn.create_process(_command(verb, *args), stderr=asyncssh.STDOUT)
+            last = ""
             async for line in proc.stdout:
-                yield line.rstrip("\n")
+                last = line.rstrip("\n")
+                yield last
             done = await proc.wait()
         if done.exit_status != 0:
-            raise HostCommandError(verb, done.exit_status, "see log")
+            raise HostCommandError(verb, done.exit_status, last if "verb not allowed" in last else "see log")
 
     # --- verbs -----------------------------------------------------------
 

@@ -77,6 +77,17 @@ def client_ip(request: Request) -> str:
 
 
 @app.middleware("http")
+async def no_stale_ui(request: Request, call_next):
+    """Without a Cache-Control header browsers may keep the old app.js after an
+    update. no-cache still allows caching, but revalidates (cheap 304) every time."""
+    response = await call_next(request)
+    path = request.url.path
+    if path in ("/", "/login") or path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+@app.middleware("http")
 async def require_login(request: Request, call_next):
     path = request.url.path
     # CSRF: other sites can't set custom headers on cross-site requests
