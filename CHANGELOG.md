@@ -8,6 +8,16 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [1.1.3] – 2026-10-08
+
+### Added
+- **Delete** button next to **Rollback** in the history, so snapshots can be deleted
+  right where they are listed. Before, deleting was only possible in the snapshot
+  dialog behind the small ⟲ button.
+
+### Changed
+- The ⟲ button of a container is now labelled **Snapshots**.
+
 ## [1.1.2] – 2026-10-08
 
 ### Fixed
@@ -67,7 +77,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[1.1.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/321a53e...main
+[1.1.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/c1a6caa...main
+[1.1.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/321a53e...c1a6caa
 [1.1.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/5745b96...321a53e
 [1.1.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8a43c04...5745b96
 [1.0.0]: https://github.com/StofflHD/LUM-lxc-update-manager/commit/8a43c04

@@ -76,7 +76,7 @@ function renderContainers(list) {
         <button data-act="os" data-id="${c.vmid}" ${!running || c.busy || !c.upgradable.length ? "disabled" : ""}>OS update</button>
         <button data-act="app" data-id="${c.vmid}" ${!running || c.busy || !c.community_script ? "disabled" : ""}
           class="${c.app_update ? "primary" : ""}">App update</button>
-        <button data-act="snapshots" data-id="${c.vmid}" ${c.busy ? "disabled" : ""} title="Snapshots / Rollback">⟲</button>
+        <button data-act="snapshots" data-id="${c.vmid}" ${c.busy ? "disabled" : ""} title="Roll back or delete snapshots">Snapshots</button>
       </td>
     </tr>`;
   }).join("") || `<tr><td colspan="8" class="muted">No containers found.</td></tr>`;
@@ -102,7 +102,8 @@ function renderHistory(list) {
         : h.success ? '<span class="badge ok">succeeded</span>' : '<span class="badge err">failed</span>'}</td>
       <td>${backupCell(h)}</td>
       <td class="actions">
-        ${canRollback ? `<button data-act="rollback" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}">Rollback</button>` : ""}
+        ${canRollback ? `<button data-act="rollback" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}">Rollback</button>
+          <button data-act="delsnap" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}" class="danger">Delete</button>` : ""}
         <button data-act="log" data-id="${h.id}">Log</button>
       </td>
     </tr>`;
@@ -221,7 +222,7 @@ function askUpdate(vmid, kind) {
         el.className = "warn-text";
       } else {
         el.textContent = mode === "snapshot"
-          ? "You can roll back to it from the history or the ⟲ button."
+          ? "You can roll back to it from the history or the Snapshots button."
           : "Restore it in the Proxmox UI if needed.";
         el.className = "muted";
       }
@@ -298,16 +299,18 @@ document.addEventListener("click", async (ev) => {
           danger: true,
         });
         if (!yes) return;
+        const inDialog = Boolean(btn.closest("#snap-dialog"));
         btn.disabled = true;
         btn.textContent = "…";
-        snapMsg(`Deleting ${snap} …`);
+        if (inDialog) snapMsg(`Deleting ${snap} …`);
         try {
           await api(`/api/containers/${id}/snapshots/${encodeURIComponent(snap)}`, { method: "DELETE" });
-          snapMsg(`Deleted ${snap}.`, "ok");
+          if (inDialog) snapMsg(`Deleted ${snap}.`, "ok");
         } catch (err) {
-          snapMsg(`Could not delete ${snap}: ${err.message}`, "err");
+          if (inDialog) snapMsg(`Could not delete ${snap}: ${err.message}`, "err");
+          else await showError(`Could not delete ${snap}: ${err.message}`);
         }
-        await showSnapshots(id);
+        if (inDialog) await showSnapshots(id);
         break;
       }
       case "snapshots":

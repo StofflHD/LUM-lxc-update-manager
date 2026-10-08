@@ -35,8 +35,8 @@ On the host the manager can **only** run the verbs of the wrapper script (`list`
 - Backup before every update: snapshot, vzdump backup or none (`LUM_BACKUP_MODE`),
   can be turned off per update with a checkbox in the update dialog
 - Automatic cleanup of old backups after a successful update
-- Rollback to a snapshot with one click (history or the ⟲ button of a container)
-- Delete the manager's snapshots from the web UI (⟲ button of a container)
+- Rollback to a snapshot with one click (history or the **Snapshots** button of a container)
+- Delete the manager's snapshots from the web UI (history or the **Snapshots** button)
 - History with stored logs
 - Login for the web UI (one admin account)
 
@@ -74,7 +74,8 @@ can still be updated.
 - **Rollback** shuts the container down, rolls it back and starts it again if it was
   running. On **ZFS** this only works for the newest snapshot: Proxmox refuses the
   rollback while newer snapshots exist.
-- Snapshots can also be deleted by hand: ⟲ button of a container → **Delete**.
+- Snapshots can also be deleted by hand: **Delete** in the history, or the
+  **Snapshots** button of a container → **Delete**.
 - A vzdump backup is restored in the Proxmox UI (container → Backup → Restore), not in
   the manager.
 
