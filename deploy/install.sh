@@ -12,7 +12,8 @@ QUIET=0
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq python3 python3-venv openssh-client >/dev/null
+# curl: handy for debugging and updates inside the container, the Debian template lacks it
+apt-get install -y -qq python3 python3-venv openssh-client curl >/dev/null
 
 mkdir -p "$DEST"
 # replace code, never data/ or .env

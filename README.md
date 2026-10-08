@@ -100,6 +100,10 @@ The installer runs on the **Proxmox host** and does everything: creates a Debian
 (1 CPU, 512 MB RAM, 4 GB), installs the app and the host script, adds the restricted SSH
 key, stores the host keys, sets up the login, tests the connection and starts the service.
 
+The container's root password is optional: leave it empty and the container has none,
+you get a root shell with `pct enter <CTID>` on the host. Set one later with
+`pct exec <CTID> -- passwd`.
+
 ### Straight from GitHub (recommended)
 
 On the Proxmox host (shell as root):

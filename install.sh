@@ -17,6 +17,7 @@
 #            LUM_NET (dhcp | 192.168.1.50/24) LUM_GW LUM_HOST_IP
 #            LUM_BACKUP_MODE (snapshot|vzdump|none) LUM_BACKUP_STORAGE
 #            LUM_USER LUM_PASSWORD (web UI login; with -y and no password a random one is generated)
+#            LUM_ROOT_PASSWORD (container root password; with -y and unset the container has none)
 set -euo pipefail
 
 APP_DIR=/opt/lxc-update-manager
@@ -117,6 +118,40 @@ ask_password() {
     fi
     warn "Passwords do not match"
   done
+}
+
+# container root password: preset, typed twice, or none (empty input / -y)
+ROOT_PW_SET=0
+ask_root_password() {
+  if [[ -n ${LUM_ROOT_PASSWORD:-} ]]; then
+    ((${#LUM_ROOT_PASSWORD} >= 8)) || die "LUM_ROOT_PASSWORD needs at least 8 characters"
+    ROOT_PW_SET=1
+    return 0
+  fi
+  [[ $YES == 1 ]] && return 0
+  local p1 p2
+  while true; do
+    read -r -s -p "${YW}?${CL} Root password for the container (empty = none, access via 'pct enter'): " p1 </dev/tty
+    echo
+    [[ -z $p1 ]] && return 0
+    if ((${#p1} < 8)); then
+      warn "At least 8 characters"
+      continue
+    fi
+    read -r -s -p "${YW}?${CL} Repeat root password: " p2 </dev/tty
+    echo
+    if [[ $p1 == "$p2" ]]; then
+      LUM_ROOT_PASSWORD=$p1
+      ROOT_PW_SET=1
+      return 0
+    fi
+    warn "Passwords do not match"
+  done
+}
+
+# via stdin to chpasswd, not pct create --password (would show up in ps)
+set_root_password() {
+  printf 'root:%s\n' "$LUM_ROOT_PASSWORD" | pct exec "$CTID" -- chpasswd
 }
 
 # password goes in via stdin, never as an argument (would show up in ps / the log)
@@ -344,6 +379,7 @@ do_install() {
   ask LUM_USER "Username for the web UI" "admin"
   [[ $LUM_USER =~ ^[A-Za-z0-9._-]{1,40}$ ]] || die "Username: only letters, digits, . _ -"
   ask_password
+  ask_root_password
 
   echo -e "\n${BD}Summary${CL}
   Container   $CTID ($LUM_HOSTNAME), 1 CPU, 512 MB RAM, 4 GB on $LUM_ROOTFS_STORAGE
@@ -351,6 +387,7 @@ do_install() {
   Proxmox IP  $LUM_HOST_IP
   Backup      $LUM_BACKUP_MODE${LUM_BACKUP_STORAGE:+ → $LUM_BACKUP_STORAGE}
   Login       $LUM_USER
+  Root login  $([[ $ROOT_PW_SET == 1 ]] && echo "password set" || echo "no password (pct enter $CTID)")
   Also        host script to $WRAPPER, restricted SSH key in $AUTH_KEYS\n"
   confirm "Start the installation?" || die "Aborted"
   echo
@@ -361,6 +398,7 @@ do_install() {
     step "Download template $TEMPLATE" pveam download "$LUM_TEMPLATE_STORAGE" "$TEMPLATE"
   fi
   step "Create and start container $CTID" create_ct
+  [[ $ROOT_PW_SET == 1 ]] && step "Set root password" set_root_password
   step "Wait for network" wait_for_network
   step "Install app (takes 1–3 minutes)" push_app
   step "Set up SSH access (host script only)" authorize_key
@@ -373,6 +411,11 @@ do_install() {
 
   echo -e "\n${GN}${BD}Done!${CL} Web UI: ${BD}http://$(ct_ip):$PORT${CL}"
   print_login
+  if [[ $ROOT_PW_SET == 1 ]]; then
+    echo "  Root shell:    console or pct enter $CTID (root with your password)"
+  else
+    echo "  Root shell:    pct enter $CTID (no root password set; later: pct exec $CTID -- passwd)"
+  fi
   echo "  Settings:      pct exec $CTID -- nano $APP_DIR/.env  (then: pct exec $CTID -- systemctl restart lxc-update-manager)"
   echo "  Update:        bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update"
   echo -e "  ${YW}The connection is unencrypted (HTTP) – use it only on your home network or behind an HTTPS reverse proxy.${CL}"
