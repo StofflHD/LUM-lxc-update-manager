@@ -37,7 +37,8 @@ On the host the manager can **only** run the verbs of the wrapper script (`list`
 - Automatic cleanup of old backups after a successful update
 - Rollback to a snapshot with one click (history or the **Snapshots** button of a container)
 - Delete the manager's snapshots from the web UI (history or the **Snapshots** button)
-- History with stored logs
+- History with stored logs; single entries or the whole history can be removed
+  (snapshots are kept)
 - Login for the web UI (one admin account)
 
 ### App updates: skipped updates
@@ -203,6 +204,7 @@ creates the login `admin` / `demo`.
 | POST | `/api/containers/{id}/rollback?snapshot=lum_…` | Start a rollback → job |
 | GET | `/api/history` | History |
 | GET | `/api/history/{id}/log` | Stored log |
+| DELETE | `/api/history/{id}` · `/api/history` | Remove one / all finished entries (snapshots are kept) |
 
 ## Roadmap
 

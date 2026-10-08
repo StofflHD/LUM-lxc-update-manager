@@ -172,6 +172,20 @@ class Database:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    def delete_history(self, history_id: int) -> bool:
+        """Remove one finished entry; running jobs (finished IS NULL) stay."""
+        with self._conn:
+            cur = self._conn.execute(
+                "DELETE FROM history WHERE id=? AND finished IS NOT NULL", (history_id,)
+            )
+        return cur.rowcount > 0
+
+    def clear_history(self) -> int:
+        """Remove all finished entries, returns how many."""
+        with self._conn:
+            cur = self._conn.execute("DELETE FROM history WHERE finished IS NOT NULL")
+        return cur.rowcount
+
     def history_log(self, history_id: int) -> str | None:
         row = self._conn.execute("SELECT log FROM history WHERE id=?", (history_id,)).fetchone()
         return row["log"] if row else None

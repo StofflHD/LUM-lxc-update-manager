@@ -341,6 +341,24 @@ async def history():
     return svc().db.history()
 
 
+@app.delete("/api/history")
+async def clear_history():
+    # snapshots and backups are not touched, only the list entries
+    return {"removed": svc().db.clear_history()}
+
+
+@app.delete("/api/history/{history_id}")
+async def delete_history(history_id: int):
+    s = svc()
+    entry = s.db.history_entry(history_id)
+    if not entry:
+        raise HTTPException(404, "unknown entry")
+    if entry["finished"] is None:
+        raise HTTPException(409, "this job is still running")
+    s.db.delete_history(history_id)
+    return {"removed": history_id}
+
+
 @app.get("/api/history/{history_id}/log", response_class=PlainTextResponse)
 async def history_log(history_id: int):
     text = svc().db.history_log(history_id)

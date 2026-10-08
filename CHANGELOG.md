@@ -8,6 +8,21 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [1.1.5] – 2026-10-08
+
+### Added
+- The history can be cleaned up in the web UI: **Remove** on a single entry, or
+  **Clear history** for all finished entries. Running updates stay; snapshots and
+  backups are not deleted and remain available under the container's **Snapshots**
+  button.
+
+### Fixed
+- Badges like `up to date` or `2 packages` wrapped onto two lines in narrow columns and
+  looked broken; they now always stay on one line.
+- The disclosure triangle of the package list sat on its own line above the badge.
+- The action buttons column was laid out as a flex box instead of a table cell, so its
+  row lines didn't match the rest of the table.
+
 ## [1.1.4] – 2026-10-08
 
 ### Fixed
@@ -86,7 +101,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[1.1.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8f8c7b6...main
+[1.1.5]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8df17f1...main
+[1.1.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8f8c7b6...8df17f1
 [1.1.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/c1a6caa...deb7d69
 [1.1.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/321a53e...c1a6caa
 [1.1.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/5745b96...321a53e

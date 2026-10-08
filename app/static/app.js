@@ -105,6 +105,7 @@ function renderHistory(list) {
         ${canRollback ? `<button data-act="rollback" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}">Rollback</button>
           <button data-act="delsnap" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}" class="danger">Delete</button>` : ""}
         <button data-act="log" data-id="${h.id}">Log</button>
+        ${h.finished ? `<button data-act="delhist" data-id="${h.id}" title="Remove this entry from the history">Remove</button>` : ""}
       </td>
     </tr>`;
   }).join("") || `<tr><td colspan="6" class="muted">No updates run yet.</td></tr>`;
@@ -330,11 +331,42 @@ document.addEventListener("click", async (ev) => {
         followJob(await api(`/api/containers/${id}/rollback?snapshot=${encodeURIComponent(snap)}`, { method: "POST" }));
         break;
       }
+      case "delhist": {
+        const yes = await ask({
+          title: "Remove history entry?",
+          text: "The entry and its log are removed from the history.\n\n"
+            + "A snapshot made for this update is not deleted – it stays available "
+            + "(and can be rolled back) under the container's Snapshots button.",
+          ok: "Remove",
+          danger: true,
+        });
+        if (!yes) return;
+        await api(`/api/history/${id}`, { method: "DELETE" });
+        break;
+      }
       case "log":
         openLog(`History #${id}`);
         $("#log").textContent = await api(`/api/history/${id}/log`);
         break;
     }
+  } catch (err) {
+    await showError(err.message);
+  }
+  load();
+});
+
+$("#clear-history").addEventListener("click", async () => {
+  const yes = await ask({
+    title: "Clear the whole history?",
+    text: "All finished entries and their logs are removed. Running updates stay.\n\n"
+      + "Snapshots and backups are not deleted – they stay available under each "
+      + "container's Snapshots button.",
+    ok: "Clear history",
+    danger: true,
+  });
+  if (!yes) return;
+  try {
+    await api("/api/history", { method: "DELETE" });
   } catch (err) {
     await showError(err.message);
   }
