@@ -109,10 +109,47 @@ function renderHistory(list) {
   }).join("") || `<tr><td colspan="6" class="muted">No updates run yet.</td></tr>`;
 }
 
+// Own confirm/message dialog. window.confirm()/alert() can be switched off by
+// the browser ("prevent this page from creating additional dialogs"), after
+// which confirm() returns false silently and buttons seem to do nothing.
+function ask({ title, text, ok = "OK", danger = false, cancel = true }) {
+  return new Promise((resolve) => {
+    const dlg = $("#ask-dialog");
+    $("#ask-title").textContent = title;
+    $("#ask-text").textContent = text;
+    $("#ask-ok").textContent = ok;
+    $("#ask-ok").classList.toggle("danger", danger);
+    $("#ask-cancel").hidden = !cancel;
+    const finish = (value) => {
+      if (dlg.open) dlg.close();
+      resolve(value);
+    };
+    $("#ask-form").onsubmit = (ev) => {
+      ev.preventDefault();
+      finish(true);
+    };
+    $("#ask-cancel").onclick = () => finish(false);
+    dlg.oncancel = () => resolve(false); // Esc
+    dlg.showModal();
+    (cancel ? $("#ask-cancel") : $("#ask-ok")).focus();
+  });
+}
+
+const showError = (text) => ask({ title: "Error", text, cancel: false });
+
+function snapMsg(text, cls = "muted") {
+  $("#snap-msg").textContent = text;
+  $("#snap-msg").className = `dialog-note ${cls}`;
+  $("#snap-msg").hidden = !text;
+}
+
 async function showSnapshots(vmid) {
   $("#snap-title").textContent = `Snapshots of CT ${vmid}`;
   $("#snap-list").innerHTML = `<tr><td class="muted">Loading …</td></tr>`;
-  if (!$("#snap-dialog").open) $("#snap-dialog").showModal();
+  if (!$("#snap-dialog").open) {
+    snapMsg("");
+    $("#snap-dialog").showModal();
+  }
   try {
     const snaps = await api(`/api/containers/${vmid}/snapshots`);
     $("#snap-list").innerHTML = snaps.map((x) => `<tr>
@@ -140,7 +177,8 @@ async function load() {
     const [status, containers, history] = await Promise.all([api("/api/status"), api("/api/containers"), api("/api/history")]);
     $("#status").textContent = (status.refreshing ? "Checking containers … · " : "")
       + `Last check: ${fmtTime(status.last_refresh)} · ${backupText(status.backup)}`
-      + (status.demo ? " · DEMO mode" : "") + ` · v${status.version}`;
+      + (status.demo ? " · DEMO mode" : "");
+    $("#version").textContent = `LUM v${status.version}`;
     const hs = status.host_script;
     $("#host-warning").hidden = !hs.outdated;
     if (hs.outdated) {
@@ -253,10 +291,22 @@ document.addEventListener("click", async (ev) => {
       }
       case "delsnap": {
         const snap = btn.dataset.snap;
-        if (!confirm(`Delete snapshot ${snap} of CT ${id}?\n\nYou can no longer roll back to it.`)) return;
+        const yes = await ask({
+          title: `Delete snapshot of CT ${id}?`,
+          text: `${snap}\n\nYou can no longer roll back to it.`,
+          ok: "Delete",
+          danger: true,
+        });
+        if (!yes) return;
         btn.disabled = true;
         btn.textContent = "…";
-        await api(`/api/containers/${id}/snapshots/${encodeURIComponent(snap)}`, { method: "DELETE" });
+        snapMsg(`Deleting ${snap} …`);
+        try {
+          await api(`/api/containers/${id}/snapshots/${encodeURIComponent(snap)}`, { method: "DELETE" });
+          snapMsg(`Deleted ${snap}.`, "ok");
+        } catch (err) {
+          snapMsg(`Could not delete ${snap}: ${err.message}`, "err");
+        }
         await showSnapshots(id);
         break;
       }
@@ -265,9 +315,14 @@ document.addEventListener("click", async (ev) => {
         break;
       case "rollback": {
         const snap = btn.dataset.snap;
-        if (!confirm(`Roll CT ${id} back to snapshot ${snap}?\n\n`
-          + "The container will be shut down and started again afterwards. "
-          + "All changes since the snapshot will be lost.")) return;
+        const yes = await ask({
+          title: `Roll CT ${id} back?`,
+          text: `Snapshot ${snap}\n\nThe container will be shut down and started again afterwards. `
+            + "All changes since the snapshot will be lost.",
+          ok: "Roll back",
+          danger: true,
+        });
+        if (!yes) return;
         $("#snap-dialog").close();
         followJob(await api(`/api/containers/${id}/rollback?snapshot=${encodeURIComponent(snap)}`, { method: "POST" }));
         break;
@@ -278,7 +333,7 @@ document.addEventListener("click", async (ev) => {
         break;
     }
   } catch (err) {
-    alert(err.message);
+    await showError(err.message);
   }
   load();
 });

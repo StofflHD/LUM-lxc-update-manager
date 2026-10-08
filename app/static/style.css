@@ -58,6 +58,20 @@ dialog::backdrop { background: rgb(0 0 0 / .5); }
   header, main { padding-left: 16px; padding-right: 16px; }
 }
 
+/* footer */
+.site-footer { text-align: center; color: var(--muted); font-size: 12px; padding: 8px 16px 24px; }
+.site-footer a { color: var(--muted); }
+.site-footer a:hover { color: var(--text); }
+.login-page .site-footer { position: fixed; bottom: 0; left: 0; right: 0; }
+
+/* confirm / message dialog */
+#ask-dialog { width: min(440px, 95vw); }
+#ask-dialog form { padding: 4px 16px 16px; }
+#ask-text { white-space: pre-line; margin: 8px 0 0; }
+button.primary.danger { background: var(--err); border-color: var(--err); color: #fff; }
+#snap-msg.err { color: var(--err); }
+#snap-msg.ok { color: var(--ok); }
+
 /* login */
 .login-page { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
 .login-box {

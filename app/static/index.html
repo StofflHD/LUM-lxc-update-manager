@@ -49,6 +49,14 @@
     </section>
   </main>
 
+  <footer class="site-footer">
+    <span id="version">LUM</span> ·
+    © 2026 StofflHD ·
+    <a href="https://github.com/StofflHD/LUM-lxc-update-manager/blob/main/LICENSE" target="_blank" rel="noopener">GPL-3.0</a> ·
+    <a href="https://github.com/StofflHD/LUM-lxc-update-manager" target="_blank" rel="noopener">GitHub</a> ·
+    <a href="https://github.com/StofflHD/LUM-lxc-update-manager/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
+  </footer>
+
   <dialog id="log-dialog">
     <div class="dialog-head">
       <h3 id="log-title">Log</h3>
@@ -63,7 +71,22 @@
       <button id="snap-close" aria-label="Close">✕</button>
     </div>
     <p class="muted dialog-note">Only snapshots created by the update manager (lum_*). Your own snapshots are not shown and never touched.</p>
+    <p id="snap-msg" class="dialog-note" role="status" hidden></p>
     <table><tbody id="snap-list"></tbody></table>
+  </dialog>
+
+  <!-- own confirm / message dialog: browsers can silently suppress confirm() and alert() -->
+  <dialog id="ask-dialog">
+    <div class="dialog-head">
+      <h3 id="ask-title"></h3>
+    </div>
+    <form id="ask-form">
+      <p id="ask-text"></p>
+      <div class="dialog-actions">
+        <button type="button" id="ask-cancel">Cancel</button>
+        <button type="submit" id="ask-ok" class="primary">OK</button>
+      </div>
+    </form>
   </dialog>
 
   <dialog id="upd-dialog">

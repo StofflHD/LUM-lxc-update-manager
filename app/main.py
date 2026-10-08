@@ -288,6 +288,7 @@ async def delete_snapshot(vmid: int, name: str):
     except RuntimeError as err:
         raise HTTPException(409, str(err))
     except Exception as err:
+        log.warning("deleting snapshot %s of CT %s failed: %s", name, vmid, err)
         raise HTTPException(502, f"cannot delete snapshot: {err}")
     return {"deleted": name}
 
