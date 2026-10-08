@@ -1,0 +1,79 @@
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --border: #e2e5ea; --text: #1d2330; --muted: #6b7385;
+  --accent: #2f6fed; --accent-text: #ffffff; --ok: #1f8a4c; --warn: #b7791f; --err: #c53030;
+  --code-bg: #0f1420; --code-text: #d7dce5;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11151c; --surface: #1a1f29; --border: #2a3140; --text: #e4e8ef; --muted: #8b93a5;
+    --accent: #5b8cff; --ok: #4cc27f; --warn: #e0a84a; --err: #f06c6c; --code-bg: #0a0d13;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.5 system-ui, sans-serif; background: var(--bg); color: var(--text); }
+header {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  padding: 16px 24px; background: var(--surface); border-bottom: 1px solid var(--border);
+}
+h1 { font-size: 18px; margin: 0; }
+h2 { font-size: 15px; margin: 24px 0 8px; }
+main { padding: 16px 24px 48px; max-width: 1200px; margin: 0 auto; }
+.muted { color: var(--muted); margin: 0; font-size: 12px; }
+
+button {
+  font: inherit; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  border-radius: 6px; padding: 5px 10px; cursor: pointer; white-space: nowrap;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+.tile .v { font-size: 22px; font-weight: 600; }
+.tile .l { color: var(--muted); font-size: 12px; }
+
+.table-wrap { overflow-x: auto; margin-top: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); font-weight: 500; }
+tr:last-child td { border-bottom: none; }
+td.actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+.badge { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 12px; border: 1px solid currentColor; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .err { color: var(--err); }
+.tag { font-size: 11px; color: var(--muted); margin-right: 6px; }
+details summary { cursor: pointer; }
+details ul { margin: 6px 0 0; padding-left: 18px; font-family: ui-monospace, monospace; font-size: 12px; max-height: 200px; overflow: auto; }
+
+dialog { width: min(900px, 95vw); border: 1px solid var(--border); border-radius: 10px; padding: 0; background: var(--surface); color: var(--text); }
+dialog::backdrop { background: rgb(0 0 0 / .5); }
+.dialog-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.dialog-head h3 { margin: 0; font-size: 15px; }
+.dialog-note { padding: 10px 16px 0; }
+#snap-dialog table { margin: 8px 0 12px; }
+#log { margin: 0; padding: 12px 16px; height: 60vh; overflow: auto; background: var(--code-bg); color: var(--code-text); font-size: 12px; white-space: pre-wrap; }
+
+@media (max-width: 640px) {
+  header, main { padding-left: 16px; padding-right: 16px; }
+}
+
+/* login */
+.login-page { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.login-box {
+  width: min(360px, 100%); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 24px; margin: 0;
+}
+.login-box h1 { margin-bottom: 4px; }
+form label { display: block; margin: 14px 0 0; font-size: 12px; color: var(--muted); }
+form input {
+  display: block; width: 100%; margin-top: 4px; padding: 7px 10px; font: inherit; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+}
+form input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+form button { width: 100%; margin-top: 18px; padding: 8px; }
+form .err, form .muted { margin: 12px 0 0; font-size: 13px; }
+.header-actions { display: flex; align-items: center; gap: 8px; }
+.header-actions .user { font-size: 12px; color: var(--muted); margin-right: 4px; }
+#pw-dialog { width: min(400px, 95vw); }
+#pw-dialog form { padding: 0 16px 16px; }

@@ -1,0 +1,218 @@
+#!/usr/bin/env bash
+# lxc-update-wrapper - runs on the Proxmox host.
+#
+# Used as SSH "forced command" so the update manager can only execute the
+# verbs below, never an arbitrary shell. Install:
+#   install -m 0755 lxc-update-wrapper.sh /usr/local/bin/lxc-update-wrapper
+# and in /root/.ssh/authorized_keys:
+#   command="/usr/local/bin/lxc-update-wrapper",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty ssh-ed25519 AAAA... lxc-update-manager
+#
+# Verbs:
+#   list                      JSON list of all LXCs on this node
+#   info     <vmid>           pkg=<apt|apk|unknown> / community=<0|1> / script=<ct script name>
+#   check    <vmid>           one upgradable package per line
+#   upgrade  <vmid>           OS upgrade (streams output)
+#   app-version <vmid> <app>  installed app version (~/.<app>, written by check_for_gh_release)
+#   app-update <vmid>         community-scripts "update" in silent mode (PHS_SILENT=1)
+#                             exit 75 = needs interactive mode, 113 = under-provisioned,
+#                             114 = /boot storage low
+#
+#   snapshot  <vmid> <name>            create snapshot (name must start with lum_)
+#   snapshots <vmid>                   JSON list of this container's lum_ snapshots
+#   prune-snapshots <vmid> <keep>      delete all but the <keep> newest lum_ snapshots
+#   rollback  <vmid> <name>            roll back to a lum_ snapshot (stops/starts the CT)
+#   backup    <vmid> <storage> <mode>  vzdump with marker note, mode snapshot|suspend|stop
+#   prune-backups <vmid> <storage> <keep>  delete all but the <keep> newest marked backups
+#
+# The manager can only ever touch snapshots named lum_* and backups whose note
+# is exactly "lxc-update-manager" - never your own snapshots or backup jobs.
+
+set -euo pipefail
+
+MARKER="lxc-update-manager"
+
+# SSH_ORIGINAL_COMMAND when called via SSH, "$*" for local testing.
+read -r -a ARGS <<< "${SSH_ORIGINAL_COMMAND:-$*}"
+VERB="${ARGS[0]:-}"
+VMID="${ARGS[1]:-}"
+NODE="$(hostname)"
+
+die() { echo "error: $*" >&2; exit 2; }
+
+require_vmid() {
+  [[ "$VMID" =~ ^[0-9]{3,9}$ ]] || die "invalid vmid"
+  pct config "$VMID" >/dev/null 2>&1 || die "unknown vmid $VMID"
+}
+
+require_running() {
+  pct status "$VMID" | grep -q running || { echo "error: container $VMID not running" >&2; exit 3; }
+}
+
+is_running() { pct status "$VMID" | grep -q running; }
+
+require_snapname() {
+  [[ "$1" =~ ^lum_[0-9_]{1,30}$ ]] || die "invalid snapshot name (must be lum_<digits>)"
+}
+
+require_keep() {
+  [[ "$1" =~ ^[0-9]{1,3}$ ]] || die "invalid keep count"
+}
+
+require_storage() {
+  [[ "$1" =~ ^[A-Za-z][A-Za-z0-9_.-]{0,40}$ ]] || die "invalid storage name"
+  pvesm status --storage "$1" >/dev/null 2>&1 || die "unknown storage $1"
+}
+
+# lum_ snapshots of $VMID as JSON, newest first
+lum_snapshots_json() {
+  pvesh get "/nodes/$NODE/lxc/$VMID/snapshot" --output-format json | perl -MJSON::PP -0 -e '
+    my $d = decode_json(<STDIN>);
+    my @s = sort { ($b->{snaptime} // 0) <=> ($a->{snaptime} // 0) }
+            grep { $_->{name} =~ /^lum_/ } @$d;
+    print JSON::PP->new->canonical->encode([ map { { name => $_->{name}, snaptime => $_->{snaptime} } } @s ]);
+  '
+}
+
+in_ct() { pct exec "$VMID" -- sh -c "$1"; }
+
+case "$VERB" in
+  list)
+    pvesh get "/nodes/$NODE/lxc" --output-format json
+    ;;
+
+  info)
+    require_vmid; require_running
+    in_ct '
+      if command -v apt-get >/dev/null 2>&1; then echo pkg=apt
+      elif command -v apk >/dev/null 2>&1; then echo pkg=apk
+      else echo pkg=unknown; fi
+      if [ -x /usr/bin/update ]; then
+        echo community=1
+        # same lookup order as community-scripts tools/pve/update-apps.sh
+        s=$(sed -n -E "s/^[[:space:]]*export[[:space:]]+UPDATE_SCRIPT_NAME=[^a-zA-Z0-9._-]?([a-zA-Z0-9._-]+).*/\1/p" /usr/bin/update | head -n1)
+        [ -z "$s" ] && s=$(grep -oE "/ct/[a-zA-Z0-9._-]+\.sh" /usr/bin/update | head -n1 | sed "s|.*/ct/||; s|\.sh$||")
+        echo "script=$s"
+      else
+        echo community=0
+      fi
+    '
+    ;;
+
+  app-version)
+    require_vmid; require_running
+    APP="${ARGS[2]:-}"
+    [[ "$APP" =~ ^[a-z0-9._-]{1,60}$ ]] || die "invalid app name"
+    pct exec "$VMID" -- sh -c "cat \"\$HOME/.$APP\" 2>/dev/null || true"
+    ;;
+
+  check)
+    require_vmid; require_running
+    in_ct '
+      if command -v apt-get >/dev/null 2>&1; then
+        apt-get update -qq >/dev/null 2>&1 || true
+        apt list --upgradable 2>/dev/null | tail -n +2
+      elif command -v apk >/dev/null 2>&1; then
+        apk update -q >/dev/null 2>&1 || true
+        apk version -l "<" 2>/dev/null | tail -n +2
+      fi
+    '
+    ;;
+
+  upgrade)
+    require_vmid; require_running
+    in_ct '
+      if command -v apt-get >/dev/null 2>&1; then
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update &&
+        apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade &&
+        apt-get -y autoremove
+      elif command -v apk >/dev/null 2>&1; then
+        apk -U upgrade
+      else
+        echo "unsupported package manager" >&2; exit 4
+      fi
+    ' 2>&1
+    ;;
+
+  app-update)
+    # PHS_SILENT=1 is the official unattended mode, the same call
+    # community-scripts' own update-apps.sh makes. stdin from /dev/null so no
+    # prompt can block a run nobody is watching.
+    require_vmid; require_running
+    pct exec "$VMID" -- sh -c '[ -x /usr/bin/update ] || { echo "no community-scripts update command"; exit 4; }; export PHS_SILENT=1; update' </dev/null 2>&1
+    ;;
+
+  snapshot)
+    require_vmid
+    NAME="${ARGS[2]:-}"; require_snapname "$NAME"
+    pct snapshot "$VMID" "$NAME" --description "created by $MARKER" 2>&1
+    ;;
+
+  snapshots)
+    require_vmid
+    lum_snapshots_json
+    ;;
+
+  prune-snapshots)
+    require_vmid
+    KEEP="${ARGS[2]:-}"; require_keep "$KEEP"
+    lum_snapshots_json | perl -MJSON::PP -0 -e '
+      my $keep = shift; my @s = @{ decode_json(<STDIN>) };
+      print "$_->{name}\n" for @s[$keep .. $#s];
+    ' "$KEEP" | while read -r name; do
+      pct delsnapshot "$VMID" "$name" 2>&1
+      echo "deleted snapshot $name"
+    done
+    ;;
+
+  rollback)
+    require_vmid
+    NAME="${ARGS[2]:-}"; require_snapname "$NAME"
+    lum_snapshots_json | grep -q "\"$NAME\"" || die "snapshot $NAME does not exist (anymore)"
+    WAS_RUNNING=0
+    if is_running; then
+      WAS_RUNNING=1
+      echo "shutting down container $VMID"
+      pct shutdown "$VMID" --timeout 60 2>&1 || pct stop "$VMID" 2>&1
+    fi
+    echo "rolling back to $NAME"
+    pct rollback "$VMID" "$NAME" 2>&1
+    if [[ $WAS_RUNNING == 1 ]]; then
+      echo "starting container $VMID"
+      pct start "$VMID" 2>&1
+    fi
+    echo "rollback done"
+    ;;
+
+  backup)
+    require_vmid
+    STORAGE="${ARGS[2]:-}"; require_storage "$STORAGE"
+    MODE="${ARGS[3]:-snapshot}"
+    [[ "$MODE" =~ ^(snapshot|suspend|stop)$ ]] || die "invalid backup mode"
+    OPTS=(--storage "$STORAGE" --mode "$MODE" --notes-template "$MARKER")
+    # PBS does its own compression and rejects --compress
+    TYPE=$(pvesh get "/storage/$STORAGE" --output-format json | perl -MJSON::PP -0 -e 'print decode_json(<STDIN>)->{type}')
+    [[ "$TYPE" == "pbs" ]] || OPTS+=(--compress zstd)
+    vzdump "$VMID" "${OPTS[@]}" 2>&1
+    ;;
+
+  prune-backups)
+    require_vmid
+    STORAGE="${ARGS[2]:-}"; require_storage "$STORAGE"
+    KEEP="${ARGS[3]:-}"; require_keep "$KEEP"
+    pvesh get "/nodes/$NODE/storage/$STORAGE/content" --content backup --vmid "$VMID" --output-format json |
+    perl -MJSON::PP -0 -e '
+      my ($keep, $marker) = @ARGV;
+      my @b = sort { $b->{ctime} <=> $a->{ctime} }
+              grep { ($_->{notes} // "") =~ /^\Q$marker\E\s*$/ && !$_->{protected} } @{ decode_json(<STDIN>) };
+      print "$_->{volid}\n" for @b[$keep .. $#b];
+    ' "$KEEP" "$MARKER" | while read -r volid; do
+      pvesm free "$volid" 2>&1
+      echo "deleted backup $volid"
+    done
+    ;;
+
+  *)
+    die "verb not allowed: '$VERB'"
+    ;;
+esac

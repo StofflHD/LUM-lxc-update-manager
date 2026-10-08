@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LXC Update Manager</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>LXC Update Manager</h1>
+      <p id="status" class="muted">Loading …</p>
+    </div>
+    <div class="header-actions">
+      <span id="user" class="user"></span>
+      <button id="pw-open" hidden>Password</button>
+      <button id="logout" hidden>Log out</button>
+      <button id="refresh" class="primary">Check all</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="summary" id="summary"></section>
+
+    <section>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Name</th><th>Status</th><th>Package manager</th>
+              <th>OS updates</th><th>App</th><th>Last check</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="containers"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>History</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Time</th><th>CT</th><th>Type</th><th>Result</th><th>Backup</th><th></th></tr></thead>
+          <tbody id="history"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="log-dialog">
+    <div class="dialog-head">
+      <h3 id="log-title">Log</h3>
+      <button id="log-close" aria-label="Close">✕</button>
+    </div>
+    <pre id="log"></pre>
+  </dialog>
+
+  <dialog id="snap-dialog">
+    <div class="dialog-head">
+      <h3 id="snap-title">Snapshots</h3>
+      <button id="snap-close" aria-label="Close">✕</button>
+    </div>
+    <p class="muted dialog-note">Only snapshots created by the update manager (lum_*). Your own snapshots are not shown and never touched.</p>
+    <table><tbody id="snap-list"></tbody></table>
+  </dialog>
+
+  <dialog id="pw-dialog">
+    <div class="dialog-head">
+      <h3>Change password</h3>
+      <button id="pw-close" type="button" aria-label="Close">✕</button>
+    </div>
+    <form id="pw-form">
+      <label>Current password
+        <input name="current" type="password" autocomplete="current-password" required>
+      </label>
+      <label>New password (at least 8 characters)
+        <input name="new" type="password" autocomplete="new-password" minlength="8" required>
+      </label>
+      <label>Repeat new password
+        <input name="repeat" type="password" autocomplete="new-password" minlength="8" required>
+      </label>
+      <p id="pw-msg" role="alert" hidden></p>
+      <button class="primary" type="submit">Save</button>
+    </form>
+  </dialog>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
