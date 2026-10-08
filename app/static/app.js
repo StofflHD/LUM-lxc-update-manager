@@ -64,13 +64,13 @@ function renderContainers(list) {
   $("#containers").innerHTML = list.map((c) => {
     const running = c.status === "running";
     return `<tr>
-      <td>${c.vmid}</td>
-      <td><strong>${esc(c.name)}</strong><br>${c.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("")}</td>
-      <td><span class="badge ${running ? "ok" : "muted"}">${esc(c.status)}</span></td>
-      <td>${esc(c.pkg_manager || "–")}${c.community_script ? '<br><span class="tag">community-script</span>' : ""}</td>
-      <td>${updatesCell(c)}</td>
-      <td>${appCell(c)}</td>
-      <td class="muted">${fmtTime(c.last_check)}</td>
+      <td data-label="ID">${c.vmid}</td>
+      <td data-label="Name"><strong>${esc(c.name)}</strong><br>${c.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("")}</td>
+      <td data-label="Status"><span class="badge ${running ? "ok" : "muted"}">${esc(c.status)}</span></td>
+      <td data-label="Package manager">${esc(c.pkg_manager || "–")}${c.community_script ? '<br><span class="tag">community-script</span>' : ""}</td>
+      <td data-label="OS updates">${updatesCell(c)}</td>
+      <td data-label="App">${appCell(c)}</td>
+      <td data-label="Last check" class="muted">${fmtTime(c.last_check)}</td>
       <td class="actions">
         <button data-act="check" data-id="${c.vmid}" ${!running || c.busy ? "disabled" : ""}>Check</button>
         <button data-act="os" data-id="${c.vmid}" ${!running || c.busy || !c.upgradable.length ? "disabled" : ""}>OS update</button>
@@ -97,10 +97,11 @@ function renderHistory(list) {
   $("#history").innerHTML = list.map((h) => {
     const canRollback = h.kind !== "rollback" && h.backup_kind === "snapshot" && !h.backup_removed && h.finished;
     return `<tr>
-      <td>${fmtTime(h.started)}</td><td>${h.vmid}</td><td>${KIND[h.kind] || esc(h.kind)}</td>
-      <td>${h.success == null ? '<span class="badge warn">running</span>'
+      <td data-label="Time">${fmtTime(h.started)}</td><td data-label="CT">${h.vmid}</td>
+      <td data-label="Type">${KIND[h.kind] || esc(h.kind)}</td>
+      <td data-label="Result">${h.success == null ? '<span class="badge warn">running</span>'
         : h.success ? '<span class="badge ok">succeeded</span>' : '<span class="badge err">failed</span>'}</td>
-      <td>${backupCell(h)}</td>
+      <td data-label="Backup">${backupCell(h)}</td>
       <td class="actions">
         ${canRollback ? `<button data-act="rollback" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}">Rollback</button>
           <button data-act="delsnap" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}" class="danger">Delete</button>` : ""}

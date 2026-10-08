@@ -8,6 +8,15 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [1.2.0] – 2026-10-08
+
+### Changed
+- The web UI scales with the window instead of using a fixed maximum width
+  (only very wide screens are capped at 2200 px for readability).
+- No horizontal scrollbars: when space gets short the action buttons wrap inside their
+  cell, and below 1100 px (small laptops, tablets, phones) every table row turns into a card with the
+  column names above the values.
+
 ## [1.1.6] – 2026-10-08
 
 ### Changed
@@ -109,7 +118,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[1.1.6]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/30069ba...main
+[1.2.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/5ec7124...main
+[1.1.6]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/30069ba...5ec7124
 [1.1.5]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8df17f1...30069ba
 [1.1.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8f8c7b6...8df17f1
 [1.1.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/c1a6caa...deb7d69
