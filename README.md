@@ -211,7 +211,6 @@ creates the login `admin` / `demo`.
 - [ ] Version detection for Codeberg releases and apps without a release check
 - [ ] Schedules / maintenance windows, auto-update per container
 - [ ] Notifications (ntfy, Gotify, Telegram)
-- [ ] MQTT discovery → `update` entities in Home Assistant
 - [x] Rollback to a snapshot with one click, clean up old snapshots
 - [x] vzdump backup as an alternative to snapshots
 - [ ] Restore a vzdump backup from the web UI
