@@ -72,7 +72,9 @@ class HostClient:
             proc = await conn.create_process(_command(verb, *args), stderr=asyncssh.STDOUT)
             last = ""
             async for line in proc.stdout:
-                last = line.rstrip("\n")
+                # progress output (dpkg "Reading database ... 5%") rewrites one
+                # line with \r; keep only its final state
+                last = line.rstrip("\r\n").split("\r")[-1]
                 yield last
             done = await proc.wait()
         if done.exit_status != 0:

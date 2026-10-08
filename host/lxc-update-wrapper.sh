@@ -77,7 +77,10 @@ lum_snapshots_json() {
   '
 }
 
-in_ct() { pct exec "$VMID" -- sh -c "$1"; }
+# C.UTF-8 exists in every Debian/Ubuntu container; the host's own LANG
+# (e.g. en_US.UTF-8) usually doesn't, and apt/perl warn about it on every call
+ct_env=(env LANG=C.UTF-8 LC_ALL=C.UTF-8)
+in_ct() { pct exec "$VMID" -- "${ct_env[@]}" sh -c "$1"; }
 
 case "$VERB" in
   version)
@@ -132,6 +135,8 @@ case "$VERB" in
     in_ct '
       if command -v apt-get >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
+        # no changelog reading/mailing during an unattended upgrade
+        export APT_LISTCHANGES_FRONTEND=none
         apt-get update &&
         apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade &&
         apt-get -y autoremove
@@ -148,7 +153,7 @@ case "$VERB" in
     # community-scripts' own update-apps.sh makes. stdin from /dev/null so no
     # prompt can block a run nobody is watching.
     require_vmid; require_running
-    pct exec "$VMID" -- sh -c '[ -x /usr/bin/update ] || { echo "no community-scripts update command"; exit 4; }; export PHS_SILENT=1; update' </dev/null 2>&1
+    pct exec "$VMID" -- "${ct_env[@]}" sh -c '[ -x /usr/bin/update ] || { echo "no community-scripts update command"; exit 4; }; export PHS_SILENT=1; update' </dev/null 2>&1
     ;;
 
   snapshot)

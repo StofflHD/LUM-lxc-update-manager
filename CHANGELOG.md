@@ -8,6 +8,15 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [1.1.4] – 2026-10-08
+
+### Fixed
+- Cleaner update logs: progress output that rewrites a single line (dpkg's
+  `Reading database ... 5%`) now shows only its final state instead of one line per step.
+- No more locale warnings (`perl: warning: Setting locale failed`) in update logs:
+  commands in the containers run with `C.UTF-8` instead of the host's language. **Host script**
+- OS updates no longer let `apt-listchanges` read package changelogs. **Host script**
+
 ## [1.1.3] – 2026-10-08
 
 ### Added
@@ -77,7 +86,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[1.1.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/c1a6caa...main
+[1.1.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8f8c7b6...main
+[1.1.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/c1a6caa...deb7d69
 [1.1.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/321a53e...c1a6caa
 [1.1.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/5745b96...321a53e
 [1.1.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8a43c04...5745b96
