@@ -8,6 +8,20 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [1.4.1] – 2026-10-08
+
+### Fixed
+- Behind a reverse proxy the login lockout counted the proxy's IP, so 5 wrong passwords
+  from anyone locked out everybody. The service now reads `.env` as environment, so
+  `FORWARDED_ALLOW_IPS=<proxy IP>` makes it count per real client.
+- Behind a proxy that replaces the `Host` header the live log (WebSocket) was rejected;
+  `X-Forwarded-Host` is accepted now.
+- The session cookie is marked `Secure` automatically when a trusted proxy reports HTTPS.
+
+### Added
+- README: using the web UI, reverse proxy guide (Nginx Proxy Manager, nginx, Caddy,
+  Traefik), all configuration options, troubleshooting, complete API list.
+
 ## [1.4.0] – 2026-10-08
 
 ### Added
@@ -152,7 +166,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[1.4.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0b1859e...main
+[1.4.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/f6db5c7...main
+[1.4.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0b1859e...f6db5c7
 [1.3.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/942b4bf...0b1859e
 [1.2.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/5ec7124...942b4bf
 [1.1.6]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/30069ba...5ec7124

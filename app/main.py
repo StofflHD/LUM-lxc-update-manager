@@ -105,14 +105,17 @@ async def require_login(request: Request, call_next):
     return await call_next(request)
 
 
-def _set_session(response: JSONResponse, username: str) -> None:
+def _set_session(response: JSONResponse, username: str, request: Request) -> None:
+    # behind an HTTPS reverse proxy (trusted via FORWARDED_ALLOW_IPS) the scheme is
+    # https, so the cookie is marked Secure without extra configuration
+    secure = get_settings().cookie_secure or request.url.scheme == "https"
     response.set_cookie(
         COOKIE,
         auth().make_token(username),
         max_age=auth().session_seconds,
         httponly=True,
         samesite="strict",
-        secure=get_settings().cookie_secure,
+        secure=secure,
         path="/",
     )
 
@@ -159,7 +162,7 @@ async def login(body: LoginBody, request: Request):
         raise HTTPException(401, "Wrong username or password")
     auth().reset_failures(ip)
     response = JSONResponse({"user": body.username})
-    _set_session(response, body.username)
+    _set_session(response, body.username, request)
     return response
 
 
@@ -191,13 +194,20 @@ async def change_password(body: PasswordBody, request: Request):
     await asyncio.to_thread(auth().change_password, body.new)
     # all old sessions are invalid now; hand this browser a fresh one
     response = JSONResponse({"ok": True})
-    _set_session(response, user)
+    _set_session(response, user, request)
     return response
 
 
 def _ws_allowed(ws: WebSocket) -> bool:
     origin = ws.headers.get("origin")
-    if origin and urlparse(origin).netloc != ws.headers.get("host"):
+    # Reverse proxies often replace Host with the internal address but pass the
+    # public one as X-Forwarded-Host. Accepting it is safe: a foreign page can't
+    # set headers on a browser WebSocket handshake.
+    hosts = {ws.headers.get("host")}
+    forwarded = ws.headers.get("x-forwarded-host")
+    if forwarded:
+        hosts.add(forwarded.split(",")[0].strip())
+    if origin and urlparse(origin).netloc not in hosts:
         return False  # cross-site WebSocket hijacking
     return get_settings().auth_disabled or auth().check_token(ws.cookies.get(COOKIE)) is not None
 

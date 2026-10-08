@@ -5,6 +5,8 @@ Wants=network-online.target
 
 [Service]
 WorkingDirectory=/opt/lxc-update-manager
+# .env also feeds uvicorn, e.g. FORWARDED_ALLOW_IPS for a reverse proxy
+EnvironmentFile=-/opt/lxc-update-manager/.env
 ExecStart=/opt/lxc-update-manager/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080
 Restart=on-failure
 RestartSec=5

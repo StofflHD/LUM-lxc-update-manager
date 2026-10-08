@@ -301,6 +301,9 @@ LUM_SNAPSHOT_KEEP=2
 LUM_BACKUP_STORAGE=${LUM_BACKUP_STORAGE:-}
 LUM_BACKUP_VZDUMP_MODE=snapshot
 LUM_BACKUP_KEEP=2
+
+# Reverse proxy in front? Put its IP here (README: "Reverse proxy")
+#FORWARDED_ALLOW_IPS=
 EOF
   pct push "$CTID" "$tmp" "$APP_DIR/.env" --perms 600
   rm -f "$tmp"
