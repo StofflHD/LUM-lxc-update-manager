@@ -140,7 +140,14 @@ async function load() {
     const [status, containers, history] = await Promise.all([api("/api/status"), api("/api/containers"), api("/api/history")]);
     $("#status").textContent = (status.refreshing ? "Checking containers … · " : "")
       + `Last check: ${fmtTime(status.last_refresh)} · ${backupText(status.backup)}`
-      + (status.demo ? " · DEMO mode" : "");
+      + (status.demo ? " · DEMO mode" : "") + ` · v${status.version}`;
+    const hs = status.host_script;
+    $("#host-warning").hidden = !hs.outdated;
+    if (hs.outdated) {
+      $("#host-warning").textContent = `The host script on the Proxmox host is outdated (version ${hs.version}, `
+        + `needs ${hs.required}) – some functions will fail. Update it on the host: `
+        + `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`;
+    }
     $("#refresh").disabled = status.refreshing;
     backupCfg = status.backup;
     renderSummary(containers);

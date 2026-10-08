@@ -8,6 +8,7 @@
 #   command="/usr/local/bin/lxc-update-wrapper",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty ssh-ed25519 AAAA... lxc-update-manager
 #
 # Verbs:
+#   version                   version of this script (WRAPPER_VERSION)
 #   list                      JSON list of all LXCs on this node
 #   info     <vmid>           pkg=<apt|apk|unknown> / community=<0|1> / script=<ct script name>
 #   check    <vmid>           one upgradable package per line
@@ -30,6 +31,8 @@
 
 set -euo pipefail
 
+# bump when verbs are added or changed; LUM checks it and asks for a host update
+WRAPPER_VERSION=2
 MARKER="lxc-update-manager"
 
 # SSH_ORIGINAL_COMMAND when called via SSH, "$*" for local testing.
@@ -77,6 +80,10 @@ lum_snapshots_json() {
 in_ct() { pct exec "$VMID" -- sh -c "$1"; }
 
 case "$VERB" in
+  version)
+    echo "$WRAPPER_VERSION"
+    ;;
+
   list)
     pvesh get "/nodes/$NODE/lxc" --output-format json
     ;;
@@ -87,7 +94,8 @@ case "$VERB" in
       if command -v apt-get >/dev/null 2>&1; then echo pkg=apt
       elif command -v apk >/dev/null 2>&1; then echo pkg=apk
       else echo pkg=unknown; fi
-      if [ -x /usr/bin/update ]; then
+      # the LUM container itself has an "update" too (marker LUM_SELF_UPDATE) - not an app
+      if [ -x /usr/bin/update ] && ! grep -q LUM_SELF_UPDATE /usr/bin/update; then
         echo community=1
         # same lookup order as community-scripts tools/pve/update-apps.sh
         s=$(sed -n -E "s/^[[:space:]]*export[[:space:]]+UPDATE_SCRIPT_NAME=[^a-zA-Z0-9._-]?([a-zA-Z0-9._-]+).*/\1/p" /usr/bin/update | head -n1)

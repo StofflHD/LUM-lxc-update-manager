@@ -69,6 +69,13 @@ class HostClient:
 
     # --- verbs -----------------------------------------------------------
 
+    async def wrapper_version(self) -> int:
+        """0 for host scripts from before the version verb existed."""
+        try:
+            return int((await self._run("version", timeout=30)).strip() or 0)
+        except HostCommandError:
+            return 0
+
     async def list_containers(self) -> list[dict]:
         return json.loads(await self._run("list"))
 

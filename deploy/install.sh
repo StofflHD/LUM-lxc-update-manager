@@ -18,7 +18,7 @@ apt-get install -y -qq python3 python3-venv openssh-client curl >/dev/null
 mkdir -p "$DEST"
 # replace code, never data/ or .env
 rm -rf "$DEST/app" "$DEST/host"
-cp -r "$SRC/app" "$SRC/host" "$SRC/requirements.txt" "$DEST/"
+cp -r "$SRC/app" "$SRC/host" "$SRC/requirements.txt" "$SRC/VERSION" "$DEST/"
 [ -f "$DEST/.env" ] || cp "$SRC/.env.example" "$DEST/.env"
 chmod 600 "$DEST/.env"
 mkdir -p "$DEST/data"
@@ -31,6 +31,12 @@ chmod 700 "$DEST/data"
 if [ ! -f "$DEST/data/id_ed25519" ]; then
   ssh-keygen -q -t ed25519 -N "" -C "lxc-update-manager" -f "$DEST/data/id_ed25519"
 fi
+
+# "update" command for LUM itself. Temp file + mv: update.sh may be the
+# script running right now, and overwriting it in place would make bash
+# continue reading the new content at its old offset.
+install -m 0755 "$SRC/deploy/update.sh" /usr/bin/update.lum-new
+mv -f /usr/bin/update.lum-new /usr/bin/update
 
 cp "$SRC/deploy/lxc-update-manager.service" /etc/systemd/system/
 systemctl daemon-reload

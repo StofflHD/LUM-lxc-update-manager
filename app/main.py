@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Red
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ValidationError
 
+from . import REQUIRED_WRAPPER_VERSION, __version__
 from .apps import AppCatalog
 from .auth import COOKIE, Auth, write_credentials
 from .config import get_settings
@@ -202,6 +203,12 @@ async def status():
         "refreshing": s.refreshing,
         "last_refresh": s.last_refresh,
         "demo": cfg.demo,
+        "version": __version__,
+        "host_script": {
+            "version": s.wrapper_version,
+            "required": REQUIRED_WRAPPER_VERSION,
+            "outdated": s.wrapper_version is not None and s.wrapper_version < REQUIRED_WRAPPER_VERSION,
+        },
         "backup": {
             "mode": cfg.backup_mode,
             "keep": cfg.snapshot_keep if cfg.backup_mode == "snapshot" else cfg.backup_keep,

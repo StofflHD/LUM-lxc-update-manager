@@ -417,7 +417,8 @@ do_install() {
     echo "  Root shell:    pct enter $CTID (no root password set; later: pct exec $CTID -- passwd)"
   fi
   echo "  Settings:      pct exec $CTID -- nano $APP_DIR/.env  (then: pct exec $CTID -- systemctl restart lxc-update-manager)"
-  echo "  Update:        bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update"
+  echo "  Update:        update  (inside the container: pct enter $CTID), or on this host:"
+  echo "                 bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update"
   echo -e "  ${YW}The connection is unencrypted (HTTP) – use it only on your home network or behind an HTTPS reverse proxy.${CL}"
 }
 

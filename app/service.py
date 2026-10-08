@@ -76,6 +76,7 @@ class UpdateService:
         self._busy: set[int] = set()  # vmids with a running job
         self._check_sem = asyncio.Semaphore(settings.max_parallel_checks)
         self.last_refresh: float | None = None
+        self.wrapper_version: int | None = None  # host script version, None = unknown
         self.refreshing = False
 
     # --- checks ------------------------------------------------------------
@@ -85,6 +86,10 @@ class UpdateService:
             return
         self.refreshing = True
         try:
+            try:
+                self.wrapper_version = await self.host.wrapper_version()
+            except (OSError, ValueError) as err:
+                log.warning("cannot read host script version: %s", err)
             containers = await self.host.list_containers()
             self.db.sync_containers(containers)
             running = [int(c["vmid"]) for c in containers if c.get("status") == "running"]

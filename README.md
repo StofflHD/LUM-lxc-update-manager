@@ -115,7 +115,21 @@ bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-mana
 Answer a few questions (Enter accepts the suggestion); at the end you get the URL and
 the login. The installer downloads the code from GitHub and removes the download again.
 
-Update to the latest version:
+### Updating
+
+Inside the LUM container (e.g. `pct enter <CTID>`), like the community scripts:
+
+```bash
+update
+```
+
+`update --check` only shows whether a new version exists, `update --force` reinstalls.
+Settings, login, SSH key and history are kept; the database is copied to
+`data/lum.db.before-update` first.
+
+The container cannot update the host script on the Proxmox host – on purpose, it may only
+run its fixed verbs there. When a new version needs a newer host script, `update` and the
+web UI tell you so. Then run on the Proxmox host (updates both):
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update

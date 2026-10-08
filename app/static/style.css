@@ -87,5 +87,6 @@ form label.check input:disabled + span { color: var(--muted); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .dialog-actions button { width: auto; margin: 0; padding: 6px 14px; }
 .warn-text { color: var(--warn); }
+#host-warning { margin: 6px 0 0; font-size: 12px; max-width: 70ch; }
 button.danger { color: var(--err); }
 button.danger:hover:not(:disabled) { border-color: var(--err); }

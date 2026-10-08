@@ -34,6 +34,11 @@ class DemoHostClient:
         self._versions = {c[0]: c[6] for c in _CONTAINERS}
         self._snapshots: dict[int, list[dict]] = {c[0]: [] for c in _CONTAINERS}  # newest first
 
+    async def wrapper_version(self) -> int:
+        from . import REQUIRED_WRAPPER_VERSION
+
+        return REQUIRED_WRAPPER_VERSION
+
     async def list_containers(self) -> list[dict]:
         await asyncio.sleep(0.2)
         return [{"vmid": c[0], "name": c[1], "status": c[2], "tags": c[3]} for c in _CONTAINERS]
