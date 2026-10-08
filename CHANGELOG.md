@@ -8,6 +8,25 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [1.3.0] – 2026-10-08
+
+### Added
+- **VM support:** QEMU VMs appear next to the containers (marked `VM`, templates are left
+  out). OS updates (apt/apk), checks, snapshots, vzdump backups, cleanup and rollback work
+  for VMs through the QEMU guest agent. **Host script**
+- VMs without a reachable guest agent show **no guest agent** with instructions in the
+  tooltip.
+- App updates (community scripts) stay LXC only; VMs don't show an **App update** button.
+
+### Changed
+- The first summary tile shows containers / VMs; dialogs and the history say `CT 101`
+  or `VM 200`.
+
+### Notes
+- A VM needs `qemu-guest-agent` installed and **QEMU Guest Agent** enabled in its Proxmox
+  options. The agent returns output only at the end, so VM update logs appear when the
+  update has finished.
+
 ## [1.2.0] – 2026-10-08
 
 ### Changed
@@ -118,7 +137,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[1.2.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/5ec7124...main
+[1.3.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/942b4bf...main
+[1.2.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/5ec7124...942b4bf
 [1.1.6]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/30069ba...5ec7124
 [1.1.5]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8df17f1...30069ba
 [1.1.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8f8c7b6...8df17f1

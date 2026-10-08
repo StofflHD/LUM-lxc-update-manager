@@ -46,7 +46,10 @@ class Database:
     def _migrate(self) -> None:
         """Add columns introduced after the first release to existing databases."""
         added = {
-            "containers": {c: "TEXT" for c in ("app_script", "app_repo", "app_installed", "app_latest")},
+            "containers": {
+                **{c: "TEXT" for c in ("app_script", "app_repo", "app_installed", "app_latest")},
+                "type": "TEXT NOT NULL DEFAULT 'lxc'",  # lxc | qemu
+            },
             "history": {
                 "backup_kind": "TEXT",
                 "backup_ref": "TEXT",
@@ -66,10 +69,12 @@ class Database:
         with self._conn:
             for c in containers:
                 self._conn.execute(
-                    """INSERT INTO containers (vmid, name, status, tags) VALUES (?, ?, ?, ?)
+                    """INSERT INTO containers (vmid, name, status, tags, type) VALUES (?, ?, ?, ?, ?)
                        ON CONFLICT(vmid) DO UPDATE SET name=excluded.name,
-                       status=excluded.status, tags=excluded.tags""",
-                    (int(c["vmid"]), c.get("name", ""), c.get("status", ""), c.get("tags", "")),
+                       status=excluded.status, tags=excluded.tags, type=excluded.type""",
+                    # host scripts before version 3 only listed containers, without "type"
+                    (int(c["vmid"]), c.get("name", ""), c.get("status", ""), c.get("tags", ""),
+                     c.get("type", "lxc")),
                 )
             ids = [int(c["vmid"]) for c in containers]
             if ids:

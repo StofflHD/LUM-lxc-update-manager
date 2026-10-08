@@ -1,6 +1,6 @@
 """Fake host for UI development without a Proxmox server (LUM_DEMO=true).
 
-Containers are simulated; the app version lookup (ct script + GitHub release)
+Containers and VMs are simulated; the app version lookup (ct script + GitHub release)
 still goes to the real community-scripts repo and GitHub.
 """
 
@@ -12,14 +12,21 @@ from collections.abc import AsyncIterator
 from .apps import AppCatalog
 from .host import ContainerInfo, HostCommandError
 
-# vmid, name, status, tags, pkg manager, ct script, installed app version
+# vmid, name, status, tags, pkg manager, ct script, installed app version, type
 _CONTAINERS = [
-    (101, "homeassistant", "running", "community-script;smarthome", "apt", "homeassistant", ""),
-    (102, "adguard", "running", "community-script;network", "apt", "adguard", "0.107.40"),
-    (103, "tandoor", "running", "community-script;recipes", "apt", "tandoor", "2.0.0"),
-    (104, "vaultwarden", "running", "community-script", "apk", "vaultwarden", "1.30.0"),
-    (105, "test-debian", "stopped", "", "apt", None, ""),
+    (101, "homeassistant", "running", "community-script;smarthome", "apt", "homeassistant", "", "lxc"),
+    (102, "adguard", "running", "community-script;network", "apt", "adguard", "0.107.40", "lxc"),
+    (103, "tandoor", "running", "community-script;recipes", "apt", "tandoor", "2.0.0", "lxc"),
+    (104, "vaultwarden", "running", "community-script", "apk", "vaultwarden", "1.30.0", "lxc"),
+    (105, "test-debian", "stopped", "", "apt", None, "", "lxc"),
+    (200, "debian-vm", "running", "", "apt", None, "", "qemu"),
+    (201, "windows-vm", "running", "", "unknown", None, "", "qemu"),  # no guest agent
 ]
+NO_AGENT = {201}
+AGENT_ERROR = (
+    "error: QEMU guest agent not reachable in VM {} - install qemu-guest-agent in the VM "
+    "and enable 'QEMU Guest Agent' in its Proxmox options"
+)
 
 
 def _ct(vmid: int):
@@ -41,9 +48,11 @@ class DemoHostClient:
 
     async def list_containers(self) -> list[dict]:
         await asyncio.sleep(0.2)
-        return [{"vmid": c[0], "name": c[1], "status": c[2], "tags": c[3]} for c in _CONTAINERS]
+        return [{"vmid": c[0], "name": c[1], "status": c[2], "tags": c[3], "type": c[7]} for c in _CONTAINERS]
 
     async def info(self, vmid: int) -> ContainerInfo:
+        if vmid in NO_AGENT:
+            raise HostCommandError("info", 5, AGENT_ERROR.format(vmid))
         c = _ct(vmid)
         return ContainerInfo(pkg_manager=c[4], community_script=c[5] is not None, script=c[5])
 
@@ -68,6 +77,9 @@ class DemoHostClient:
         n = self._pending[vmid]
         self._pending[vmid] = 0
         lines = ["Reading package lists...", f"{n} upgraded, 0 newly installed, 0 to remove."]
+        if _ct(vmid)[7] == "qemu":
+            lines.insert(0, f"running in VM {vmid} through the QEMU guest agent - "
+                            "the output appears when the update has finished")
         lines[1:1] = [f"Setting up pkg{i} (1.{i}.1) ..." for i in range(n)]
         return self._fake_stream(lines)
 

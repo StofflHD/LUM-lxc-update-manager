@@ -1,6 +1,10 @@
 const $ = (sel) => document.querySelector(sel);
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+// vmid -> "lxc" | "qemu", filled on every load; history only knows the vmid
+const guestTypes = {};
+const guestLabel = (id) => `${guestTypes[id] === "qemu" ? "VM" : "CT"} ${id}`;
+
 const fmtTime = (ts) => (ts ? new Date(ts * 1000).toLocaleString("en-GB") : "–");
 
 async function api(path, opts = {}) {
@@ -23,8 +27,9 @@ function renderSummary(list) {
   const packages = running.reduce((n, c) => n + c.upgradable.length, 0);
   const appUpdates = running.filter((c) => c.app_update).length;
   const errors = list.filter((c) => c.last_error).length;
+  const vms = list.filter((c) => c.type === "qemu").length;
   $("#summary").innerHTML = [
-    [list.length, "Containers"],
+    [`${list.length - vms} / ${vms}`, "Containers / VMs"],
     [withUpdates.length, "With updates"],
     [packages, "Pending packages"],
     [appUpdates, "App updates"],
@@ -41,6 +46,9 @@ document.addEventListener("toggle", (ev) => {
 
 function updatesCell(c) {
   if (c.status !== "running") return `<span class="muted">–</span>`;
+  if (c.last_error && c.last_error.includes("guest agent")) {
+    return `<span class="badge warn" title="${esc(c.last_error)}">no guest agent</span>`;
+  }
   if (c.last_error) return `<span class="badge err" title="${esc(c.last_error)}">Error</span>`;
   if (!c.last_check) return `<span class="muted">not checked</span>`;
   if (!c.upgradable.length) return `<span class="badge ok">up to date</span>`;
@@ -64,7 +72,7 @@ function renderContainers(list) {
   $("#containers").innerHTML = list.map((c) => {
     const running = c.status === "running";
     return `<tr>
-      <td data-label="ID">${c.vmid}</td>
+      <td data-label="ID">${c.vmid}<br><span class="tag">${c.type === "qemu" ? "VM" : "LXC"}</span></td>
       <td data-label="Name"><strong>${esc(c.name)}</strong><br>${c.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("")}</td>
       <td data-label="Status"><span class="badge ${running ? "ok" : "muted"}">${esc(c.status)}</span></td>
       <td data-label="Package manager">${esc(c.pkg_manager || "–")}${c.community_script ? '<br><span class="tag">community-script</span>' : ""}</td>
@@ -74,12 +82,15 @@ function renderContainers(list) {
       <td class="actions">
         <button data-act="check" data-id="${c.vmid}" ${!running || c.busy ? "disabled" : ""}>Check</button>
         <button data-act="os" data-id="${c.vmid}" ${!running || c.busy || !c.upgradable.length ? "disabled" : ""}>OS update</button>
-        <button data-act="app" data-id="${c.vmid}" ${!running || c.busy || !c.community_script ? "disabled" : ""}
-          class="${c.app_update ? "primary" : ""}">App update</button>
+        ${c.type === "qemu"
+          // no app updates for VMs: invisible stand-in keeps the buttons aligned in the table
+          ? '<button class="placeholder" tabindex="-1" aria-hidden="true" disabled>App update</button>'
+          : `<button data-act="app" data-id="${c.vmid}" ${!running || c.busy || !c.community_script ? "disabled" : ""}
+          class="${c.app_update ? "primary" : ""}">App update</button>`}
         <button data-act="snapshots" data-id="${c.vmid}" ${c.busy ? "disabled" : ""} title="Roll back or delete snapshots">Snapshots</button>
       </td>
     </tr>`;
-  }).join("") || `<tr><td colspan="8" class="muted">No containers found.</td></tr>`;
+  }).join("") || `<tr><td colspan="8" class="muted">No containers or VMs found.</td></tr>`;
 }
 
 const KIND = { os: "OS update", app: "App update", rollback: "Rollback" };
@@ -97,7 +108,7 @@ function renderHistory(list) {
   $("#history").innerHTML = list.map((h) => {
     const canRollback = h.kind !== "rollback" && h.backup_kind === "snapshot" && !h.backup_removed && h.finished;
     return `<tr>
-      <td data-label="Time">${fmtTime(h.started)}</td><td data-label="CT">${h.vmid}</td>
+      <td data-label="Time">${fmtTime(h.started)}</td><td data-label="ID">${guestLabel(h.vmid)}</td>
       <td data-label="Type">${KIND[h.kind] || esc(h.kind)}</td>
       <td data-label="Result">${h.success == null ? '<span class="badge warn">running</span>'
         : h.success ? '<span class="badge ok">succeeded</span>' : '<span class="badge err">failed</span>'}</td>
@@ -147,7 +158,7 @@ function snapMsg(text, cls = "muted") {
 }
 
 async function showSnapshots(vmid) {
-  $("#snap-title").textContent = `Snapshots of CT ${vmid}`;
+  $("#snap-title").textContent = `Snapshots of ${guestLabel(vmid)}`;
   $("#snap-list").innerHTML = `<tr><td class="muted">Loading …</td></tr>`;
   if (!$("#snap-dialog").open) {
     snapMsg("");
@@ -178,7 +189,7 @@ function backupText(b) {
 async function load() {
   try {
     const [status, containers, history] = await Promise.all([api("/api/status"), api("/api/containers"), api("/api/history")]);
-    $("#status").textContent = (status.refreshing ? "Checking containers … · " : "")
+    $("#status").textContent = (status.refreshing ? "Checking containers and VMs … · " : "")
       + `Last check: ${fmtTime(status.last_refresh)} · ${backupText(status.backup)}`
       + (status.demo ? " · DEMO mode" : "");
     $("#version").textContent = `LUM v${status.version}`;
@@ -191,6 +202,7 @@ async function load() {
     }
     $("#refresh").disabled = status.refreshing;
     backupCfg = status.backup;
+    containers.forEach((c) => { guestTypes[c.vmid] = c.type; });
     renderSummary(containers);
     renderContainers(containers);
     renderHistory(history);
@@ -206,7 +218,7 @@ function askUpdate(vmid, kind) {
     const form = $("#upd-form");
     const box = form.backup;
     const mode = backupCfg?.mode || "none";
-    $("#upd-title").textContent = `${kind === "os" ? "OS update" : "App update (community script)"} – CT ${vmid}`;
+    $("#upd-title").textContent = `${kind === "os" ? "OS update" : "App update (community script)"} – ${guestLabel(vmid)}`;
     $("#upd-backup-label").textContent = {
       snapshot: "Create a snapshot before the update",
       vzdump: `Create a vzdump backup to ${backupCfg?.storage} before the update`,
@@ -262,7 +274,7 @@ function appendLog(line) {
 }
 
 function followJob(job) {
-  openLog(`CT ${job.vmid} – ${KIND[job.kind]}${job.target ? ` (${job.target})` : ""}`);
+  openLog(`${guestLabel(job.vmid)} – ${KIND[job.kind]}${job.target ? ` (${job.target})` : ""}`);
   const proto = location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${proto}://${location.host}/ws/jobs/${job.id}`);
   ws.onmessage = (ev) => {
@@ -295,7 +307,7 @@ document.addEventListener("click", async (ev) => {
       case "delsnap": {
         const snap = btn.dataset.snap;
         const yes = await ask({
-          title: `Delete snapshot of CT ${id}?`,
+          title: `Delete snapshot of ${guestLabel(id)}?`,
           text: `${snap}\n\nYou can no longer roll back to it.`,
           ok: "Delete",
           danger: true,
@@ -321,8 +333,8 @@ document.addEventListener("click", async (ev) => {
       case "rollback": {
         const snap = btn.dataset.snap;
         const yes = await ask({
-          title: `Roll CT ${id} back?`,
-          text: `Snapshot ${snap}\n\nThe container will be shut down and started again afterwards. `
+          title: `Roll ${guestLabel(id)} back?`,
+          text: `Snapshot ${snap}\n\nIt will be shut down and started again afterwards. `
             + "All changes since the snapshot will be lost.",
           ok: "Roll back",
           danger: true,
@@ -337,7 +349,7 @@ document.addEventListener("click", async (ev) => {
           title: "Remove history entry?",
           text: "The entry and its log are removed from the history.\n\n"
             + "A snapshot made for this update is not deleted – it stays available "
-            + "(and can be rolled back) under the container's Snapshots button.",
+            + "(and can be rolled back) under the Snapshots button of the container or VM.",
           ok: "Remove",
           danger: true,
         });
@@ -361,7 +373,7 @@ $("#clear-history").addEventListener("click", async () => {
     title: "Clear the whole history?",
     text: "All finished entries and their logs are removed. Running updates stay.\n\n"
       + "Snapshots and backups are not deleted – they stay available under each "
-      + "container's Snapshots button.",
+      + "container's or VM's Snapshots button.",
     ok: "Clear history",
     danger: true,
   });

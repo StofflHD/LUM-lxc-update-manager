@@ -7,22 +7,25 @@
 # and in /root/.ssh/authorized_keys:
 #   command="/usr/local/bin/lxc-update-wrapper",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty ssh-ed25519 AAAA... lxc-update-manager
 #
+# Works for LXC containers (pct) and QEMU VMs (qm). Inside a VM commands run
+# through the QEMU guest agent, which must be installed and enabled.
+#
 # Verbs:
 #   version                   version of this script (WRAPPER_VERSION)
-#   list                      JSON list of all LXCs on this node
+#   list                      JSON list of all containers and VMs on this node (with "type")
 #   info     <vmid>           pkg=<apt|apk|unknown> / community=<0|1> / script=<ct script name>
 #   check    <vmid>           one upgradable package per line
-#   upgrade  <vmid>           OS upgrade (streams output)
+#   upgrade  <vmid>           OS upgrade (streams output; for VMs at the end)
 #   app-version <vmid> <app>  installed app version (~/.<app>, written by check_for_gh_release)
-#   app-update <vmid>         community-scripts "update" in silent mode (PHS_SILENT=1)
+#   app-update <vmid>         community-scripts "update" in silent mode (PHS_SILENT=1), LXC only
 #                             exit 75 = needs interactive mode, 113 = under-provisioned,
 #                             114 = /boot storage low
 #
 #   snapshot  <vmid> <name>            create snapshot (name must start with lum_)
-#   snapshots <vmid>                   JSON list of this container's lum_ snapshots
+#   snapshots <vmid>                   JSON list of the guest's lum_ snapshots
 #   prune-snapshots <vmid> <keep>      delete all but the <keep> newest lum_ snapshots
 #   delete-snapshot <vmid> <name>      delete one lum_ snapshot
-#   rollback  <vmid> <name>            roll back to a lum_ snapshot (stops/starts the CT)
+#   rollback  <vmid> <name>            roll back to a lum_ snapshot (stops/starts the guest)
 #   backup    <vmid> <storage> <mode>  vzdump with marker note, mode snapshot|suspend|stop
 #   prune-backups <vmid> <storage> <keep>  delete all but the <keep> newest marked backups
 #
@@ -32,7 +35,7 @@
 set -euo pipefail
 
 # bump when verbs are added or changed; LUM checks it and asks for a host update
-WRAPPER_VERSION=2
+WRAPPER_VERSION=3
 MARKER="lxc-update-manager"
 
 # SSH_ORIGINAL_COMMAND when called via SSH, "$*" for local testing.
@@ -41,18 +44,33 @@ VERB="${ARGS[0]:-}"
 VMID="${ARGS[1]:-}"
 NODE="$(hostname)"
 
+# set by require_vmid: pct/lxc for containers, qm/qemu for VMs
+TOOL=""
+PVE_TYPE=""
+GUEST=""
+
 die() { echo "error: $*" >&2; exit 2; }
 
 require_vmid() {
   [[ "$VMID" =~ ^[0-9]{3,9}$ ]] || die "invalid vmid"
-  pct config "$VMID" >/dev/null 2>&1 || die "unknown vmid $VMID"
+  if pct config "$VMID" >/dev/null 2>&1; then
+    TOOL=pct PVE_TYPE=lxc GUEST=container
+  elif qm config "$VMID" >/dev/null 2>&1; then
+    TOOL=qm PVE_TYPE=qemu GUEST=VM
+  else
+    die "unknown vmid $VMID"
+  fi
 }
+
+is_running() { "$TOOL" status "$VMID" | grep -q running; }
 
 require_running() {
-  pct status "$VMID" | grep -q running || { echo "error: container $VMID not running" >&2; exit 3; }
+  is_running || { echo "error: $GUEST $VMID not running" >&2; exit 3; }
+  if [[ $TOOL == qm ]] && ! qm guest cmd "$VMID" ping >/dev/null 2>&1; then
+    echo "error: QEMU guest agent not reachable in VM $VMID - install qemu-guest-agent in the VM and enable 'QEMU Guest Agent' in its Proxmox options" >&2
+    exit 5
+  fi
 }
-
-is_running() { pct status "$VMID" | grep -q running; }
 
 require_snapname() {
   [[ "$1" =~ ^lum_[0-9_]{1,30}$ ]] || die "invalid snapshot name (must be lum_<digits>)"
@@ -69,7 +87,7 @@ require_storage() {
 
 # lum_ snapshots of $VMID as JSON, newest first
 lum_snapshots_json() {
-  pvesh get "/nodes/$NODE/lxc/$VMID/snapshot" --output-format json | perl -MJSON::PP -0 -e '
+  pvesh get "/nodes/$NODE/$PVE_TYPE/$VMID/snapshot" --output-format json | perl -MJSON::PP -0 -e '
     my $d = decode_json(<STDIN>);
     my @s = sort { ($b->{snaptime} // 0) <=> ($a->{snaptime} // 0) }
             grep { $_->{name} =~ /^lum_/ } @$d;
@@ -77,10 +95,31 @@ lum_snapshots_json() {
   '
 }
 
-# C.UTF-8 exists in every Debian/Ubuntu container; the host's own LANG
+# C.UTF-8 exists in every Debian/Ubuntu guest; the host's own LANG
 # (e.g. en_US.UTF-8) usually doesn't, and apt/perl warn about it on every call
-ct_env=(env LANG=C.UTF-8 LC_ALL=C.UTF-8)
-in_ct() { pct exec "$VMID" -- "${ct_env[@]}" sh -c "$1"; }
+guest_env=(env LANG=C.UTF-8 LC_ALL=C.UTF-8)
+
+# run a shell script in the guest: in_guest <timeout-seconds> <script>
+# LXC: pct exec (streams). VM: guest agent, output arrives when the command ends.
+in_guest() {
+  local timeout=$1 script=$2
+  if [[ $TOOL == pct ]]; then
+    pct exec "$VMID" -- "${guest_env[@]}" sh -c "$script"
+    return
+  fi
+  qm guest exec "$VMID" --timeout "$timeout" -- "${guest_env[@]}" sh -c "$script" | perl -MJSON::PP -0 -e '
+    my $raw = <STDIN>;
+    my $r = eval { decode_json($raw) } or do { print STDERR "unexpected answer from the guest agent\n"; exit 1 };
+    if (!$r->{exited}) {
+      print STDERR "still running in the VM after the timeout (guest pid $r->{pid})\n";
+      exit 124;
+    }
+    print $r->{"out-data"} // "";
+    print STDERR $r->{"err-data"} // "";
+    print STDERR "(output truncated by the guest agent)\n" if $r->{"out-truncated"} || $r->{"err-truncated"};
+    exit($r->{exitcode} // 1);
+  '
+}
 
 case "$VERB" in
   version)
@@ -88,12 +127,25 @@ case "$VERB" in
     ;;
 
   list)
-    pvesh get "/nodes/$NODE/lxc" --output-format json
+    # containers and VMs in one list, templates left out
+    LXC_JSON=$(pvesh get "/nodes/$NODE/lxc" --output-format json) \
+    QEMU_JSON=$(pvesh get "/nodes/$NODE/qemu" --output-format json) \
+    perl -MJSON::PP -e '
+      my @all;
+      for my $t (["lxc", $ENV{LXC_JSON}], ["qemu", $ENV{QEMU_JSON}]) {
+        for my $g (@{ decode_json($t->[1] || "[]") }) {
+          next if $g->{template};
+          $g->{type} = $t->[0];
+          push @all, $g;
+        }
+      }
+      print JSON::PP->new->canonical->encode(\@all);
+    '
     ;;
 
   info)
     require_vmid; require_running
-    in_ct '
+    in_guest 120 '
       if command -v apt-get >/dev/null 2>&1; then echo pkg=apt
       elif command -v apk >/dev/null 2>&1; then echo pkg=apk
       else echo pkg=unknown; fi
@@ -114,12 +166,12 @@ case "$VERB" in
     require_vmid; require_running
     APP="${ARGS[2]:-}"
     [[ "$APP" =~ ^[a-z0-9._-]{1,60}$ ]] || die "invalid app name"
-    pct exec "$VMID" -- sh -c "cat \"\$HOME/.$APP\" 2>/dev/null || true"
+    in_guest 60 "cat \"\$HOME/.$APP\" 2>/dev/null || true"
     ;;
 
   check)
     require_vmid; require_running
-    in_ct '
+    in_guest 600 '
       if command -v apt-get >/dev/null 2>&1; then
         apt-get update -qq >/dev/null 2>&1 || true
         apt list --upgradable 2>/dev/null | tail -n +2
@@ -132,7 +184,8 @@ case "$VERB" in
 
   upgrade)
     require_vmid; require_running
-    in_ct '
+    [[ $TOOL == qm ]] && echo "running in VM $VMID through the QEMU guest agent - the output appears when the update has finished"
+    in_guest 7200 '
       if command -v apt-get >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
         # no changelog reading/mailing during an unattended upgrade
@@ -153,13 +206,14 @@ case "$VERB" in
     # community-scripts' own update-apps.sh makes. stdin from /dev/null so no
     # prompt can block a run nobody is watching.
     require_vmid; require_running
-    pct exec "$VMID" -- "${ct_env[@]}" sh -c '[ -x /usr/bin/update ] || { echo "no community-scripts update command"; exit 4; }; export PHS_SILENT=1; update' </dev/null 2>&1
+    [[ $TOOL == pct ]] || die "app updates are only supported for LXC containers"
+    pct exec "$VMID" -- "${guest_env[@]}" sh -c '[ -x /usr/bin/update ] || { echo "no community-scripts update command"; exit 4; }; export PHS_SILENT=1; update' </dev/null 2>&1
     ;;
 
   snapshot)
     require_vmid
     NAME="${ARGS[2]:-}"; require_snapname "$NAME"
-    pct snapshot "$VMID" "$NAME" --description "created by $MARKER" 2>&1
+    "$TOOL" snapshot "$VMID" "$NAME" --description "created by $MARKER" 2>&1
     ;;
 
   snapshots)
@@ -174,7 +228,7 @@ case "$VERB" in
       my $keep = shift; my @s = @{ decode_json(<STDIN>) };
       print "$_->{name}\n" for @s[$keep .. $#s];
     ' "$KEEP" | while read -r name; do
-      pct delsnapshot "$VMID" "$name" 2>&1
+      "$TOOL" delsnapshot "$VMID" "$name" 2>&1
       echo "deleted snapshot $name"
     done
     ;;
@@ -183,7 +237,7 @@ case "$VERB" in
     require_vmid
     NAME="${ARGS[2]:-}"; require_snapname "$NAME"
     lum_snapshots_json | grep -q "\"$NAME\"" || die "snapshot $NAME does not exist (anymore)"
-    pct delsnapshot "$VMID" "$NAME" 2>&1
+    "$TOOL" delsnapshot "$VMID" "$NAME" 2>&1
     echo "deleted snapshot $NAME"
     ;;
 
@@ -194,14 +248,14 @@ case "$VERB" in
     WAS_RUNNING=0
     if is_running; then
       WAS_RUNNING=1
-      echo "shutting down container $VMID"
-      pct shutdown "$VMID" --timeout 60 2>&1 || pct stop "$VMID" 2>&1
+      echo "shutting down $GUEST $VMID"
+      "$TOOL" shutdown "$VMID" --timeout 120 2>&1 || "$TOOL" stop "$VMID" 2>&1
     fi
     echo "rolling back to $NAME"
-    pct rollback "$VMID" "$NAME" 2>&1
+    "$TOOL" rollback "$VMID" "$NAME" 2>&1
     if [[ $WAS_RUNNING == 1 ]]; then
-      echo "starting container $VMID"
-      pct start "$VMID" 2>&1
+      echo "starting $GUEST $VMID"
+      "$TOOL" start "$VMID" 2>&1
     fi
     echo "rollback done"
     ;;

@@ -1,8 +1,8 @@
 # LUM – LXC Update Manager
 
-Manage OS updates (apt/apk) and application updates of all LXC containers on a
-Proxmox host from one web UI. Built for containers created with the
-[Proxmox VE Community Scripts](https://github.com/community-scripts/ProxmoxVE).
+Manage OS updates (apt/apk) of all LXC containers **and VMs** and the application
+updates of containers on a Proxmox host from one web UI. Built for containers created
+with the [Proxmox VE Community Scripts](https://github.com/community-scripts/ProxmoxVE).
 
 What changed in which version: [CHANGELOG.md](CHANGELOG.md).
 
@@ -13,9 +13,9 @@ LXC "lxc-update-manager" (FastAPI + SQLite + web UI)
         │  SSH, restricted key (forced command)
         ▼
 Proxmox host: /usr/local/bin/lxc-update-wrapper
-        │  pct exec / pct snapshot / vzdump / pvesh
+        │  pct exec / qm guest exec / snapshot / vzdump / pvesh
         ▼
-LXC 101, 102, 103 …
+LXC 101, 102 …   VM 200, 201 … (via QEMU guest agent)
 ```
 
 On the host the manager can **only** run the verbs of the wrapper script (`list`, `info`,
@@ -23,6 +23,8 @@ On the host the manager can **only** run the verbs of the wrapper script (`list`
 `prune-snapshots`, `delete-snapshot`, `rollback`, `backup`, `prune-backups`). It never gets a shell.
 
 ## Features
+
+- LXC containers and QEMU VMs in one list (templates are left out)
 
 - Discovers containers automatically (`pvesh`), including tags
 - Detects the package manager (apt / apk) and community-script containers (`/usr/bin/update`)
@@ -53,6 +55,19 @@ In silent mode the community script deliberately stops in these cases:
 
 Apps without `check_for_gh_release` (e.g. AdGuard, Home Assistant) show no version but
 can still be updated.
+
+## VMs
+
+OS updates, snapshots, vzdump backups and rollback work for VMs too. Proxmox can only run
+commands inside a VM through the **QEMU guest agent**, so each VM needs:
+
+1. the agent installed and running in the VM, e.g. Debian/Ubuntu:
+   `apt install qemu-guest-agent && systemctl enable --now qemu-guest-agent`
+2. **QEMU Guest Agent** enabled in Proxmox (VM → Options), then a full VM shutdown and start.
+
+Without it the VM shows **no guest agent**. Supported are Linux VMs with apt or apk.
+The agent returns the output only when a command has finished, so the live log of a
+VM update appears at the end. App updates (community scripts) are LXC only.
 
 ## Backup, cleanup and rollback
 
