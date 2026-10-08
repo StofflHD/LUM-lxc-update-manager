@@ -98,6 +98,20 @@ class UpdateService:
         finally:
             self.refreshing = False
 
+    async def sync_guests(self) -> dict:
+        """Re-read only the list of containers/VMs from the host - no package checks.
+        New running guests get checked in the background so they show their state."""
+        before = {c["vmid"] for c in self.db.containers()}
+        guests = await self.host.list_containers()
+        self.db.sync_containers(guests)
+        now = {int(g["vmid"]) for g in guests}
+        added, removed = sorted(now - before), sorted(before - now)
+        for g in guests:
+            vmid = int(g["vmid"])
+            if vmid in added and g.get("status") == "running" and vmid not in self._busy:
+                asyncio.create_task(self.check(vmid))
+        return {"added": added, "removed": removed}
+
     async def check(self, vmid: int) -> None:
         async with self._check_sem:
             try:

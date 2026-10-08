@@ -386,6 +386,33 @@ $("#clear-history").addEventListener("click", async () => {
   load();
 });
 
+// --- refresh list (no package checks) ------------------------------------------
+
+let noticeTimer;
+function notice(text) {
+  $("#notice").textContent = text;
+  $("#notice").hidden = false;
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => { $("#notice").hidden = true; }, 10000);
+}
+
+$("#sync").addEventListener("click", async () => {
+  const btn = $("#sync");
+  btn.disabled = true;
+  try {
+    const r = await api("/api/sync", { method: "POST" });
+    const parts = [];
+    if (r.added.length) parts.push(`New: ${r.added.join(", ")}`);
+    if (r.removed.length) parts.push(`Removed: ${r.removed.join(", ")}`);
+    notice(parts.length ? `List refreshed · ${parts.join(" · ")}` : "List refreshed · no new or removed containers/VMs");
+  } catch (err) {
+    await showError(err.message);
+  } finally {
+    btn.disabled = false;
+  }
+  load();
+});
+
 $("#refresh").addEventListener("click", async () => {
   await api("/api/refresh", { method: "POST" });
   load();
@@ -399,6 +426,7 @@ api("/api/me").then((me) => {
   if (!me.auth_enabled) return;
   $("#user").textContent = me.user;
   $("#pw-open").hidden = false;
+  $("#menu-account-sep").hidden = false;
   $("#logout").hidden = false;
 }).catch(() => {});
 
@@ -413,7 +441,46 @@ const pwMsg = (text, cls) => {
   $("#pw-msg").className = cls;
   $("#pw-msg").hidden = !text;
 };
+// --- burger menu ------------------------------------------------------------------
+
+function setMenu(open) {
+  $("#menu-panel").hidden = !open;
+  $("#menu-toggle").setAttribute("aria-expanded", String(open));
+}
+$("#menu-toggle").addEventListener("click", (ev) => {
+  ev.stopPropagation();
+  setMenu($("#menu-panel").hidden);
+});
+document.addEventListener("click", (ev) => {
+  if (!ev.target.closest("#menu")) setMenu(false);
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape") setMenu(false);
+});
+
+// --- theme (System / Light / Dark), stored per browser ------------------------------
+
+function applyTheme(choice) {
+  if (choice === "light" || choice === "dark") document.documentElement.dataset.theme = choice;
+  else delete document.documentElement.dataset.theme;
+  document.querySelectorAll("[data-theme-choice]").forEach((b) => {
+    b.setAttribute("aria-checked", String(b.dataset.themeChoice === (choice || "system")));
+  });
+}
+let storedTheme = "system";
+try { storedTheme = localStorage.getItem("lum-theme") || "system"; } catch { /* blocked */ }
+applyTheme(storedTheme);
+document.querySelectorAll("[data-theme-choice]").forEach((b) => b.addEventListener("click", () => {
+  const choice = b.dataset.themeChoice;
+  try {
+    if (choice === "system") localStorage.removeItem("lum-theme");
+    else localStorage.setItem("lum-theme", choice);
+  } catch { /* blocked: still applies until reload */ }
+  applyTheme(choice);
+}));
+
 $("#pw-open").addEventListener("click", () => {
+  setMenu(false);
   pwForm.reset();
   pwMsg("");
   $("#pw-dialog").showModal();

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LXC Update Manager</title>
   <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/theme.js"></script>
 </head>
 <body>
   <header>
@@ -12,12 +13,24 @@
       <h1>LXC Update Manager</h1>
       <p id="status" class="muted">Loading …</p>
       <p id="host-warning" class="warn-text" hidden></p>
+      <p id="notice" class="muted" role="status" hidden></p>
     </div>
     <div class="header-actions">
       <span id="user" class="user"></span>
-      <button id="pw-open" hidden>Password</button>
       <button id="logout" hidden>Log out</button>
-      <button id="refresh" class="primary">Check all</button>
+      <button id="sync" title="Look for new or removed containers and VMs (no update check)">Refresh list</button>
+      <button id="refresh" class="primary" title="Check all containers and VMs for updates">Check all</button>
+      <div class="menu" id="menu">
+        <button id="menu-toggle" class="menu-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">☰</button>
+        <div class="menu-panel" id="menu-panel" role="menu" hidden>
+          <span class="menu-label">Theme</span>
+          <button role="menuitemradio" data-theme-choice="system" aria-checked="true">System</button>
+          <button role="menuitemradio" data-theme-choice="light" aria-checked="false">Light</button>
+          <button role="menuitemradio" data-theme-choice="dark" aria-checked="false">Dark</button>
+          <hr id="menu-account-sep" hidden>
+          <button id="pw-open" role="menuitem" hidden>Change password</button>
+        </div>
+      </div>
     </div>
   </header>
 

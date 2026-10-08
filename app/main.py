@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 log = logging.getLogger(__name__)
 STATIC = Path(__file__).parent / "static"
 # reachable without a session
-PUBLIC = {"/login", "/api/login", "/api/auth/state", "/static/style.css", "/static/login.js"}
+PUBLIC = {"/login", "/api/login", "/api/auth/state", "/static/style.css", "/static/login.js", "/static/theme.js"}
 
 
 @asynccontextmanager
@@ -232,6 +232,15 @@ async def status():
 async def containers():
     s = svc()
     return [{**c, "busy": s.busy(c["vmid"])} for c in s.db.containers()]
+
+
+@app.post("/api/sync")
+async def sync():
+    """Look for new or removed containers/VMs without checking packages."""
+    try:
+        return await svc().sync_guests()
+    except Exception as err:
+        raise HTTPException(502, f"cannot read the list from the host: {err}")
 
 
 @app.post("/api/refresh", status_code=202)

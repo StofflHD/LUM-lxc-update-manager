@@ -24,7 +24,8 @@ On the host the manager can **only** run the verbs of the wrapper script (`list`
 
 ## Features
 
-- LXC containers and QEMU VMs in one list (templates are left out)
+- LXC containers and QEMU VMs in one list (templates are left out); new or removed ones
+  show up with the scheduled check, **Check all**, or right away with **Refresh list**
 
 - Discovers containers automatically (`pvesh`), including tags
 - Detects the package manager (apt / apk) and community-script containers (`/usr/bin/update`)
@@ -42,6 +43,7 @@ On the host the manager can **only** run the verbs of the wrapper script (`list`
 - History with stored logs; single entries or the whole history can be removed
   (snapshots are kept)
 - Login for the web UI (one admin account)
+- Light and dark theme, switchable in the menu (System / Light / Dark)
 
 ### App updates: skipped updates
 
@@ -100,7 +102,7 @@ VM update appears at the end. App updates (community scripts) are LXC only.
 The web UI has one admin account. The installer asks for username and password
 (leave the password empty to get a random one, shown at the end).
 
-- Change the password: **Password** at the top right of the web UI, or inside the
+- Change the password: menu **☰** at the top right → **Change password**, or inside the
   container `cd /opt/lxc-update-manager && venv/bin/python -m app.passwd [username]`
   (also if you forgot it). Takes effect immediately and logs out all sessions.
 - The password is stored scrypt-hashed in `data/auth.json`, never in plain text.
@@ -209,6 +211,7 @@ creates the login `admin` / `demo`.
 | POST | `/api/login` · `/api/logout` | Log in / out (cookie) |
 | POST | `/api/password` | Change password |
 | GET | `/api/containers` | All containers with update status |
+| POST | `/api/sync` | Re-read the list of containers/VMs only (no package checks) |
 | POST | `/api/refresh` | Check all containers (async) |
 | POST | `/api/containers/{id}/check` | Check one container |
 | POST | `/api/containers/{id}/update?kind=os\|app&backup=true\|false` | Start an update → job |

@@ -8,6 +8,21 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [1.4.0] – 2026-10-08
+
+### Added
+- **Refresh list** button: re-reads only the list of containers and VMs from the host, so
+  new or removed guests show up right away without checking all packages. New running
+  guests are checked in the background; the result (new / removed IDs) is shown below
+  the status line.
+- Menu **☰** at the top right.
+- Light mode: **Theme** in the menu switches between *System* (follows the operating
+  system, as before), *Light* and *Dark*. The choice is stored in the browser and also
+  used on the login page. Status colors in the light theme are darker for readability.
+
+### Changed
+- **Change password** moved into the menu.
+
 ## [1.3.0] – 2026-10-08
 
 ### Added
@@ -137,7 +152,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[1.3.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/942b4bf...main
+[1.4.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0b1859e...main
+[1.3.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/942b4bf...0b1859e
 [1.2.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/5ec7124...942b4bf
 [1.1.6]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/30069ba...5ec7124
 [1.1.5]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8df17f1...30069ba

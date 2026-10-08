@@ -1,13 +1,23 @@
+/* Theme: light by default, dark when the system asks for it, unless the menu
+   forced one (<html data-theme="light|dark">, set by theme.js / app.js).
+   The light status colors are a bit darker so small text stays readable on white. */
 :root {
-  --bg: #f6f7f9; --surface: #ffffff; --border: #e2e5ea; --text: #1d2330; --muted: #6b7385;
-  --accent: #2f6fed; --accent-text: #ffffff; --ok: #1f8a4c; --warn: #b7791f; --err: #c53030;
+  --bg: #f6f7f9; --surface: #ffffff; --border: #e2e5ea; --text: #1d2330; --muted: #5f6778;
+  --accent: #2f6fed; --accent-text: #ffffff; --ok: #15803d; --warn: #a16207; --err: #b91c1c;
   --code-bg: #0f1420; --code-text: #d7dce5;
+  color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #11151c; --surface: #1a1f29; --border: #2a3140; --text: #e4e8ef; --muted: #8b93a5;
     --accent: #5b8cff; --ok: #4cc27f; --warn: #e0a84a; --err: #f06c6c; --code-bg: #0a0d13;
+    color-scheme: dark;
   }
+}
+:root[data-theme="dark"] {
+  --bg: #11151c; --surface: #1a1f29; --border: #2a3140; --text: #e4e8ef; --muted: #8b93a5;
+    --accent: #5b8cff; --ok: #4cc27f; --warn: #e0a84a; --err: #f06c6c; --code-bg: #0a0d13;
+    color-scheme: dark;
 }
 * { box-sizing: border-box; }
 body { margin: 0; font: 14px/1.5 system-ui, sans-serif; background: var(--bg); color: var(--text); }
@@ -45,6 +55,23 @@ td.actions { text-align: right; font-size: 0; }
 td.actions > * { font-size: 14px; margin: 3px 0 3px 6px; vertical-align: middle; }
 .header-actions { flex-wrap: wrap; }
 button.placeholder { visibility: hidden; }
+
+/* burger menu, top right */
+.menu { position: relative; }
+.menu-toggle { font-size: 16px; line-height: 1; padding: 6px 10px; }
+.menu-panel {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; min-width: 200px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / .25); padding: 6px; display: flex; flex-direction: column;
+}
+.menu-panel[hidden] { display: none; }
+.menu-panel button { border: none; background: none; text-align: left; padding: 8px 10px; border-radius: 6px; }
+.menu-panel button:hover:not(:disabled) { background: var(--bg); }
+.menu-label { font-size: 11px; color: var(--muted); padding: 6px 10px 2px; }
+.menu-panel hr { border: none; border-top: 1px solid var(--border); margin: 6px 0; width: 100%; }
+.menu-panel [role="menuitemradio"]::before { content: ""; display: inline-block; width: 18px; }
+.menu-panel [role="menuitemradio"][aria-checked="true"]::before { content: "✓"; color: var(--accent); }
+#notice { margin: 6px 0 0; font-size: 12px; }
 
 .badge {
   display: inline-block; padding: 0 8px; border-radius: 99px; font-size: 12px; line-height: 18px;
