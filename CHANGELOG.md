@@ -8,6 +8,18 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [1.4.2] – 2026-10-09
+
+### Changed
+- The README is short now, with screenshots; the details moved to [docs/](docs/)
+  (usage, installation, reverse proxy, configuration, troubleshooting, API, development).
+- The log dialog title names the guest, the type and the time (`CT 101 – OS update · …`)
+  instead of `History #4`.
+- Demo mode produces realistic package names, apt/apk output and app versions.
+
+### Fixed
+- With the login turned off, an empty user name left a gap before the header buttons.
+
 ## [1.4.1] – 2026-10-08
 
 ### Fixed
@@ -166,7 +178,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[1.4.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/f6db5c7...main
+[1.4.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/4434b73...main
+[1.4.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/f6db5c7...4434b73
 [1.4.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0b1859e...f6db5c7
 [1.3.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/942b4bf...0b1859e
 [1.2.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/5ec7124...942b4bf

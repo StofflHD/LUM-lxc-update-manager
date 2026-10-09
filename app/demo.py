@@ -23,6 +23,34 @@ _CONTAINERS = [
     (201, "windows-vm", "running", "", "unknown", None, "", "qemu"),  # no guest agent
 ]
 NO_AGENT = {201}
+
+# realistic pending updates: (package, installed, new)
+_PACKAGES = [
+    ("libc6", "2.41-12+deb13u3", "2.41-12+deb13u4"),
+    ("libc-bin", "2.41-12+deb13u3", "2.41-12+deb13u4"),
+    ("openssl", "3.5.6-1~deb13u2", "3.5.7-1~deb13u3"),
+    ("libssl3t64", "3.5.6-1~deb13u2", "3.5.7-1~deb13u3"),
+    ("bash", "5.2.37-2+b9", "5.2.37-2+b10"),
+    ("tzdata", "2026b-0+deb13u1", "2026c-0+deb13u1"),
+    ("curl", "8.14.1-2+deb13u1", "8.14.1-2+deb13u2"),
+    ("libcurl4t64", "8.14.1-2+deb13u1", "8.14.1-2+deb13u2"),
+    ("systemd", "257.12-1~deb13u1", "257.13-1~deb13u1"),
+    ("libsystemd0", "257.12-1~deb13u1", "257.13-1~deb13u1"),
+    ("udev", "257.12-1~deb13u1", "257.13-1~deb13u1"),
+    ("perl-base", "5.40.1-6", "5.40.1-6+deb13u1"),
+    ("libsqlite3-0", "3.46.1-7+deb13u1", "3.46.1-7+deb13u2"),
+    ("xz-utils", "5.8.1-1+deb13u1", "5.8.1-1+deb13u2"),
+    ("liblzma5", "5.8.1-1+deb13u1", "5.8.1-1+deb13u2"),
+    ("openssh-client", "1:10.0p1-7", "1:10.0p1-7+deb13u1"),
+    ("libexpat1", "2.7.1-2", "2.8.3-1~deb13u1"),
+    ("login", "1:4.16.0-2+really2.41-5", "1:4.16.0-2+really2.41.5-0+deb13u1"),
+    ("util-linux", "2.41-5", "2.41.5-0+deb13u1"),
+    ("mount", "2.41-5", "2.41.5-0+deb13u1"),
+    ("libblkid1", "2.41-5", "2.41.5-0+deb13u1"),
+    ("e2fsprogs", "1.47.2-3+b11", "1.47.2-3+b12"),
+    ("gzip", "1.13-1", "1.13-1+deb13u1"),
+    ("ca-certificates", "20250419", "20250419+deb13u1"),
+]
 AGENT_ERROR = (
     "error: QEMU guest agent not reachable in VM {} - install qemu-guest-agent in the VM "
     "and enable 'QEMU Guest Agent' in its Proxmox options"
@@ -37,7 +65,7 @@ class DemoHostClient:
     def __init__(self, catalog: AppCatalog):
         self._catalog = catalog
         self._updated: set[int] = set()
-        self._pending = {c[0]: random.randint(0, 25) for c in _CONTAINERS}
+        self._pending = {c[0]: random.sample(_PACKAGES, random.randint(0, 12)) for c in _CONTAINERS}
         self._versions = {c[0]: c[6] for c in _CONTAINERS}
         self._snapshots: dict[int, list[dict]] = {c[0]: [] for c in _CONTAINERS}  # newest first
 
@@ -58,7 +86,9 @@ class DemoHostClient:
 
     async def check(self, vmid: int) -> list[str]:
         await asyncio.sleep(random.uniform(0.3, 1.0))
-        return [f"pkg{i}/stable 1.{i}.1 amd64 [upgradable from: 1.{i}.0]" for i in range(self._pending[vmid])]
+        if _ct(vmid)[4] == "apk":
+            return [f"{name}-{old} < {new}" for name, old, new in self._pending[vmid]]
+        return [f"{name}/stable-security {new} amd64 [upgradable from: {old}]" for name, old, new in self._pending[vmid]]
 
     async def app_version(self, vmid: int, app: str) -> str:
         if vmid in self._updated:  # after a demo app update report the real latest version
@@ -74,32 +104,58 @@ class DemoHostClient:
             raise HostCommandError("demo", exit_status, "simulated")
 
     def upgrade(self, vmid: int) -> AsyncIterator[str]:
-        n = self._pending[vmid]
-        self._pending[vmid] = 0
-        lines = ["Reading package lists...", f"{n} upgraded, 0 newly installed, 0 to remove."]
+        pkgs, self._pending[vmid] = self._pending[vmid], []
+        if _ct(vmid)[4] == "apk":
+            lines = ["fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/APKINDEX.tar.gz"]
+            lines += [f"({i}/{len(pkgs)}) Upgrading {n} ({o} -> {v})" for i, (n, o, v) in enumerate(pkgs, 1)]
+            lines.append(f"OK: 48 MiB in {60 + len(pkgs)} packages")
+            return self._fake_stream(lines)
+        names = " ".join(n for n, _, _ in pkgs)
+        lines = [
+            "Hit:1 http://deb.debian.org/debian trixie InRelease",
+            "Get:2 http://security.debian.org/debian-security trixie-security InRelease [43.4 kB]",
+            "Reading package lists...", "Building dependency tree...", "Reading state information...",
+            "Calculating upgrade...",
+        ]
+        if pkgs:
+            lines += ["The following packages will be upgraded:", f"  {names}"]
+        lines.append(f"{len(pkgs)} upgraded, 0 newly installed, 0 to remove and 0 not upgraded.")
+        for n, o, v in pkgs:
+            lines += [f"Unpacking {n} ({v}) over ({o}) ...", f"Setting up {n} ({v}) ..."]
+        if pkgs:
+            lines.append("Processing triggers for libc-bin (2.41-12+deb13u4) ...")
         if _ct(vmid)[7] == "qemu":
             lines.insert(0, f"running in VM {vmid} through the QEMU guest agent - "
                             "the output appears when the update has finished")
-        lines[1:1] = [f"Setting up pkg{i} (1.{i}.1) ..." for i in range(n)]
         return self._fake_stream(lines)
 
     def app_update(self, vmid: int) -> AsyncIterator[str]:
         if vmid == 104:  # show how a deliberately skipped update looks
             return self._fake_stream(["⚠️ Container has 1 CPU / 512 MB, script requires 2 CPU / 1024 MB"], 113)
+        return self._app_update_lines(vmid)
+
+    async def _app_update_lines(self, vmid: int) -> AsyncIterator[str]:
+        script = _ct(vmid)[5]
+        app = script.capitalize()
+        src = await self._catalog.source(script)
+        latest = (await self._catalog.latest(src.repo) if src else None) or "latest"
         self._updated.add(vmid)
-        return self._fake_stream([
-            "✔️ Update available: app -> latest",
+        async for line in self._fake_stream([
+            f"✔️ Update available: {app} {self._versions[vmid] or '?'} -> {latest}",
             "⏳ Stopping Service", "✔️ Stopped Service",
-            "⏳ Updating", "✔️ Updated",
+            "⏳ Backing up configuration", "✔️ Backed up configuration",
+            f"⏳ Updating {app}", f"✔️ Updated {app}",
             "⏳ Starting Service", "✔️ Started Service",
             "✔️ Updated successfully!",
-        ])
+        ]):
+            yield line
 
     def snapshot(self, vmid: int, name: str) -> AsyncIterator[str]:
         if any(x["name"] == name for x in self._snapshots[vmid]):
             return self._fake_stream([f"snapshot name '{name}' already used"], 255)
         self._snapshots[vmid].insert(0, {"name": name, "snaptime": int(time.time())})
-        return self._fake_stream([f"snapshot {name} created for CT {vmid}"])
+        label = "VM" if _ct(vmid)[7] == "qemu" else "CT"
+        return self._fake_stream([f"snapshot {name} created for {label} {vmid}"])
 
     async def snapshots(self, vmid: int) -> list[dict]:
         return list(self._snapshots[vmid])

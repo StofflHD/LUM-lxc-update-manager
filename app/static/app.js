@@ -104,7 +104,10 @@ function backupCell(h) {
     : label;
 }
 
+const historyById = {};
+
 function renderHistory(list) {
+  list.forEach((h) => { historyById[h.id] = h; });
   $("#history").innerHTML = list.map((h) => {
     const canRollback = h.kind !== "rollback" && h.backup_kind === "snapshot" && !h.backup_removed && h.finished;
     return `<tr>
@@ -358,7 +361,8 @@ document.addEventListener("click", async (ev) => {
         break;
       }
       case "log":
-        openLog(`History #${id}`);
+        const h = historyById[id];
+        openLog(h ? `${guestLabel(h.vmid)} – ${KIND[h.kind] || h.kind} · ${fmtTime(h.started)}` : `History #${id}`);
         $("#log").textContent = await api(`/api/history/${id}/log`);
         break;
     }
