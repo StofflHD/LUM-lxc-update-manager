@@ -34,12 +34,15 @@ guest as well, so not even a misbehaving LUM could touch it. The status line sho
 many guests are hidden (hover for their IDs). The tag is case-insensitive.
 
 Add the tag in the Proxmox UI (guest → *Summary* → pencil next to the tags) or on the
-host – keep the existing tags, `--tags` replaces them:
+host:
 
 ```bash
-pct set <CTID> --tags "community-script;no-lum"   # container
-qm set <VMID> --tags "no-lum"                     # VM
+pct set <CTID> --tags "no-lum"   # container
+qm set <VMID> --tags "no-lum"    # VM
 ```
+
+`--tags` replaces all tags of the guest. To keep existing ones, list them too, separated
+by `;` (e.g. `--tags "mytag;no-lum"`).
 
 The change shows up with the next **Refresh list** or **Check all**. Remove the tag to let
 LUM manage the guest again.
