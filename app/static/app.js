@@ -138,13 +138,14 @@ function renderHistory(list) {
       <td data-label="Backup">${backupCell(h)}</td>
       <td class="actions">
         ${canRollback ? `<button data-act="rollback" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}">Rollback</button>
-          <button data-act="delsnap" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}" class="danger">Delete</button>` : ""}
-        ${canDeleteVzdump ? `<button data-act="delhistbackup" data-id="${h.id}" class="danger" title="Delete the vzdump backup made before this update">Delete</button>` : ""}
+          <button data-act="delsnap" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}" data-task="snap:${h.vmid}:${esc(h.backup_ref)}" class="danger">Delete</button>` : ""}
+        ${canDeleteVzdump ? `<button data-act="delhistbackup" data-id="${h.id}" data-task="hist:${h.id}" class="danger" title="Delete the vzdump backup made before this update">Delete</button>` : ""}
         <button data-act="log" data-id="${h.id}">Log</button>
         ${h.finished ? `<button data-act="delhist" data-id="${h.id}" title="Remove this entry from the history">Remove</button>` : ""}
       </td>
     </tr>`;
   }).join("") || `<tr><td colspan="6" class="muted">No updates run yet.</td></tr>`;
+  renderTasks();
 }
 
 // Own confirm/message dialog. window.confirm()/alert() can be switched off by
@@ -175,6 +176,54 @@ function ask({ title, text, ok = "OK", danger = false, cancel = true }) {
 
 const showError = (text) => ask({ title: "Error", text, cancel: false });
 
+// Deleting a snapshot or backup takes a while (ZFS/LVM, pvesm free on a PBS) and
+// reports no progress of its own. Show it as a running task with the elapsed time:
+// in a panel bottom right and on the button. Both survive the re-rendering every 5 s.
+const tasks = new Map(); // key -> { label, start, done }
+
+const elapsed = (t) => `${Math.round(((t.done || Date.now()) - t.start) / 1000)} s`;
+
+function renderTasks() {
+  $("#tasks").innerHTML = [...tasks.values()].map((t) => t.done
+    ? `<div class="task ok"><span class="ok">✔</span><span>${esc(t.doneText)}</span><span class="elapsed">${elapsed(t)}</span></div>`
+    : `<div class="task"><span class="spinner"></span><span>${esc(t.label)} …</span><span class="elapsed">${elapsed(t)}</span></div>`).join("");
+  document.querySelectorAll("button[data-task]").forEach((b) => {
+    const t = tasks.get(b.dataset.task);
+    if (t && !t.done) {
+      b.disabled = true;
+      b.innerHTML = `<span class="spinner"></span>${elapsed(t)}`;
+    }
+  });
+}
+
+// run fn as a task; a second click on the same thing while it runs does nothing
+async function runTask(key, label, doneText, fn) {
+  if (tasks.get(key) && !tasks.get(key).done) return undefined;
+  const task = { label, doneText, start: Date.now() };
+  tasks.set(key, task);
+  renderTasks();
+  try {
+    const result = await fn();
+    task.done = Date.now();
+    setTimeout(() => { if (tasks.get(key) === task) { tasks.delete(key); renderTasks(); } }, 5000);
+    return result;
+  } catch (err) {
+    tasks.delete(key); // the error is shown where the delete was started
+    throw err;
+  } finally {
+    renderTasks();
+  }
+}
+
+setInterval(() => { if ([...tasks.values()].some((t) => !t.done)) renderTasks(); }, 1000);
+
+let backupsVmid = null; // guest shown in the Backups dialog
+
+// refresh the Backups dialog after a delete, but only if it still shows that guest
+async function refreshBackups(vmid) {
+  if ($("#snap-dialog").open && String(backupsVmid) === String(vmid)) await showBackups(vmid);
+}
+
 function snapMsg(text, cls = "muted") {
   $("#snap-msg").textContent = text;
   $("#snap-msg").className = `dialog-note ${cls}`;
@@ -182,6 +231,7 @@ function snapMsg(text, cls = "muted") {
 }
 
 async function showBackups(vmid) {
+  backupsVmid = vmid;
   $("#snap-title").textContent = `Backups of ${guestLabel(vmid)}`;
   $("#snap-list").innerHTML = `<tr><td class="muted">Loading …</td></tr>`;
   $("#vz-list").innerHTML = `<tr><td class="muted">Loading …</td></tr>`;
@@ -195,7 +245,7 @@ async function showBackups(vmid) {
         <td>${esc(x.name)}</td><td class="muted">${fmtTime(x.snaptime)}</td>
         <td class="actions">
           <button data-act="rollback" data-id="${vmid}" data-snap="${esc(x.name)}">Rollback</button>
-          <button data-act="delsnap" data-id="${vmid}" data-snap="${esc(x.name)}" class="danger">Delete</button>
+          <button data-act="delsnap" data-id="${vmid}" data-snap="${esc(x.name)}" data-task="snap:${vmid}:${esc(x.name)}" class="danger">Delete</button>
         </td>
       </tr>`).join("") || `<tr><td class="muted">No snapshots made by the update manager.</td></tr>`;
   } catch (err) {
@@ -209,12 +259,13 @@ async function showBackups(vmid) {
           <button data-act="restore" data-id="${vmid}" data-backup="${b.id}">Restore</button>
           ${b.protected
             ? '<span class="tag" title="Protected in Proxmox – remove the protection there to delete it">protected</span>'
-            : `<button data-act="delbackup" data-id="${vmid}" data-backup="${b.id}" class="danger">Delete</button>`}
+            : `<button data-act="delbackup" data-id="${vmid}" data-backup="${b.id}" data-task="vz:${vmid}:${b.id}" class="danger">Delete</button>`}
         </td>
       </tr>`).join("") || `<tr><td class="muted">No vzdump backups made by the update manager.</td></tr>`;
   } catch (err) {
     $("#vz-list").innerHTML = `<tr><td class="err">${esc(err.message)}</td></tr>`;
   }
+  renderTasks();
 }
 
 let backupCfg = null;
@@ -355,17 +406,16 @@ document.addEventListener("click", async (ev) => {
         });
         if (!yes) return;
         const inDialog = Boolean(btn.closest("#snap-dialog"));
-        btn.disabled = true;
-        btn.textContent = "…";
-        if (inDialog) snapMsg(`Deleting ${snap} …`);
+        if (inDialog) snapMsg("");
         try {
-          await api(`/api/containers/${id}/snapshots/${encodeURIComponent(snap)}`, { method: "DELETE" });
-          if (inDialog) snapMsg(`Deleted ${snap}.`, "ok");
+          await runTask(btn.dataset.task, `Deleting snapshot ${snap} of ${guestLabel(id)}`,
+            `Deleted snapshot ${snap} of ${guestLabel(id)}`,
+            () => api(`/api/containers/${id}/snapshots/${encodeURIComponent(snap)}`, { method: "DELETE" }));
         } catch (err) {
-          if (inDialog) snapMsg(`Could not delete ${snap}: ${err.message}`, "err");
+          if (inDialog && $("#snap-dialog").open) snapMsg(`Could not delete ${snap}: ${err.message}`, "err");
           else await showError(`Could not delete ${snap}: ${err.message}`);
         }
-        if (inDialog) await showBackups(id);
+        await refreshBackups(id);
         break;
       }
       case "backups":
@@ -380,16 +430,16 @@ document.addEventListener("click", async (ev) => {
           danger: true,
         });
         if (!yes) return;
-        btn.disabled = true;
-        btn.textContent = "…";
-        snapMsg(`Deleting the backup of ${when} …`);
+        snapMsg("");
         try {
-          await api(`/api/containers/${id}/backups/${btn.dataset.backup}`, { method: "DELETE" });
-          snapMsg(`Deleted the backup of ${when}.`, "ok");
+          await runTask(btn.dataset.task, `Deleting the vzdump backup of ${when} (${guestLabel(id)})`,
+            `Deleted the vzdump backup of ${when} (${guestLabel(id)})`,
+            () => api(`/api/containers/${id}/backups/${btn.dataset.backup}`, { method: "DELETE" }));
         } catch (err) {
-          snapMsg(`Could not delete the backup of ${when}: ${err.message}`, "err");
+          if ($("#snap-dialog").open) snapMsg(`Could not delete the backup of ${when}: ${err.message}`, "err");
+          else await showError(`Could not delete the backup of ${when}: ${err.message}`);
         }
-        await showBackups(id);
+        await refreshBackups(id);
         break;
       }
       case "restore": {
@@ -430,10 +480,10 @@ document.addEventListener("click", async (ev) => {
           danger: true,
         });
         if (!yes) return;
-        btn.disabled = true;
-        btn.textContent = "…";
-        const res = await api(`/api/history/${id}/backup`, { method: "DELETE" });
-        if (res.deleted == null) {
+        const res = await runTask(btn.dataset.task, `Deleting the vzdump backup of ${guestLabel(h.vmid)}`,
+          `Deleted the vzdump backup of ${guestLabel(h.vmid)}`,
+          () => api(`/api/history/${id}/backup`, { method: "DELETE" }));
+        if (res && res.deleted == null) {
           await showError("The backup no longer exists on the storage – the entry is marked as deleted.");
         }
         break;

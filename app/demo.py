@@ -183,7 +183,7 @@ class DemoHostClient:
         return self._fake_stream([f"deleted snapshot {x['name']}" for x in drop])
 
     async def delete_snapshot(self, vmid: int, name: str) -> None:
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(4)  # like a real one: takes a few seconds
         if not any(x["name"] == name for x in self._snapshots[vmid]):
             raise HostCommandError("delete-snapshot", 2, f"snapshot {name} does not exist (anymore)")
         self._snapshots[vmid] = [x for x in self._snapshots[vmid] if x["name"] != name]
@@ -192,7 +192,7 @@ class DemoHostClient:
         return list(self._backups[vmid])
 
     async def delete_backup(self, vmid: int, backup_id: int) -> None:
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(7)  # pvesm free on a PBS takes a while
         match = [b for b in self._backups[vmid] if b["id"] == backup_id]
         if len(match) != 1:
             raise HostCommandError("delete-backup", 2, f"no single LUM backup with id {backup_id}")

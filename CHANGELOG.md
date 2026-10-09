@@ -10,6 +10,19 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.10.2] – 2026-10-09
+
+### Changed
+- Deleting a snapshot or vzdump backup shows its progress: a spinner with the elapsed
+  seconds on the button and a panel bottom right (*Deleting … 12 s*, then *✔ Deleted*).
+  Proxmox reports no percentage for this, so the time shows that it is still running.
+
+### Fixed
+- Deleting from the history looked like nothing happened: the list is refreshed every
+  5 s and the busy button came back as a normal **Delete** button while the delete was
+  still running.
+- Closing the Backups dialog during a delete no longer reopens it when the delete ends.
+
 ## [0.10.1] – 2026-10-09
 
 ### Added
@@ -278,7 +291,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.10.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/47427f2...main
+[0.10.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/9a0f48d...main
+[0.10.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/47427f2...9a0f48d
 [0.10.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/6e2f468...47427f2
 [0.9.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/e347e7a...6e2f468
 [0.9.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/58559b4...e347e7a

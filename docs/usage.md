@@ -132,6 +132,8 @@ has finished, so the log of a VM update appears at the end. App updates are LXC 
   VM disks go back to their original storages. Everything since the backup is lost and
   Proxmox deletes the guest's snapshots – the history marks them as removed. The restore
   runs as a job with a live log and shows up in the history as **Restore**.
+- Deleting a snapshot or backup can take a while; the button and a panel bottom right show
+  it with the elapsed time until it is done.
 - **Delete** (vzdump) removes the backup from the storage. Backups **protected** in
   Proxmox are shown but can't be deleted; remove the protection in Proxmox first.
 - Backups made by your own backup jobs never appear and can't be restored or deleted by LUM.
