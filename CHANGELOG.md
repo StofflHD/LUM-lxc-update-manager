@@ -8,6 +8,15 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [1.5.1] – 2026-10-09
+
+### Fixed
+- After an update a browser or reverse proxy cache (e.g. *Cache Assets* in Nginx Proxy
+  Manager) could serve the old `style.css` with the new page – the logo then stuck to the
+  title. CSS, JS and icon links now carry the version (`?v=1.5.1`), so every update uses
+  new URLs.
+- A bit more space between logo and title.
+
 ## [1.5.0] – 2026-10-09
 
 ### Added
@@ -186,7 +195,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[1.5.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8cb5636...main
+[1.5.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/1582070...main
+[1.5.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8cb5636...1582070
 [1.4.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/4434b73...8cb5636
 [1.4.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/f6db5c7...4434b73
 [1.4.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0b1859e...f6db5c7

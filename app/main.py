@@ -8,7 +8,7 @@ from typing import Literal
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ValidationError
 
@@ -66,6 +66,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="LXC Update Manager", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+
+_ASSET = re.compile(r'((?:href|src)="/static/[\w.-]+\.(?:css|js|svg|png))"')
+
+
+def _page(name: str) -> HTMLResponse:
+    """Serve a page with ?v=<version> on its CSS/JS/icon links. A new version means new
+    URLs, so no browser or proxy cache (e.g. "Cache Assets" in Nginx Proxy Manager)
+    can mix a new page with an old style.css or app.js."""
+    html = (STATIC / name).read_text(encoding="utf-8")
+    return HTMLResponse(_ASSET.sub(lambda m: f'{m.group(1)}?v={__version__}"', html))
 
 
 def svc() -> UpdateService:
@@ -149,7 +160,7 @@ async def favicon():
 async def login_page(request: Request):
     if get_settings().auth_disabled or auth().check_token(request.cookies.get(COOKIE)):
         return RedirectResponse("/", status_code=303)
-    return FileResponse(STATIC / "login.html")
+    return _page("login.html")
 
 
 @app.get("/api/auth/state")
@@ -224,7 +235,7 @@ def _ws_allowed(ws: WebSocket) -> bool:
 
 @app.get("/")
 async def index():
-    return FileResponse(STATIC / "index.html")
+    return _page("index.html")
 
 
 @app.get("/api/status")
