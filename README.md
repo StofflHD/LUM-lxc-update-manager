@@ -22,6 +22,7 @@ rollback with one click and checks for free space and pending restarts.
 - **Automatic updates** per guest in a maintenance window (days, start, end), optionally
   with restarts
 - **Telegram notifications** about failed (or all) updates and available updates
+- **Export / import** of settings, auto-update choices and history
 - **Restart required** – shows when services still run replaced libraries or a VM has a
   newer kernel, with a restart button
 - **Free space check** before every update, in the guest and on the vzdump storage, and
@@ -111,6 +112,7 @@ validates every argument, refuses containers and VMs tagged `no-lum` and only ev
 - [x] Optional cleanup after an update (`apt autoremove` / `apt clean`)
 - [x] Schedules / maintenance windows, auto-update per container
 - [x] Notifications via a Telegram bot
+- [x] Export / import of settings and history
 
 Planned – not every item is decided yet:
 
@@ -121,7 +123,6 @@ Planned – not every item is decided yet:
 - [ ] Notifications via ntfy / Gotify
 - [ ] Multiple users with a read-only role, login via OIDC (e.g. Authentik)
 - [ ] Prometheus metrics (pending updates per guest)
-- [ ] Export / import of settings and history
 - [ ] Multiple nodes / cluster
 
 ## License

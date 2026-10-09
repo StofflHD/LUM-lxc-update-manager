@@ -3,6 +3,7 @@ import logging
 import math
 import os
 import re
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
@@ -565,6 +566,78 @@ async def settings_save(body: SettingsBody):
     if restart:
         asyncio.create_task(_restart_soon())
     return {"saved": sorted(changes), "restart": restart}
+
+
+# --- export / import -------------------------------------------------------------------
+
+EXPORT_FORMAT = 1
+
+
+@app.get("/api/export")
+async def export(settings: bool = True, secrets: bool = False, guests: bool = True, history: bool = True):
+    """Settings (secrets only on request), auto-update per guest and history as JSON."""
+    s = svc()
+    data: dict = {"lum_export": EXPORT_FORMAT, "version": __version__, "exported": time.time()}
+    if settings:
+        data["settings"] = settings_edit.export_values(secrets)
+    if guests:
+        data["guests"] = [{"vmid": c["vmid"], "name": c["name"], "auto_update": c["auto_update"] or "off"}
+                          for c in s.db.containers()]
+    if history:
+        data["history"] = s.db.export_history()
+    name = f"lum-export-{time.strftime('%Y%m%d-%H%M')}.json"
+    return JSONResponse(data, headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+class ImportBody(BaseModel):
+    data: dict
+    settings: bool = True
+    guests: bool = True
+    history: bool = True
+
+
+@app.post("/api/import")
+async def import_(body: ImportBody):
+    """Import an export: settings (validated, LUM restarts), auto-update of guests with
+    the same ID and name, history entries not there yet."""
+    s, d = svc(), body.data
+    if d.get("lum_export") != EXPORT_FORMAT:
+        raise HTTPException(400, "this is not a LUM export file")
+    result: dict = {"settings": [], "guests": 0, "guests_skipped": [], "history": 0, "restart": False}
+    changes: dict = {}
+    if body.settings and d.get("settings"):
+        values = {k: v for k, v in d["settings"].items() if k in settings_edit.EDITABLE}
+        try:
+            values = settings_edit.validate(values)
+        except ValueError as err:
+            raise HTTPException(400, f"settings: {err}")
+        env = settings_edit.read_env()
+        changes = {k: v for k, v in values.items() if env.get(k) != v}
+        if changes and (s._busy or s.refreshing or s.queue_active or s.cleanup_active or s.maintenance_running):
+            raise HTTPException(409, "An update or check is running - import again when it has finished.")
+    if body.guests:
+        here = {c["vmid"]: c for c in s.db.containers()}
+        for g in d.get("guests") or []:
+            c = here.get(int(g.get("vmid", 0)))
+            mode = g.get("auto_update", "off")
+            if not c or c["name"] != g.get("name") or mode not in ("off", "os", "all"):
+                result["guests_skipped"].append(int(g.get("vmid", 0)))
+                continue
+            s.db.set_auto_update([c["vmid"]], mode)
+            result["guests"] += 1
+    if body.history:
+        try:
+            result["history"] = s.db.import_history(d.get("history") or [])
+        except (KeyError, TypeError, ValueError) as err:
+            raise HTTPException(400, f"history: unexpected entry ({err})")
+    if changes:  # last: LUM restarts afterwards
+        settings_edit.write(changes)
+        log.info("settings imported: %s", ", ".join(sorted(changes)))
+        result["settings"] = sorted(changes)
+        result["restart"] = _under_systemd()
+        if result["restart"]:
+            asyncio.create_task(_restart_soon())
+    return result
 
 
 @app.get("/api/history")

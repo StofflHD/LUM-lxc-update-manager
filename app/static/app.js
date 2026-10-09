@@ -806,6 +806,110 @@ $("#bulk-auto").addEventListener("click", () => {
   dlg.showModal();
 });
 
+// --- export / import ------------------------------------------------------------------
+
+$("#export-open").addEventListener("click", () => {
+  setMenu(false);
+  const form = $("#export-form");
+  form.reset();
+  const sync = () => {
+    form.secrets.disabled = !form.settings.checked;
+    $("#export-note").hidden = !(form.settings.checked && form.secrets.checked);
+  };
+  form.settings.onchange = sync;
+  form.secrets.onchange = sync;
+  sync();
+  const dlg = $("#export-dialog");
+  form.onsubmit = async (ev) => {
+    ev.preventDefault();
+    const q = ["settings", "secrets", "guests", "history"]
+      .map((k) => `${k}=${form[k].checked && !form[k].disabled}`).join("&");
+    try {
+      const res = await fetch(`/api/export?${q}`, { headers: { "X-Requested-With": "lum" } });
+      if (!res.ok) throw new Error(res.statusText);
+      const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") || "")?.[1] || "lum-export.json";
+      const url = URL.createObjectURL(await res.blob());
+      const a = Object.assign(document.createElement("a"), { href: url, download: name });
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      dlg.close();
+    } catch (err) {
+      await showError(`Export failed: ${err.message}`);
+    }
+  };
+  $("#export-cancel").onclick = () => dlg.close();
+  $("#export-close").onclick = () => dlg.close();
+  dlg.showModal();
+});
+
+$("#import-open").addEventListener("click", () => {
+  setMenu(false);
+  const form = $("#import-form");
+  form.reset();
+  let data = null;
+  const msg = (text, cls = "muted") => {
+    $("#import-msg").textContent = text;
+    $("#import-msg").className = cls;
+    $("#import-msg").hidden = !text;
+  };
+  msg("");
+  $("#import-info").textContent = "";
+  form.file.onchange = async () => {
+    data = null;
+    msg("");
+    try {
+      const parsed = JSON.parse(await form.file.files[0].text());
+      if (parsed.lum_export !== 1) throw new Error("not a LUM export file");
+      data = parsed;
+      const parts = [
+        parsed.settings && `${Object.keys(parsed.settings).length} settings`,
+        parsed.guests && `${parsed.guests.filter((g) => g.auto_update !== "off").length} guests with auto-update`,
+        parsed.history && `${parsed.history.length} history entries`,
+      ].filter(Boolean);
+      $("#import-info").textContent = `LUM ${parsed.version}, ${fmtTime(parsed.exported)}: ${parts.join(", ") || "empty"}.`;
+      form.settings.disabled = !Object.keys(parsed.settings || {}).length;
+      form.guests.disabled = !parsed.guests?.length;
+      form.history.disabled = !parsed.history?.length;
+    } catch (err) {
+      $("#import-info").textContent = "";
+      msg(`Can't read the file: ${err.message}`, "err");
+    }
+  };
+  const dlg = $("#import-dialog");
+  form.onsubmit = async (ev) => {
+    ev.preventDefault();
+    if (!data) return;
+    const pick = (k) => form[k].checked && !form[k].disabled;
+    try {
+      const r = await api("/api/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data, settings: pick("settings"), guests: pick("guests"), history: pick("history") }),
+      });
+      const done = [
+        r.settings.length && `${r.settings.length} settings`,
+        r.guests && `auto-update of ${r.guests} guest${r.guests === 1 ? "" : "s"}`,
+        `${r.history} history entr${r.history === 1 ? "y" : "ies"}`,
+      ].filter(Boolean).join(", ");
+      const skipped = r.guests_skipped.length ? ` Skipped (ID or name differs here): ${r.guests_skipped.join(", ")}.` : "";
+      if (r.restart) {
+        msg(`Imported: ${done}.${skipped} LUM is restarting …`, "ok");
+        if (await waitForRestart()) location.reload();
+      } else {
+        msg(`Imported: ${done}.${skipped}${r.settings.length ? " Restart LUM to apply the settings." : ""}`, "ok");
+        load();
+      }
+    } catch (err) {
+      msg(err.message, "err");
+    }
+  };
+  $("#import-cancel").onclick = () => dlg.close();
+  $("#import-close").onclick = () => dlg.close();
+  dlg.showModal();
+});
+
 $("#notify-test").addEventListener("click", async () => {
   setMenu(false);
   try {

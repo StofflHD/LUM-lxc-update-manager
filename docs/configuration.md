@@ -42,6 +42,21 @@ What is reported:
 LUM only sends to Telegram (`api.telegram.org`, HTTPS); it never reads messages, so the
 bot can't be used to control LUM.
 
+## Export and import
+
+☰ → **Export …** downloads a JSON file, ☰ → **Import …** reads it back – into the same
+LUM (e.g. after a reinstall) or another one. You choose what goes in and what comes back:
+
+| Part | Export | Import |
+|---|---|---|
+| **Settings** | the options of the settings dialog; the GitHub / Telegram tokens only if you tick *with the tokens* (then keep the file safe) | validated like in the settings dialog, written to `.env`, LUM restarts |
+| **Auto-update** | the mode of every container / VM | only for guests with the **same ID and name** here; the others are listed as skipped |
+| **History** | all finished entries with their logs | entries that are not there yet (same guest, type and start) are added – importing twice adds nothing |
+
+Not included: the connection to the Proxmox host (IP, port, user, SSH key, host key) and
+the login – they belong to the installation. Importing settings is refused while an
+update is running.
+
 ## By hand
 
 `pct exec <CTID> -- nano /opt/lxc-update-manager/.env`, then

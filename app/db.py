@@ -283,6 +283,40 @@ class Database:
             cur = self._conn.execute("DELETE FROM history WHERE finished IS NOT NULL")
         return cur.rowcount
 
+    # --- export / import ---------------------------------------------------------------
+
+    _EXPORT_COLS = ("vmid", "kind", "started", "finished", "success", "log", "backup_kind", "backup_ref",
+                    "backup_removed", "detail", "name", "auto")
+
+    def export_history(self) -> list[dict]:
+        """Finished entries with their logs, oldest first."""
+        rows = self._conn.execute(
+            f"SELECT {', '.join(self._EXPORT_COLS)} FROM history WHERE finished IS NOT NULL ORDER BY started"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def import_history(self, entries: list[dict]) -> int:
+        """Add entries that are not there yet (same guest, kind and start); returns how many."""
+        have = {(r["vmid"], r["kind"], round(r["started"], 3))
+                for r in self._conn.execute("SELECT vmid, kind, started FROM history")}
+        added = 0
+        with self._conn:
+            for e in entries:
+                key = (int(e["vmid"]), str(e["kind"]), round(float(e["started"]), 3))
+                if key in have or e.get("finished") is None:
+                    continue
+                values = [e.get(c) for c in self._EXPORT_COLS]
+                values[self._EXPORT_COLS.index("log")] = e.get("log") or ""
+                values[self._EXPORT_COLS.index("backup_removed")] = int(e.get("backup_removed") or 0)
+                values[self._EXPORT_COLS.index("auto")] = int(e.get("auto") or 0)
+                self._conn.execute(
+                    f"INSERT INTO history ({', '.join(self._EXPORT_COLS)}) VALUES ({', '.join('?' * len(values))})",
+                    values,
+                )
+                have.add(key)
+                added += 1
+        return added
+
     def history_log(self, history_id: int) -> str | None:
         row = self._conn.execute("SELECT log FROM history WHERE id=?", (history_id,)).fetchone()
         return row["log"] if row else None

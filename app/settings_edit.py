@@ -83,6 +83,13 @@ def current(settings: Settings) -> list[dict]:
     return out
 
 
+def export_values(with_secrets: bool) -> dict[str, str]:
+    """The editable options from .env (secrets only on request)."""
+    env = read_env()
+    kinds = {k: kind for k, _, _, kind, _ in FIELDS}
+    return {k: env[k] for k in sorted(EDITABLE) if k in env and (with_secrets or kinds[k] != "secret")}
+
+
 def _check_ips(value: str) -> None:
     for part in filter(None, (p.strip() for p in value.split(","))):
         try:

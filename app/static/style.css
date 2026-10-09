@@ -122,6 +122,13 @@ label.sel input { margin: 0; accent-color: var(--accent); }
 #upd-clean-row { margin-top: 14px; }
 #clear-dialog { width: min(480px, 95vw); }
 #auto-dialog { width: min(460px, 95vw); }
+#export-dialog, #import-dialog { width: min(480px, 95vw); }
+#export-dialog form, #import-dialog form { padding: 4px 16px 16px; }
+#export-dialog label.check, #import-dialog label.check { margin-top: 10px; }
+label.check.indent { margin-left: 26px; }
+#import-info, #export-note { margin: 10px 0 0; }
+#import-msg.err { color: var(--err); }
+#import-msg.ok { color: var(--ok); }
 #auto-dialog form { padding: 4px 16px 16px; }
 #auto-dialog label.check { margin-top: 10px; }
 .tag.auto { color: var(--accent); }
