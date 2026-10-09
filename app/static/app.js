@@ -67,6 +67,7 @@ const APP_SOURCE_HINT = {
   os: ["updated with the OS packages", "The app is installed from OS packages (apt/apk) and updated with the OS updates."],
   docker: ["no version check (Docker)", "The app runs in Docker – LUM can't compare versions; the app update still works."],
   none: ["Version unknown", "The community script has no version check LUM can use; the app update still works."],
+  builtin: ["no update via the script", "The community script does not update this app"],
 };
 
 function appCell(c) {
@@ -74,7 +75,8 @@ function appCell(c) {
   const name = esc(c.app_script || "?");
   const kind = c.app_kind || (c.app_repo ? "github" : "none");
   if (APP_SOURCE_HINT[kind]) {
-    const [text, title] = APP_SOURCE_HINT[kind];
+    const [text, base] = APP_SOURCE_HINT[kind];
+    const title = kind === "builtin" && c.app_note ? `${base}: "${c.app_note}"` : base;
     return `${name}<br><span class="tag" title="${esc(title)}">${esc(text)}</span>`;
   }
   const url = c.app_url || `https://github.com/${c.app_repo}/releases`;
@@ -123,9 +125,10 @@ function diskBadge(c) {
     + "an update needs more (LUM_MIN_FREE_MB). Free up space or enlarge the disk.")}">low disk</span>`;
 }
 
-// no App update button: VMs, containers tagged self-created, and apps that only come
-// with the OS packages (their app update does what the OS update does)
-const noAppUpdate = (c) => c.type === "qemu" || c.self_created || c.app_kind === "os";
+// no App update button: VMs, containers tagged self-created, apps that only come with
+// the OS packages (their app update does what the OS update does) and apps the
+// community script doesn't update at all (built-in updater)
+const noAppUpdate = (c) => c.type === "qemu" || c.self_created || c.app_kind === "os" || c.app_kind === "builtin";
 
 function renderContainers(all) {
   const queued = new Set(lastQueue.filter((i) => i.state === "waiting").map((i) => i.vmid));

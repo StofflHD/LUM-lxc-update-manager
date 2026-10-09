@@ -15,6 +15,8 @@ import asyncssh
 from .config import Settings
 
 _SAFE_ARG = re.compile(r"^[A-Za-z0-9._-]{1,60}$")
+# terminal control: colours, cursor moves, clear screen (the community scripts' banner)
+_ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][A-Z0-9]|\x1b[=>78]")
 
 
 OUTDATED_HINT = (
@@ -74,7 +76,7 @@ class HostClient:
             async for line in proc.stdout:
                 # progress output (dpkg "Reading database ... 5%") rewrites one
                 # line with \r; keep only its final state
-                last = line.rstrip("\r\n").split("\r")[-1]
+                last = _ANSI.sub("", line.rstrip("\r\n").split("\r")[-1])
                 yield last
             done = await proc.wait()
         if done.exit_status != 0:

@@ -10,7 +10,7 @@ import time
 from collections.abc import AsyncIterator
 
 from .apps import AppCatalog
-from .host import ContainerInfo, HostCommandError
+from .host import _ANSI, ContainerInfo, HostCommandError
 
 # vmid, name, status, tags, pkg manager, ct script, installed app version, type
 _CONTAINERS = [
@@ -23,6 +23,7 @@ _CONTAINERS = [
     (107, "motioneye", "running", "community-script;camera", "apt", "motioneye", "0.42.1", "lxc"),  # PyPI
     (108, "backup-server", "running", "no-lum", "apt", None, "", "lxc"),  # hidden from LUM
     (109, "my-webapp", "running", "self-created", "apt", "tandoor", "2.0.0", "lxc"),  # no app updates
+    (110, "unifi-os", "running", "community-script;network", "apt", "unifi-os-server", "", "lxc"),  # built-in updater
     (200, "debian-vm", "running", "", "apt", None, "", "qemu"),
     (201, "windows-vm", "running", "", "unknown", None, "", "qemu"),  # no guest agent
 ]
@@ -146,7 +147,7 @@ class DemoHostClient:
     async def _fake_stream(self, lines: list[str], exit_status: int = 0) -> AsyncIterator[str]:
         for line in lines:
             await asyncio.sleep(0.15)
-            yield line
+            yield _ANSI.sub("", line)  # like HostClient._stream
         if exit_status:
             raise HostCommandError("demo", exit_status, "simulated")
 
@@ -194,6 +195,9 @@ class DemoHostClient:
         return lines
 
     def app_update(self, vmid: int) -> AsyncIterator[str]:
+        if vmid == 110:  # the script only prints a hint (with the usual terminal codes) and exits 0
+            return self._fake_stream(["\x1b[H\x1b[J\x1b[3J   __  __      _ _______", "",
+                                      "\x1b[K  🚀  \x1b[1;92mThe app offers a built-in updater. Please use it.\x1b[m"])
         if vmid == 104:  # show how a deliberately skipped update looks
             return self._fake_stream(["⚠️ Container has 1 CPU / 512 MB, script requires 2 CPU / 1024 MB"], 113)
         return self._app_update_lines(vmid)

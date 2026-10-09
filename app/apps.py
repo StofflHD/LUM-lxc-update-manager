@@ -13,6 +13,9 @@ The ct/<script>.sh of an app tells where its version comes from:
   installed version via pip / npm in the container.
 - no check, update_script() only upgrades OS packages: the app comes with the OS
   updates; no Docker / unknown: no version check possible.
+- update_script() does nothing but print a message ("The app offers a built-in
+  updater", "updates itself automatically", "no update function"): the app is updated
+  in the app itself - an app update would change nothing.
 """
 
 import asyncio
@@ -49,13 +52,14 @@ _PKG_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$|^@[a-z0-9-]+/[a-z0-9._-]+$
 
 @dataclass
 class AppSource:
-    kind: str  # github | codeberg | gitlab | gh_tag | pypi | npm | os | docker | none
+    kind: str  # github | codeberg | gitlab | gh_tag | pypi | npm | os | docker | builtin | none
     app: str = ""  # version file name (~/.<app>) for forge kinds
     repo: str = ""  # owner/repo, or the package name for pypi / npm
     host: str = ""  # gitlab instance
     pinned: str = ""  # version the script holds the app at
     pin_reason: str = ""
     prefix: str = ""  # only tags starting with this
+    hint: str = ""  # builtin: the script's message, e.g. "The app offers a built-in updater"
 
     @property
     def has_versions(self) -> bool:
@@ -99,6 +103,27 @@ def _update_body(text: str) -> str:
     return m.group(1) if m else ""
 
 
+# anything that changes the container; an update_script() without any of it only prints
+# a message (after the usual "No installation found" guard)
+_DOES_WORK = re.compile(
+    r"fetch_and_deploy|\bapt(-get)?\b|\bapk\b|\bpip3?\b|\buv\b|\bnpm\b|\bpnpm\b|\byarn\b|docker|\bcurl\b"
+    r"|\bwget\b|\bgit\b|run_os_update|\$STD|systemctl|\bcp\b|\bmv\b|\btar\b|\bunzip\b|bash -c|\bsed\b"
+    r"|\bcomposer\b|\bphp\b|\bcargo\b|\bgo\b|\bdotnet\b|\bmake\b|setup_|check_for_|\bupdate\b\s*$",
+    re.M,
+)
+_GUARD = re.compile(r"if \[\[[^\n]*\]\]; then\s*msg_error[^\n]*\n\s*exit\s*\n\s*fi")
+_MSG = re.compile(r'msg_\w+\s+(?:"[^"]*"\s+"[^"]*"\s+)?"([^"]+)"')
+
+
+def _builtin_hint(body: str, app: str) -> str | None:
+    """The script's message if update_script() does no work at all, else None."""
+    rest = _GUARD.sub("", re.sub(r"header_info|check_container_storage|check_container_resources", "", body))
+    if not body.strip() or _DOES_WORK.search(rest):
+        return None
+    msgs = [m.replace("${APP}", app) for m in _MSG.findall(rest)]
+    return msgs[-1] if msgs else "the community script has no update for this app"
+
+
 def _first_package(args: str) -> str | None:
     for token in args.split():
         token = token.split("==")[0].split("@latest")[0]
@@ -137,6 +162,10 @@ def parse_script(text: str, script: str) -> AppSource:
                          prefix=args[4] if len(args) > 4 else "")
 
     body = _update_body(text)
+    app_name = re.search(r'^APP="([^"]+)"', text, re.M)
+    hint = _builtin_hint(body, app_name.group(1) if app_name else script)
+    if hint:
+        return AppSource("builtin", hint=hint)
     # no check, but the update deploys the app's release - that also writes ~/.<app>.
     # Only when the name matches the script: scripts also deploy drivers and helpers.
     want = re.sub(r"[^a-z0-9]", "", script.lower())
@@ -194,7 +223,7 @@ class AppCatalog:
     async def latest(self, src: AppSource) -> str | None:
         if src.pinned:  # the script holds the app at this version
             return normalize(src.pinned)
-        if not src.has_versions or src.kind in ("os", "docker", "none"):
+        if not src.has_versions or src.kind in ("os", "docker", "builtin", "none"):
             return None
         key = (src.kind, src.host, src.repo, src.prefix)
         cached = self._latest.get(key)

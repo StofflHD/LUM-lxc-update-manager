@@ -10,6 +10,19 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.17.2] – 2026-10-09
+
+### Fixed
+- An app update of e.g. UniFi OS Server showed *succeeded* although the community
+  script only printed *"The app offers a built-in updater. Please use it."* and changed
+  nothing. LUM now recognises the 13 community scripts whose update does nothing but
+  print such a hint (built-in updater, updates itself, no update function, new
+  container needed): the app shows *no update via the script* with the message in the
+  tooltip, and there is no **App update** button. If such an update runs anyway – or a
+  script says so only at runtime, e.g. GLPI, WordPress – it ends as *skipped*.
+- Terminal control codes (clear screen, colours: `[H[J`, `[1;92m` …) of the community
+  scripts no longer end up in the logs.
+
 ## [0.17.1] – 2026-10-09
 
 ### Changed
@@ -437,7 +450,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.17.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/a5c78e2...main
+[0.17.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/77ad4ba...main
+[0.17.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/a5c78e2...77ad4ba
 [0.17.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ad0a71b...a5c78e2
 [0.16.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/420daa7...ad0a71b
 [0.15.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/43d796e...420daa7

@@ -22,6 +22,7 @@ internet access. The simulated guests cover the main cases:
 | 107 | motioneye | PyPI app version, *restart required* (a service uses replaced libraries) |
 | 108 | backup-server | tagged `no-lum` – hidden |
 | 109 | my-webapp | tagged `self-created` – OS updates only, no App update button |
+| 110 | unifi-os | *no update via the script* (built-in updater); an app update through the API ends as *skipped* |
 | 200 / 201 | debian-vm / windows-vm | VM with guest agent (*restart required*: newer kernel) / without (*no guest agent*) |
 
 Updates, snapshots, vzdump backups (103 and 200 start with some, one of them protected),

@@ -76,6 +76,15 @@ class Job:
         }
 
 
+# app update output meaning "this script doesn't update the app" (it exits with 0)
+NO_APP_UPDATE = re.compile(
+    r"built-in updater|updates itself automatically|don't provide an update function|to update use the \S+ manager"
+    r"|no update function provided|should be updated via|use the applications? web interface"
+    r"|is updated via web interface|create a new container and transfer",
+    re.I,
+)
+
+
 @dataclass
 class QueueItem:
     """One guest in the update queue (several guests updated one after the other)."""
@@ -317,7 +326,7 @@ class UpdateService:
         except (HostCommandError, OSError, ValueError) as err:  # e.g. host script < 4: no pkg-version
             log.warning("installed version of %s in %s: %s", script, vmid, err)
         latest = await self.catalog.latest(src)
-        note = None
+        note = src.hint or None
         if src.pinned:
             note = "held back by the community script" + (f": {src.pin_reason}" if src.pin_reason else "")
         self.db.set_app_result(vmid, script, src.label or None, normalize(installed or "") or None, latest,
@@ -379,8 +388,17 @@ class UpdateService:
 
         job.emit("### OS update" if job.kind == "os" else "### App update (PHS_SILENT=1)")
         stream = self.host.upgrade(job.vmid, job.cleanup) if job.kind == "os" else self.host.app_update(job.vmid)
+        no_update = None
         async for line in stream:
             job.emit(line)
+            if job.kind == "app" and NO_APP_UPDATE.search(line):
+                no_update = line.strip()
+        if no_update:
+            # exit 0, but nothing was updated: don't call it a success
+            job.emit(f"### skipped: the community script doesn't update this app - {no_update}")
+            if job.backup:
+                await self._prune(job)  # nothing changed, the copy may rotate
+            return False
 
         # only after success: after a failure every copy may still be needed
         if job.backup:
@@ -598,6 +616,8 @@ class UpdateService:
             return "no community-scripts app"
         if c["app_kind"] == "os":
             return "the app comes with the OS updates"
+        if c["app_kind"] == "builtin":
+            return "the app is updated in the app itself"
         if c["app_installed"] and c["app_latest"] and not c["app_update"]:
             return "app is up to date"
         return None
