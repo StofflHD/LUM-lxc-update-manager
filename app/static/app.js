@@ -120,7 +120,7 @@ const fmtKb = (kb) => (kb >= 1048576 ? `${(kb / 1048576).toFixed(1)} GB` : `${Ma
 function diskBadge(c) {
   if (c.status !== "running" || !c.low_disk) return "";
   return `<br><span class="badge err" title="${esc(`Only ${fmtKb(c.disk_free_kb)} of ${fmtKb(c.disk_size_kb)} free in / – `
-    + "an update needs more (LUM_MIN_FREE_MB). Free up space or enlarge the disk.")}">low disk: ${fmtKb(c.disk_free_kb)} free</span>`;
+    + "an update needs more (LUM_MIN_FREE_MB). Free up space or enlarge the disk.")}">low disk</span>`;
 }
 
 function renderContainers(all) {
