@@ -95,8 +95,23 @@ and only ever touches snapshots named `lum_*` and backups with the note
 - [x] Snapshot / vzdump before updates, cleanup, rollback
 - [x] Login / authentication for the web UI
 - [x] Restore and delete vzdump backups from the web UI
+
+Planned – not every item is decided yet:
+
+- [ ] Update several guests in one go (select or "Update all"), run as a queue
+- [ ] Highlight security updates (`*-security`) with their own badge and filter
+- [ ] "Restart required" after kernel / library updates (`reboot-required`, `needrestart`) with a restart button
+- [ ] Check free disk space (guest and vzdump storage) before an update
+- [ ] Optional cleanup after an update (`apt autoremove` / `apt clean`)
+- [ ] Health check after an update (guest running, app answers over HTTP), rollback offered if it fails
+- [ ] Docker image updates inside containers (`docker compose pull` / `up`)
+- [ ] Release notes of the new app version in the update dialog
+- [ ] Hold back single packages per guest
 - [ ] Schedules / maintenance windows, auto-update per container
 - [ ] Notifications (ntfy, Gotify, Telegram)
+- [ ] Multiple users with a read-only role, login via OIDC (e.g. Authentik)
+- [ ] Prometheus metrics (pending updates per guest)
+- [ ] Export / import of settings and history
 - [ ] Multiple nodes / cluster
 
 ## License
