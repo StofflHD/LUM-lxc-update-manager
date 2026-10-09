@@ -41,6 +41,10 @@ FIELDS = [
     ("LUM_AUTO_TIME", "Auto-update", "Start (HH:MM)", "text", {"placeholder": "03:00"}),
     ("LUM_AUTO_UNTIL", "Auto-update", "End (HH:MM, optional)", "text", {"placeholder": "e.g. 05:00"}),
     ("LUM_AUTO_RESTART", "Auto-update", "Restart guests that need it afterwards", "bool", {}),
+    ("LUM_TELEGRAM_TOKEN", "Notifications (Telegram)", "Bot token (from @BotFather)", "secret", {}),
+    ("LUM_TELEGRAM_CHAT_ID", "Notifications (Telegram)", "Chat id", "text", {"placeholder": "e.g. 123456789 or -1001234567890"}),
+    ("LUM_NOTIFY", "Notifications (Telegram)", "Report updates", "choice", {"options": ["failures", "all", "off"]}),
+    ("LUM_NOTIFY_UPDATES", "Notifications (Telegram)", "Report available updates after the scheduled check", "bool", {}),
     ("LUM_SESSION_HOURS", "Login & reverse proxy", "Session lifetime (hours)", "int", {"min": 1, "max": 720}),
     ("LUM_COOKIE_SECURE", "Login & reverse proxy", "Force Secure cookie", "bool", {}),
     ("FORWARDED_ALLOW_IPS", "Login & reverse proxy", "Reverse proxy IP(s)", "text",
@@ -117,8 +121,9 @@ def validate(changes: dict) -> dict[str, str]:
             out[key] = value
     if "FORWARDED_ALLOW_IPS" in out:
         _check_ips(out["FORWARDED_ALLOW_IPS"])
-    if out.get("LUM_GITHUB_TOKEN") == "-":  # explicit removal
-        out["LUM_GITHUB_TOKEN"] = ""
+    for key in ("LUM_GITHUB_TOKEN", "LUM_TELEGRAM_TOKEN"):
+        if out.get(key) == "-":  # explicit removal
+            out[key] = ""
 
     # the whole configuration must still be valid (e.g. vzdump needs a storage)
     merged = {**read_env(), **out}

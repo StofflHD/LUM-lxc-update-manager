@@ -351,6 +351,16 @@ async def set_auto(body: AutoBody):
     return {"updated": len(body.vmids), "mode": body.mode}
 
 
+@app.post("/api/notify/test")
+async def notify_test():
+    """Send a test message with the saved Telegram settings."""
+    try:
+        await svc().notifier.send("✅ <b>LUM</b>: test notification – Telegram works.", test=True)
+    except RuntimeError as err:
+        raise HTTPException(502, str(err))
+    return {"sent": True}
+
+
 @app.post("/api/maintenance/run", status_code=202)
 async def maintenance_run():
     """Run the automatic updates now (without a window end)."""

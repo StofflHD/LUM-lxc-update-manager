@@ -8,8 +8,8 @@ installer, all options with comments in [.env.example](../.env.example)).
 ## In the web UI
 
 Menu **☰** → **Settings** edits the most common options: check interval, parallel checks,
-GitHub token, all backup options, session lifetime, Secure cookie and the reverse proxy
-IP(s). LUM validates the input, writes `.env` (comments and other lines are kept) and
+GitHub token, free space and cleanup, all backup options, the auto-update window, the
+Telegram notifications, session lifetime, Secure cookie and the reverse proxy IP(s). LUM validates the input, writes `.env` (comments and other lines are kept) and
 restarts itself; the page reloads when LUM is back. Saving is refused while an update is
 running.
 
@@ -18,8 +18,29 @@ running.
   installer with `--update` or edit `.env`.
 - Paths, `LUM_AUTH_DISABLED` and `LUM_DEMO` are not shown – turning off the login with
   a click would be too easy. Edit `.env` for those.
-- The GitHub token is never sent back to the browser: leave the field empty to keep it,
-  enter `-` to remove it.
+- The GitHub and Telegram tokens are never sent back to the browser: leave the field
+  empty to keep it, enter `-` to remove it.
+
+## Notifications (Telegram)
+
+1. In Telegram open **@BotFather**, send `/newbot` and follow it – you get the **bot
+   token** (`123456789:AAH…`).
+2. Send your new bot any message (for a group: add the bot to the group and write there).
+3. Open `https://api.telegram.org/bot<token>/getUpdates` in a browser; the **chat id**
+   is at `"chat":{"id":…}` (a group's id is negative).
+4. Enter both in ☰ → **Settings** → *Notifications (Telegram)* and save; then ☰ →
+   **Send test notification**.
+
+What is reported:
+
+| Setting | Message |
+|---|---|
+| **Report updates** `failures` (default) | a single update, rollback, restore or restart that failed; after a bulk or automatic update one summary if anything failed |
+| **Report updates** `all` | every one of them, and a summary after every bulk / automatic update |
+| **Report available updates after the scheduled check** | the guests with pending packages (security ones counted), app updates and *restart required* – only when that differs from the last message |
+
+LUM only sends to Telegram (`api.telegram.org`, HTTPS); it never reads messages, so the
+bot can't be used to control LUM.
 
 ## By hand
 
@@ -41,6 +62,10 @@ running.
 | `LUM_AUTO_TIME` | `03:00` | Start of the window (local time of the LUM container) |
 | `LUM_AUTO_UNTIL` | – | Optional end; guests not started by then are cancelled |
 | `LUM_AUTO_RESTART` | `false` | After the updates, restart guests that need it (not LUM's own container) |
+| `LUM_TELEGRAM_TOKEN` | – | Bot token from @BotFather (see [Notifications](#notifications-telegram)) |
+| `LUM_TELEGRAM_CHAT_ID` | – | Chat id of you or a group (negative), or `@channelname` |
+| `LUM_NOTIFY` | `failures` | Report updates: `failures`, `all` or `off` |
+| `LUM_NOTIFY_UPDATES` | `true` | Report available updates after the scheduled check |
 | `LUM_MIN_FREE_MB` | `500` | Free space in the guest's `/` needed for an update; `0` turns the check off (see [Free space](usage.md#free-space-before-an-update)) |
 | `LUM_GITHUB_TOKEN` | – | Optional, raises the GitHub API limit for app versions from 60 to 5000 requests/h |
 | `LUM_BACKUP_MODE` | `snapshot` | `snapshot`, `vzdump` or `none` |

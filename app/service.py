@@ -14,6 +14,7 @@ from .config import Settings
 from . import schedule
 from .db import Database
 from .host import HostCommandError
+from .notify import Notifier, esc, lines
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +38,7 @@ class Job:
     backup: bool = True  # update: make a snapshot/vzdump first (LUM_BACKUP_MODE)
     cleanup: bool = True  # OS update: apt autoremove + apt clean afterwards
     auto: bool = False  # started by the maintenance window
+    queued: bool = False  # part of a bulk / automatic update: reported in its summary
     lines: list[str] = field(default_factory=list)
     done: bool = False
     success: bool | None = None
@@ -132,7 +134,8 @@ class Cleanup:
 
 
 class UpdateService:
-    def __init__(self, settings: Settings, db: Database, host, catalog: AppCatalog):
+    def __init__(self, settings: Settings, db: Database, host, catalog: AppCatalog,
+                 notifier: Notifier | None = None):
         self._s = settings
         self.db = db
         self.host = host
@@ -148,6 +151,8 @@ class UpdateService:
         self.queue: list[QueueItem] = []
         self._queue_task: asyncio.Task | None = None
         self.cleanup: Cleanup | None = None
+        self.notifier = notifier or Notifier(settings)
+        self._updates_reported: tuple | None = None  # what the last "updates available" said
         # maintenance window: the run in progress, the date of the last window, a summary
         self._maint_items: list[QueueItem] | None = None
         self._maint_end: datetime | None = None
@@ -156,6 +161,74 @@ class UpdateService:
         self.self_vmid: int | None = None  # the container LUM runs in, if it is on this host
         self._find_self([{"vmid": c["vmid"], "name": c["name"]} for c in db.containers()])
         self._close_interrupted()
+
+    # --- notifications ------------------------------------------------------------------
+
+    def _guest(self, vmid: int) -> str:
+        c = self.db.container(vmid) or {}
+        label = f"{'VM' if c.get('type') == 'qemu' else 'CT'} {vmid}"
+        return f"{label} {c['name']}" if c.get("name") else label
+
+    @staticmethod
+    def _outcome(job: Job) -> tuple[str, str]:
+        """(state, reason) of a finished job: ok | failed | skipped"""
+        reasons = [line[4:] for line in job.lines if line.startswith(("### Error", "### Internal error", "### skipped"))]
+        reason = reasons[-1] if reasons else ""
+        if job.success:
+            return "ok", ""
+        return ("skipped" if reason.startswith("skipped") else "failed"), reason
+
+    async def _notify_job(self, job: Job) -> None:
+        state, reason = self._outcome(job)
+        if not self.notifier.wants(state == "failed"):
+            return
+        kind = {"os": "OS update", "app": "App update", "rollback": "Rollback", "restore": "Restore",
+                "restart": "Restart"}.get(job.kind, job.kind)
+        icon, word = {"ok": ("✅", "succeeded"), "failed": ("❌", "failed"), "skipped": ("⏭", "skipped")}[state]
+        text = f"{icon} <b>LUM</b>: {kind} of {esc(self._guest(job.vmid))} {word}"
+        if reason:
+            text += f"\n{esc(reason)}"
+        await self.notifier.send(text)
+
+    async def _notify_queue(self, items: list["QueueItem"]) -> None:
+        count = {s: [i for i in items if i.state == s] for s in ("ok", "failed", "skipped", "cancelled")}
+        if not items or not self.notifier.wants(bool(count["failed"])):
+            return
+        title = "Automatic updates" if all(i.auto for i in items) else "Bulk update"
+        kinds = {"os": "OS update", "app": "App update", "restart": "Restart"}
+        text = (f"<b>LUM – {title} finished</b>\n✅ {len(count['ok'])} succeeded · ❌ {len(count['failed'])} failed"
+                f" · ⏭ {len(count['skipped']) + len(count['cancelled'])} skipped")
+        if count["failed"]:
+            text += "\n\n" + lines([f"{esc(self._guest(i.vmid))}: {kinds.get(i.kind, i.kind)} – {esc(i.note)}"
+                                     for i in count["failed"]])
+        await self.notifier.send(text)
+
+    async def notify_updates(self) -> None:
+        """After the scheduled check: which guests have updates (only when that changed)."""
+        if not (self.notifier.enabled and self._s.notify_updates):
+            return
+        found, key = [], []
+        for c in self.db.containers():
+            if c["status"] != "running":
+                continue
+            parts = []
+            if c["upgradable"]:
+                sec = f" ({len(c['security'])} security)" if c["security"] else ""
+                parts.append(f"{len(c['upgradable'])} package{'s' if len(c['upgradable']) != 1 else ''}{sec}")
+            if c["app_update"]:
+                parts.append(f"app {c['app_installed']} → {c['app_latest']}")
+            if c["restart_required"]:
+                parts.append("restart required")
+            if parts:
+                found.append(f"{esc(self._guest(c['vmid']))}: {esc(', '.join(parts))}")
+                key.append((c["vmid"], tuple(c["upgradable"]), c["app_latest"] if c["app_update"] else None,
+                            c["restart_required"]))
+        key = tuple(key)
+        if key == self._updates_reported:
+            return
+        self._updates_reported = key
+        if found:
+            await self.notifier.send(f"🔔 <b>LUM – updates available</b>\n{lines(found)}")
 
     def _find_self(self, guests: list[dict]) -> None:
         """LUM's own container: the one named like this host (only if exactly one is)."""
@@ -382,6 +455,8 @@ class UpdateService:
             self.db.finish_history(history_id, success, "\n".join(job.lines))
             self._busy.discard(job.vmid)
             job.finish(success)
+        if not job.queued:
+            asyncio.create_task(self._notify_job(job))
         await self.check(job.vmid)
         if job.kind == "restart":  # the guest may still be booting: try again a few times
             for _ in range(3):
@@ -727,6 +802,7 @@ class UpdateService:
                 item.state, item.note = "failed", str(err)
                 continue
             item.state, item.job_id = "running", job.id
+            job.queued = True
             await job.wait()
             item.state = "ok" if job.success else "failed"
             if not job.success:
@@ -737,6 +813,11 @@ class UpdateService:
                 item.note = reasons[-1] if reasons else "see log"
                 if item.note.startswith("skipped"):
                     item.state = "skipped"
+        # drained: one message for the whole run (instead of one per guest)
+        try:
+            await self._notify_queue(list(self.queue))
+        except Exception:
+            log.exception("queue notification failed")
 
 
 async def maintenance_loop(service: UpdateService, seconds: int = 20) -> None:
@@ -761,6 +842,7 @@ async def scheduler(service: UpdateService, interval_minutes: int) -> None:
     while True:
         try:
             await service.refresh_all()
+            await service.notify_updates()
         except Exception:
             log.exception("scheduled refresh failed")
         await asyncio.sleep(interval_minutes * 60)

@@ -11,6 +11,8 @@
 | *restart required* stays after a restart | Before 0.15.1 it stayed until the next check. Now it goes away with LUM's **Restart** at once and with a restart elsewhere within about a minute. If it comes back after the check: a process that is not a service (e.g. started by hand or in a `screen`) still uses an old library – the tooltip names it; end or restart it. On a VM the new kernel only counts after a full reboot. |
 | History entry *Interrupted* | LUM was stopped or restarted (e.g. its container) while the job ran. Check the guest; run the update again if needed. |
 | *LUM runs in this container and can't roll back / restore it* | Roll back or restore LUM's own container in the Proxmox UI. |
+| *No test notification: Telegram: 400 … chat not found* | The bot never got a message from that chat: write to the bot (or in the group) first, then check the chat id. |
+| *Telegram: 401 Unauthorized* | The bot token is wrong – copy it again from @BotFather. |
 | Queue: a guest is *skipped* | Nothing to do (no pending packages, app up to date, VM for an app update) or the community script refused – the *Note* column says why. |
 | No security updates shown for an Alpine guest | apk has no separate security repository – see [Security updates](usage.md#security-updates). |
 | Update fails at the snapshot step | The guest's storage has no snapshot support – use `LUM_BACKUP_MODE=vzdump`. |

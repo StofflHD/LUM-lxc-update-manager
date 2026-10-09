@@ -806,6 +806,16 @@ $("#bulk-auto").addEventListener("click", () => {
   dlg.showModal();
 });
 
+$("#notify-test").addEventListener("click", async () => {
+  setMenu(false);
+  try {
+    await api("/api/notify/test", { method: "POST" });
+    await ask({ title: "Test notification sent", text: "Check Telegram – the message should be there.", cancel: false });
+  } catch (err) {
+    await showError(`No test notification: ${err.message}`);
+  }
+});
+
 $("#auto-run").addEventListener("click", async () => {
   setMenu(false);
   const m = maintenance || {};

@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     auto_until: str = ""
     auto_restart: bool = False  # afterwards restart guests that need it (not LUM's own)
 
+    # notifications through a Telegram bot (app/notify.py)
+    telegram_token: str = ""
+    telegram_chat_id: str = ""
+    notify: Literal["off", "failures", "all"] = "failures"  # per update / bulk update
+    notify_updates: bool = True  # after the scheduled check: which updates are available
+
     # web UI login, set with: venv/bin/python -m app.passwd
     auth_file: Path = Path("data/auth.json")
     secret_file: Path = Path("data/secret.key")
@@ -62,6 +68,12 @@ class Settings(BaseSettings):
                 parse_time(self.auto_until)
         except ValueError as err:
             raise ValueError(f"auto-update window: {err}") from None
+        import re
+
+        if self.telegram_token and not re.fullmatch(r"\d+:[A-Za-z0-9_-]{20,}", self.telegram_token):
+            raise ValueError("LUM_TELEGRAM_TOKEN looks wrong - it is like 123456789:AAH… (from @BotFather)")
+        if self.telegram_chat_id and not re.fullmatch(r"-?\d+|@[A-Za-z][A-Za-z0-9_]{4,}", self.telegram_chat_id):
+            raise ValueError("LUM_TELEGRAM_CHAT_ID: a number (groups are negative) or @channelname")
         return self
 
 

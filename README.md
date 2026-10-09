@@ -21,6 +21,7 @@ rollback with one click and checks for free space and pending restarts.
   once, one after the other; security updates are highlighted and can be filtered
 - **Automatic updates** per guest in a maintenance window (days, start, end), optionally
   with restarts
+- **Telegram notifications** about failed (or all) updates and available updates
 - **Restart required** – shows when services still run replaced libraries or a VM has a
   newer kernel, with a restart button
 - **Free space check** before every update, in the guest and on the vzdump storage, and
@@ -109,6 +110,7 @@ validates every argument, refuses containers and VMs tagged `no-lum` and only ev
 - [x] Check free disk space (guest and vzdump storage) before an update
 - [x] Optional cleanup after an update (`apt autoremove` / `apt clean`)
 - [x] Schedules / maintenance windows, auto-update per container
+- [x] Notifications via a Telegram bot
 
 Planned – not every item is decided yet:
 
@@ -116,7 +118,7 @@ Planned – not every item is decided yet:
 - [ ] Docker image updates inside containers (`docker compose pull` / `up`)
 - [ ] Release notes of the new app version in the update dialog
 - [ ] Hold back single packages per guest
-- [ ] Notifications (ntfy, Gotify, Telegram)
+- [ ] Notifications via ntfy / Gotify
 - [ ] Multiple users with a read-only role, login via OIDC (e.g. Authentik)
 - [ ] Prometheus metrics (pending updates per guest)
 - [ ] Export / import of settings and history

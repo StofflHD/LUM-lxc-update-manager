@@ -21,6 +21,7 @@ the header `X-Requested-With: lum`.
 | GET | `/api/jobs/{id}` | Job status + log |
 | POST | `/api/auto` | Body `{"vmids": [101], "mode": "off"\|"os"\|"all"}` – auto-update per guest |
 | POST | `/api/maintenance/run` | Run the automatic updates now |
+| POST | `/api/notify/test` | Send a Telegram test message (502 with Telegram's error) |
 | GET | `/api/queue` | Bulk update queue: `vmid`, `kind`, `backup`, `state` (`waiting`, `running`, `ok`, `failed`, `skipped`, `cancelled`), `job_id`, `note` |
 | POST | `/api/queue` | Body `{"vmids": [101, 102], "kind": "os"\|"app", "backup": true, "cleanup": true}` – update them one after the other |
 | DELETE | `/api/queue` | Cancel the waiting guests, or clear a finished queue |

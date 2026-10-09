@@ -10,6 +10,21 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.19.0] – 2026-10-09
+
+### Added
+- **Notifications through a Telegram bot:** failed (or all) updates, rollbacks, restores
+  and restarts; one summary per bulk / automatic update instead of a message per guest;
+  after the scheduled check the available updates (security, app, restart required) –
+  only when they changed. Set up in the settings (bot token, chat id), **Send test
+  notification** in the ☰ menu. LUM only sends, it never reads messages.
+- Settings `LUM_TELEGRAM_TOKEN`, `LUM_TELEGRAM_CHAT_ID`, `LUM_NOTIFY`, `LUM_NOTIFY_UPDATES`.
+- API: `POST /api/notify/test`.
+
+### Documentation
+- `.env.example` lists all options again (free space, cleanup, auto-update, Telegram,
+  secret file were missing).
+
 ## [0.18.0] – 2026-10-09
 
 ### Added
@@ -467,7 +482,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.18.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/b6e7dca...main
+[0.19.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8fab477...main
+[0.18.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/b6e7dca...8fab477
 [0.17.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/77ad4ba...b6e7dca
 [0.17.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/a5c78e2...77ad4ba
 [0.17.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ad0a71b...a5c78e2
