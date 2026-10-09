@@ -10,7 +10,18 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
-## [0.10.3] – 2026-10-09
+## [0.11.0] – 2026-10-09
+
+### Added
+- **Update several guests in one go:** checkboxes in the guest list, **Select all with
+  updates**, and **OS update** / **App update** above the list. The guests are updated
+  one after the other, each with its own backup, log and history entry.
+- **Queue** section with the state of every guest (waiting, running, succeeded, failed,
+  skipped, cancelled), the reason and the live log; **Cancel remaining** stops the
+  guests that haven't started yet. Guests with nothing to do are skipped, a failed
+  update doesn't stop the others.
+- API: `GET`/`POST`/`DELETE /api/queue`; `/api/status` contains the queue.
+
 
 ### Added
 - The history shows the name of the container or VM next to its ID (also in the log
@@ -303,7 +314,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.10.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ef91f34...main
+[0.11.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/7fd71e4...main
+[0.10.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ef91f34...7fd71e4
 [0.10.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/9a0f48d...ef91f34
 [0.10.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/47427f2...9a0f48d
 [0.10.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/6e2f468...47427f2

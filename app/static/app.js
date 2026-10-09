@@ -84,13 +84,20 @@ function appCell(c) {
   return `${name} ${badge}${held}${ahead}<br>${repo}`;
 }
 
+// guests ticked for a bulk update (vmid strings), kept across the periodic re-render
+const selected = new Set();
+let lastContainers = [];
+let lastQueue = [];
+
 function renderContainers(list) {
+  const queued = new Set(lastQueue.filter((i) => i.state === "waiting").map((i) => i.vmid));
   $("#containers").innerHTML = list.map((c) => {
     const running = c.status === "running";
     return `<tr>
-      <td data-label="ID">${c.vmid}<br><span class="tag">${c.type === "qemu" ? "VM" : "LXC"}</span></td>
+      <td data-label="ID"><label class="sel"><input type="checkbox" data-sel="${c.vmid}" aria-label="Select ${c.vmid}"
+        ${selected.has(String(c.vmid)) ? "checked" : ""} ${running ? "" : "disabled"}>${c.vmid}</label><br><span class="tag">${c.type === "qemu" ? "VM" : "LXC"}</span></td>
       <td data-label="Name"><strong>${esc(c.name)}</strong><br>${c.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("")}</td>
-      <td data-label="Status"><span class="badge ${running ? "ok" : "muted"}">${esc(c.status)}</span></td>
+      <td data-label="Status"><span class="badge ${running ? "ok" : "muted"}">${esc(c.status)}</span>${queued.has(c.vmid) ? '<br><span class="tag">queued</span>' : ""}</td>
       <td data-label="Package manager">${esc(c.pkg_manager || "–")}${c.community_script ? '<br><span class="tag">community-script</span>' : ""}</td>
       <td data-label="OS updates">${updatesCell(c)}</td>
       <td data-label="App">${appCell(c)}</td>
@@ -296,8 +303,15 @@ async function load() {
     $("#refresh").disabled = status.refreshing;
     backupCfg = status.backup;
     containers.forEach((c) => { guestTypes[c.vmid] = c.type; });
+    lastContainers = containers;
+    lastQueue = status.queue;
+    // drop guests that were removed or stopped from the selection
+    const selectable = new Set(containers.filter((c) => c.status === "running").map((c) => String(c.vmid)));
+    [...selected].forEach((v) => { if (!selectable.has(v)) selected.delete(v); });
     renderSummary(containers);
     renderContainers(containers);
+    renderBulk();
+    renderQueue(status.queue);
     renderHistory(history);
   } catch (err) {
     $("#status").textContent = `Error: ${err.message}`;
@@ -305,13 +319,16 @@ async function load() {
 }
 
 // Ask before an update; resolves to { backup: bool } or null when cancelled.
-function askUpdate(vmid, kind) {
+// target: what is updated ("CT 103", "3 guests"), extra: an additional note
+function askUpdate(target, kind, extra = "") {
   return new Promise((resolve) => {
     const dlg = $("#upd-dialog");
     const form = $("#upd-form");
     const box = form.backup;
     const mode = backupCfg?.mode || "none";
-    $("#upd-title").textContent = `${kind === "os" ? "OS update" : "App update (community script)"} – ${guestLabel(vmid)}`;
+    $("#upd-title").textContent = `${kind === "os" ? "OS update" : "App update (community script)"} – ${target}`;
+    $("#upd-extra").textContent = extra;
+    $("#upd-extra").hidden = !extra;
     $("#upd-backup-label").textContent = {
       snapshot: "Create a snapshot before the update",
       vzdump: `Create a vzdump backup to ${backupCfg?.storage} before the update`,
@@ -392,7 +409,7 @@ document.addEventListener("click", async (ev) => {
         break;
       case "os":
       case "app": {
-        const choice = await askUpdate(id, btn.dataset.act);
+        const choice = await askUpdate(guestLabel(id), btn.dataset.act);
         if (!choice) return;
         followJob(await api(`/api/containers/${id}/update?kind=${btn.dataset.act}&backup=${choice.backup}`, { method: "POST" }));
         break;
@@ -502,6 +519,16 @@ document.addEventListener("click", async (ev) => {
         await api(`/api/history/${id}`, { method: "DELETE" });
         break;
       }
+      case "joblog": {
+        const job = await api(`/api/jobs/${id}`);
+        if (!job.done) {
+          followJob(job);
+        } else {
+          openLog(`${guestLabel(job.vmid)} – ${KIND[job.kind] || job.kind}`);
+          $("#log").textContent = `${job.lines.join("\n")}\n\n${job.success ? "✔ succeeded" : "✘ failed"}`;
+        }
+        break;
+      }
       case "log":
         const h = historyById[id];
         openLog(h ? `${guestLabel(h.vmid)}${h.name ? ` ${h.name}` : ""} – ${KIND[h.kind] || h.kind} · ${fmtTime(h.started)}` : `History #${id}`);
@@ -526,6 +553,110 @@ $("#clear-history").addEventListener("click", async () => {
   if (!yes) return;
   try {
     await api("/api/history", { method: "DELETE" });
+  } catch (err) {
+    await showError(err.message);
+  }
+  load();
+});
+
+// --- selection, bulk updates and the queue -----------------------------------------
+
+function renderBulk() {
+  const n = selected.size;
+  $("#bulk-count").textContent = n
+    ? `${n} selected`
+    : "Select containers and VMs to update several at once";
+  $("#bulk-os").disabled = !n;
+  $("#bulk-app").disabled = ![...selected].some((v) => guestTypes[v] !== "qemu");
+  $("#sel-none").hidden = !n;
+  const running = lastContainers.filter((c) => c.status === "running");
+  const all = running.length > 0 && running.every((c) => selected.has(String(c.vmid)));
+  $("#sel-all").checked = all;
+  $("#sel-all").indeterminate = n > 0 && !all;
+}
+
+function setSelection(vmids) {
+  selected.clear();
+  vmids.forEach((v) => selected.add(String(v)));
+  renderContainers(lastContainers);
+  renderBulk();
+}
+
+document.addEventListener("change", (ev) => {
+  const box = ev.target.closest("input[data-sel]");
+  if (!box) return;
+  box.checked ? selected.add(box.dataset.sel) : selected.delete(box.dataset.sel);
+  renderBulk();
+});
+
+$("#sel-all").addEventListener("change", (ev) => {
+  setSelection(ev.target.checked ? lastContainers.filter((c) => c.status === "running").map((c) => c.vmid) : []);
+});
+
+$("#sel-updates").addEventListener("click", () => {
+  setSelection(lastContainers
+    .filter((c) => c.status === "running" && !c.last_error && (c.upgradable.length || c.app_update))
+    .map((c) => c.vmid));
+  if (!selected.size) notice("No container or VM has updates right now.");
+});
+
+$("#sel-none").addEventListener("click", () => setSelection([]));
+
+async function bulkUpdate(kind) {
+  const vmids = [...selected].map(Number).filter((v) => kind === "os" || guestTypes[v] !== "qemu");
+  const what = kind === "os" ? "OS updates" : "an app update";
+  const extra = `They run one after the other, each with its own log in the history. Guests without ${what}`
+    + (kind === "app" ? " (and VMs)" : "") + " are skipped; a failed update does not stop the others.";
+  const choice = await askUpdate(`${vmids.length} guest${vmids.length === 1 ? "" : "s"}`, kind, extra);
+  if (!choice) return;
+  try {
+    await api("/api/queue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vmids, kind, backup: choice.backup }),
+    });
+    selected.clear();
+  } catch (err) {
+    await showError(err.message);
+  }
+  load();
+}
+$("#bulk-os").addEventListener("click", () => bulkUpdate("os"));
+$("#bulk-app").addEventListener("click", () => bulkUpdate("app"));
+
+const QUEUE_STATE = {
+  waiting: ["waiting", "muted"], running: ["running", "warn"], ok: ["succeeded", "ok"],
+  failed: ["failed", "err"], skipped: ["skipped", "muted"], cancelled: ["cancelled", "muted"],
+};
+
+function renderQueue(queue) {
+  $("#queue-section").hidden = !queue.length;
+  if (!queue.length) return;
+  const open = queue.filter((i) => i.state === "waiting" || i.state === "running").length;
+  const count = (state) => queue.filter((i) => i.state === state).length;
+  $("#queue-title").textContent = open
+    ? `Queue · ${queue.length - open} of ${queue.length} done`
+    : `Queue · finished: ${count("ok")} succeeded, ${count("failed")} failed, `
+      + `${count("skipped") + count("cancelled")} skipped or cancelled`;
+  $("#queue-cancel").textContent = open ? "Cancel remaining" : "Clear";
+  $("#queue-cancel").hidden = open > 0 && !count("waiting");
+  const names = Object.fromEntries(lastContainers.map((c) => [c.vmid, c.name]));
+  $("#queue").innerHTML = queue.map((i) => {
+    const [label, cls] = QUEUE_STATE[i.state] || [i.state, "muted"];
+    return `<tr>
+      <td data-label="ID">${guestLabel(i.vmid)}</td>
+      <td data-label="Name">${esc(names[i.vmid] || "–")}</td>
+      <td data-label="Type">${KIND[i.kind]}</td>
+      <td data-label="State">${i.state === "running" ? '<span class="spinner inline"></span>' : ""}<span class="badge ${cls}">${label}</span></td>
+      <td data-label="Note" class="muted">${esc(i.note) || "–"}</td>
+      <td class="actions">${i.job_id ? `<button data-act="joblog" data-id="${i.job_id}">Log</button>` : ""}</td>
+    </tr>`;
+  }).join("");
+}
+
+$("#queue-cancel").addEventListener("click", async () => {
+  try {
+    await api("/api/queue", { method: "DELETE" });
   } catch (err) {
     await showError(err.message);
   }

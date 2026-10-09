@@ -42,15 +42,35 @@
     <section class="summary" id="summary"></section>
 
     <section>
+      <div class="toolbar" id="bulk">
+        <span id="bulk-count" class="muted">Select containers and VMs to update several at once</span>
+        <button id="sel-updates" type="button" title="Select all running guests with OS or app updates">Select all with updates</button>
+        <button id="sel-none" type="button" hidden>Clear selection</button>
+        <button id="bulk-os" type="button" class="primary" disabled>OS update</button>
+        <button id="bulk-app" type="button" disabled>App update</button>
+      </div>
       <div class="table-wrap">
         <table class="responsive">
           <thead>
             <tr>
-              <th>ID</th><th>Name</th><th>Status</th><th>Package manager</th>
+              <th><label class="sel"><input type="checkbox" id="sel-all" aria-label="Select all running guests">ID</label></th><th>Name</th><th>Status</th><th>Package manager</th>
               <th>OS updates</th><th>App</th><th>Last check</th><th></th>
             </tr>
           </thead>
           <tbody id="containers"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="queue-section" hidden>
+      <div class="section-head">
+        <h2 id="queue-title">Queue</h2>
+        <button id="queue-cancel" type="button">Cancel remaining</button>
+      </div>
+      <div class="table-wrap">
+        <table class="responsive">
+          <thead><tr><th>ID</th><th>Name</th><th>Type</th><th>State</th><th>Note</th><th></th></tr></thead>
+          <tbody id="queue"></tbody>
         </table>
       </div>
     </section>
@@ -124,6 +144,7 @@
         <span id="upd-backup-label">Create a snapshot before the update</span>
       </label>
       <p id="upd-note" class="muted"></p>
+      <p id="upd-extra" class="muted" hidden></p>
       <div class="dialog-actions">
         <button type="button" id="upd-cancel">Cancel</button>
         <button class="primary" type="submit">Start update</button>

@@ -10,13 +10,15 @@
 | | **Check all** | Re-reads the list and checks every running guest for OS and app updates. Also runs automatically every `LUM_CHECK_INTERVAL_MINUTES`. |
 | | **☰** menu | **Theme** (System / Light / Dark, stored in the browser), **Settings** (see [Configuration](configuration.md#in-the-web-ui)) and **Change password**. |
 | Status line | | Last check, backup mode, guests hidden by the `no-lum` tag (hover for their IDs), result of **Refresh list**, and a yellow note when the host script is outdated. |
-| Each row | `ID` · `LXC`/`VM` | Container or VM. VMs need the QEMU guest agent, otherwise **no guest agent** is shown. |
+| Above the list | **Select all with updates** · **OS update** · **App update** | Update several guests in one go – see [Updating several guests](#updating-several-guests). |
+| Each row | ☐ `ID` · `LXC`/`VM` | Checkbox for a bulk update (the one in the header selects all running guests). Container or VM. VMs need the QEMU guest agent, otherwise **no guest agent** is shown. |
 | | `▸ N packages` | Pending OS updates – click to list them. |
 | | App column | Installed app version (green) or `installed → latest` (orange) with a link to the release page, PyPI or npm. **held back**: the community script pins this version; **pre-release**: the installed version is newer than the latest stable one. Without a version source: *updated with the OS packages*, *no version check (Docker)* or *Version unknown* – see [App updates](#app-updates). |
 | | **Check** | Checks this one guest. |
 | | **OS update** | Opens the update dialog (with the backup checkbox), then runs apt/apk with a live log. |
 | | **App update** | Community-script app update (containers only; not shown for VMs). Highlighted when a newer app version exists. |
 | | **Backups** | The guest's LUM snapshots (**Rollback**, **Delete**) and vzdump backups (**Restore**, **Delete**) – see [Backup, cleanup and rollback](#backup-cleanup-and-rollback). |
+| Queue | **Log** · **Cancel remaining** · **Clear** | Progress of a bulk update, see below. |
 | History | `ID` · Name | Guest of the entry; the name stays visible after the guest was removed. |
 | | **Rollback** · **Delete** | Roll back to / delete the snapshot made before that update. With vzdump: **Delete** removes the backup made before that update (not protected ones). |
 | | **Log** · **Remove** | Show the stored log / remove the entry (the snapshot or backup is kept). |
@@ -25,6 +27,27 @@
 Below 1100 px window width every row turns into a card. The footer shows the version.
 If the host script on the Proxmox host is older than this LUM version needs, a yellow
 note below the status line says so and shows the command to update it.
+
+## Updating several guests
+
+Tick the checkboxes of the guests (or **Select all with updates**: every running guest
+with OS or app updates), then click **OS update** or **App update** above the list. The
+update dialog asks once for the backup checkbox; it applies to all of them.
+
+- The guests are updated **one after the other**, each exactly like a single update –
+  with its own backup, cleanup, live log and history entry. A queued guest shows
+  **queued** in its row.
+- The **Queue** section shows each guest's state (*waiting*, *running*, *succeeded*,
+  *failed*, *skipped*, *cancelled*) and the reason, and **Log** opens the live log.
+- Guests with nothing to do are **skipped**: OS update – no pending packages, not
+  running; app update – VMs, apps that come with the OS packages or are already up to
+  date. Apps without a version check (e.g. Docker) are updated. An app update the
+  community script refuses (exit 75/113/114) counts as skipped as well.
+- A failed update does **not** stop the queue; the next guest is updated anyway.
+- **Cancel remaining** cancels the waiting guests; the one being updated finishes.
+  When the queue is done, **Clear** removes it (a new bulk update replaces it as well).
+- The queue lives in memory: restarting LUM ends it after the running update.
+  Settings can't be saved while it runs.
 
 ## Excluding containers and VMs
 

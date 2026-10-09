@@ -16,7 +16,8 @@ web UI. With a snapshot before every update and rollback with one click.
 
 - **Containers and VMs in one list** – LXC via `pct`, VMs via the QEMU guest agent;
   tag a guest `no-lum` to keep LUM away from it
-- **OS updates** (apt / apk) with one click and a live log
+- **OS updates** (apt / apk) with one click and a live log – or for several guests at
+  once, one after the other
 - **App updates** for community-script containers, with installed vs. latest version from
   GitHub, Codeberg, GitLab, PyPI or npm
 - **Safety first** – snapshot or vzdump backup before every update, cleanup, rollback;
@@ -95,10 +96,10 @@ and only ever touches snapshots named `lum_*` and backups with the note
 - [x] Snapshot / vzdump before updates, cleanup, rollback
 - [x] Login / authentication for the web UI
 - [x] Restore and delete vzdump backups from the web UI
+- [x] Update several guests in one go (select or "Select all with updates"), run as a queue
 
 Planned – not every item is decided yet:
 
-- [ ] Update several guests in one go (select or "Update all"), run as a queue
 - [ ] Highlight security updates (`*-security`) with their own badge and filter
 - [ ] "Restart required" after kernel / library updates (`reboot-required`, `needrestart`) with a restart button
 - [ ] Check free disk space (guest and vzdump storage) before an update

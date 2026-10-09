@@ -253,6 +253,7 @@ async def status():
             "required": REQUIRED_WRAPPER_VERSION,
             "outdated": s.wrapper_version is not None and s.wrapper_version < REQUIRED_WRAPPER_VERSION,
         },
+        "queue": [i.as_dict() for i in s.queue],
         "backup": {
             "mode": cfg.backup_mode,
             "keep": cfg.snapshot_keep if cfg.backup_mode == "snapshot" else cfg.backup_keep,
@@ -307,6 +308,38 @@ async def update(vmid: int, kind: Literal["os", "app"] = "os", backup: bool = Tr
         return s.start_job(vmid, kind, backup=backup).as_dict()
     except RuntimeError as err:
         raise HTTPException(409, str(err))
+
+
+class QueueBody(BaseModel):
+    vmids: list[int]
+    kind: Literal["os", "app"] = "os"
+    backup: bool = True
+
+
+@app.get("/api/queue")
+async def queue():
+    return [i.as_dict() for i in svc().queue]
+
+
+@app.post("/api/queue", status_code=202)
+async def queue_add(body: QueueBody):
+    """Update several guests one after the other; guests with nothing to do are skipped."""
+    s = svc()
+    unknown = [v for v in body.vmids if not s.db.container(v)]
+    if unknown:
+        raise HTTPException(404, f"unknown container(s): {', '.join(map(str, unknown))}")
+    if not body.vmids:
+        raise HTTPException(400, "no guests selected")
+    added = s.enqueue(body.vmids, body.kind, body.backup)
+    return {"added": added, "queue": [i.as_dict() for i in s.queue]}
+
+
+@app.delete("/api/queue")
+async def queue_cancel():
+    """Cancel the waiting guests (a running update finishes), or clear a finished queue."""
+    s = svc()
+    s.cancel_queue()
+    return {"queue": [i.as_dict() for i in s.queue]}
 
 
 @app.get("/api/containers/{vmid}/snapshots")
@@ -451,7 +484,7 @@ async def settings_save(body: SettingsBody):
     changes = {k: v for k, v in values.items() if env.get(k) != v}
     if not changes:
         return {"saved": [], "restart": False}
-    if s._busy or s.refreshing:
+    if s._busy or s.refreshing or s.queue_active:
         raise HTTPException(409, "An update or check is running - save again when it has finished.")
     settings_edit.write(changes)
     log.info("settings changed in the web UI: %s", ", ".join(sorted(changes)))

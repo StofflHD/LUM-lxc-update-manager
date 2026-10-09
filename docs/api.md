@@ -11,13 +11,16 @@ the header `X-Requested-With: lum`.
 | GET | `/api/auth/state` · `/api/me` | Login configured? / current user |
 | POST | `/api/password` | Change password |
 | GET · POST | `/api/settings` | Editable settings / save them (LUM restarts) |
-| GET | `/api/status` | Version, last check, backup mode, host script version, hidden (`no-lum`) guests |
+| GET | `/api/status` | Version, last check, backup mode, host script version, hidden (`no-lum`) guests, `queue` |
 | GET | `/api/containers` | All containers/VMs with update status |
 | POST | `/api/sync` | Re-read the list of containers/VMs only (no package checks) |
 | POST | `/api/refresh` | Check all (async) |
 | POST | `/api/containers/{id}/check` | Check one guest |
 | POST | `/api/containers/{id}/update?kind=os\|app&backup=true\|false` | Start an update → job |
 | GET | `/api/jobs/{id}` | Job status + log |
+| GET | `/api/queue` | Bulk update queue: `vmid`, `kind`, `backup`, `state` (`waiting`, `running`, `ok`, `failed`, `skipped`, `cancelled`), `job_id`, `note` |
+| POST | `/api/queue` | Body `{"vmids": [101, 102], "kind": "os"\|"app", "backup": true}` – update them one after the other |
+| DELETE | `/api/queue` | Cancel the waiting guests, or clear a finished queue |
 | WS | `/ws/jobs/{id}` | Live log of a job |
 | GET | `/api/containers/{id}/snapshots` | The guest's LUM snapshots (`lum_*`) |
 | DELETE | `/api/containers/{id}/snapshots/{name}` | Delete one LUM snapshot |

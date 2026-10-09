@@ -36,6 +36,7 @@ class Job:
     done: bool = False
     success: bool | None = None
     _listeners: set[asyncio.Queue] = field(default_factory=set)
+    _finished: asyncio.Event = field(default_factory=asyncio.Event)
 
     def emit(self, line: str) -> None:
         self.lines.append(line)
@@ -60,12 +61,31 @@ class Job:
         for q in self._listeners:
             q.put_nowait(None)
         self._listeners.clear()
+        self._finished.set()
+
+    async def wait(self) -> None:
+        await self._finished.wait()
 
     def as_dict(self) -> dict:
         return {
             "id": self.id, "vmid": self.vmid, "kind": self.kind, "target": self.target, "backup": self.backup,
             "done": self.done, "success": self.success,
         }
+
+
+@dataclass
+class QueueItem:
+    """One guest in the update queue (several guests updated one after the other)."""
+    vmid: int
+    kind: str  # "os" | "app"
+    backup: bool
+    state: str = "waiting"  # waiting | running | ok | failed | skipped | cancelled
+    job_id: int | None = None
+    note: str = ""
+
+    def as_dict(self) -> dict:
+        return {"vmid": self.vmid, "kind": self.kind, "backup": self.backup, "state": self.state,
+                "job_id": self.job_id, "note": self.note}
 
 
 class UpdateService:
@@ -82,6 +102,8 @@ class UpdateService:
         self.wrapper_version: int | None = None  # host script version, None = unknown
         self.hidden: list[int] = []  # guests tagged EXCLUDE_TAG
         self.refreshing = False
+        self.queue: list[QueueItem] = []
+        self._queue_task: asyncio.Task | None = None
 
     # --- checks ------------------------------------------------------------
 
@@ -316,6 +338,80 @@ class UpdateService:
 
     def busy(self, vmid: int) -> bool:
         return vmid in self._busy
+
+    # --- queue: several guests, one after the other -------------------------------
+
+    @property
+    def queue_active(self) -> bool:
+        return any(i.state in ("waiting", "running") for i in self.queue)
+
+    def enqueue(self, vmids: list[int], kind: str, backup: bool) -> int:
+        """Add guests to the queue (once each); returns how many were added."""
+        if not self.queue_active:
+            self.queue.clear()  # a new run: drop the results of the last one
+        queued = {i.vmid for i in self.queue if i.state in ("waiting", "running")}
+        added = 0
+        for vmid in dict.fromkeys(vmids):
+            if vmid not in queued:
+                self.queue.append(QueueItem(vmid, kind, backup))
+                added += 1
+        if added and (self._queue_task is None or self._queue_task.done()):
+            self._queue_task = asyncio.create_task(self._run_queue())
+        return added
+
+    def cancel_queue(self) -> None:
+        """Waiting guests are cancelled (a running update finishes); an idle queue is cleared."""
+        if not self.queue_active:
+            self.queue.clear()
+        for i in self.queue:
+            if i.state == "waiting":
+                i.state = "cancelled"
+
+    def _skip_reason(self, item: QueueItem) -> str | None:
+        c = self.db.container(item.vmid)
+        if not c:
+            return "no longer exists"
+        if c["status"] != "running":
+            return "not running"
+        if item.kind == "os":
+            return None if c["upgradable"] else "no OS updates"
+        if c["type"] == "qemu":
+            return "app updates are only supported for containers"
+        if not c["community_script"]:
+            return "no community-scripts app"
+        if c["app_kind"] == "os":
+            return "the app comes with the OS updates"
+        if c["app_installed"] and c["app_latest"] and not c["app_update"]:
+            return "app is up to date"
+        return None
+
+    async def _run_queue(self) -> None:
+        while item := next((i for i in self.queue if i.state == "waiting"), None):
+            # a delete or a single update on this guest may still run: wait for it
+            while item.vmid in self._busy and item.state == "waiting":
+                await asyncio.sleep(2)
+            if item.state != "waiting":  # cancelled meanwhile
+                continue
+            reason = self._skip_reason(item)
+            if reason:
+                item.state, item.note = "skipped", reason
+                continue
+            try:
+                job = self.start_job(item.vmid, item.kind, backup=item.backup)
+            except RuntimeError as err:
+                item.state, item.note = "failed", str(err)
+                continue
+            item.state, item.job_id = "running", job.id
+            await job.wait()
+            item.state = "ok" if job.success else "failed"
+            if not job.success:
+                # the reason: "### Error: ..." or "### skipped: ..." (the community script
+                # refused, e.g. too little RAM - nothing was changed)
+                reasons = [line[4:] for line in job.lines
+                           if line.startswith(("### Error", "### Internal error", "### skipped"))]
+                item.note = reasons[-1] if reasons else "see log"
+                if item.note.startswith("skipped"):
+                    item.state = "skipped"
 
 
 async def scheduler(service: UpdateService, interval_minutes: int) -> None:
