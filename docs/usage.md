@@ -25,7 +25,7 @@
 | History | `ID` · Name | Guest of the entry; the name stays visible after the guest was removed. |
 | | **Rollback** · **Delete** | Roll back to / delete the snapshot made before that update. With vzdump: **Delete** removes the backup made before that update (not protected ones). |
 | | **Log** · **Remove** | Show the stored log / remove the entry (the snapshot or backup is kept). |
-| | **Clear history** | Removes all finished entries (running updates stay; snapshots and backups are kept). |
+| | **Clear history** | Removes all finished entries (running updates stay). Two optional checkboxes also delete **all snapshots** and/or **all vzdump backups** LUM made, for every guest it manages – see [Backup, cleanup and rollback](#backup-cleanup-and-rollback). |
 
 Below 1100 px window width every row turns into a card. The footer shows the version.
 If the host script on the Proxmox host is older than this LUM version needs, a yellow
@@ -158,6 +158,11 @@ read (e.g. host script older than 8), the log says so and the update runs anyway
 - **Delete** (vzdump) removes the backup from the storage. Backups **protected** in
   Proxmox are shown but can't be deleted; remove the protection in Proxmox first.
 - Backups made by your own backup jobs never appear and can't be restored or deleted by LUM.
+- **Clear history** can delete all of LUM's snapshots and/or vzdump backups at once
+  (checkboxes in its dialog), for every container and VM LUM manages. Only LUM's own
+  ones (`lum_*`, note `lxc-update-manager`); protected backups and guests with a running
+  job are skipped. It runs in the background, the panel bottom right shows the progress
+  and the result (hover it for skipped or failed items).
 - Deleting a snapshot or backup can take a while. Proxmox reports no percentage, so the
   button and a panel bottom right show the elapsed time until it is done.
 

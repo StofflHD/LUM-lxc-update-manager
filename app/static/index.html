@@ -138,6 +138,29 @@
     </form>
   </dialog>
 
+  <dialog id="clear-dialog">
+    <div class="dialog-head">
+      <h3>Clear the whole history?</h3>
+      <button id="clear-close" type="button" aria-label="Close">✕</button>
+    </div>
+    <form id="clear-form">
+      <p class="muted">All finished entries and their logs are removed. Running updates stay.</p>
+      <label class="check">
+        <input type="checkbox" name="snapshots">
+        <span>Also delete all snapshots made by LUM (lum_*)</span>
+      </label>
+      <label class="check">
+        <input type="checkbox" name="backups">
+        <span>Also delete all vzdump backups made by LUM</span>
+      </label>
+      <p id="clear-note" class="muted"></p>
+      <div class="dialog-actions">
+        <button type="button" id="clear-cancel">Cancel</button>
+        <button class="primary danger" type="submit" id="clear-ok">Clear history</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="upd-dialog">
     <div class="dialog-head">
       <h3 id="upd-title">Start update</h3>

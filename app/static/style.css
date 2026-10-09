@@ -120,6 +120,11 @@ label.sel input { margin: 0; accent-color: var(--accent); }
 .spinner.inline { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; }
 #upd-extra { margin: 8px 0 0; }
 #upd-clean-row { margin-top: 14px; }
+#clear-dialog { width: min(480px, 95vw); }
+#clear-dialog form { padding: 4px 16px 16px; }
+#clear-dialog label.check { margin-top: 12px; }
+#clear-note { margin: 12px 0 0; }
+.task.err { border-color: var(--err); }
 #upd-clean-row[hidden] { display: none; }
 
 /* filter: segmented buttons */

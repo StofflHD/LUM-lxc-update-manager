@@ -256,6 +256,7 @@ async def status():
             "outdated": s.wrapper_version is not None and s.wrapper_version < REQUIRED_WRAPPER_VERSION,
         },
         "queue": [i.as_dict() for i in s.queue],
+        "purge": s.cleanup.as_dict() if s.cleanup else None,  # "Clear history" deleting snapshots/backups
         "cleanup": cfg.cleanup,  # default of the "clean up" checkbox
         "backup": {
             "mode": cfg.backup_mode,
@@ -516,7 +517,7 @@ async def settings_save(body: SettingsBody):
     changes = {k: v for k, v in values.items() if env.get(k) != v}
     if not changes:
         return {"saved": [], "restart": False}
-    if s._busy or s.refreshing or s.queue_active:
+    if s._busy or s.refreshing or s.queue_active or s.cleanup_active:
         raise HTTPException(409, "An update or check is running - save again when it has finished.")
     settings_edit.write(changes)
     log.info("settings changed in the web UI: %s", ", ".join(sorted(changes)))
@@ -532,9 +533,15 @@ async def history():
 
 
 @app.delete("/api/history")
-async def clear_history():
-    # snapshots and backups are not touched, only the list entries
-    return {"removed": svc().db.clear_history()}
+async def clear_history(snapshots: bool = False, backups: bool = False):
+    """Remove the finished entries. snapshots / backups: also delete all of LUM's
+    snapshots / vzdump backups of every managed guest (in the background)."""
+    s = svc()
+    if (snapshots or backups) and s.cleanup_active:
+        raise HTTPException(409, "snapshots and backups are already being deleted")
+    removed = s.db.clear_history()
+    cleanup = s.start_cleanup(snapshots, backups).as_dict() if snapshots or backups else None
+    return {"removed": removed, "purge": cleanup}
 
 
 @app.delete("/api/history/{history_id}")

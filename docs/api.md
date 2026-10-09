@@ -11,7 +11,7 @@ the header `X-Requested-With: lum`.
 | GET | `/api/auth/state` · `/api/me` | Login configured? / current user |
 | POST | `/api/password` | Change password |
 | GET · POST | `/api/settings` | Editable settings / save them (LUM restarts) |
-| GET | `/api/status` | Version, last check, backup mode, host script version, hidden (`no-lum`) guests, `queue`, `cleanup` (default of the cleanup checkbox) |
+| GET | `/api/status` | Version, last check, backup mode, host script version, hidden (`no-lum`) guests, `queue`, `cleanup` (default of the cleanup checkbox), `purge` (progress of deleting all snapshots / backups) |
 | GET | `/api/containers` | All containers/VMs with update status (`upgradable`, `security` = the security updates among them, `restart_required`, `restart_reboot`, `restart_services`, `disk_free_kb`, `disk_size_kb`, `low_disk`, `self` = LUM's own container) |
 | POST | `/api/sync` | Re-read the list of containers/VMs only (no package checks) |
 | POST | `/api/refresh` | Check all (async) |
@@ -31,4 +31,5 @@ the header `X-Requested-With: lum`.
 | POST | `/api/containers/{id}/restore?backup={backup_id}` | Restore the guest from a LUM vzdump backup → job |
 | GET | `/api/history` · `/api/history/{id}/log` | History (with the guest `name`) / stored log |
 | DELETE | `/api/history/{id}` · `/api/history` | Remove one / all finished entries (snapshots and backups are kept) |
+| DELETE | `/api/history?snapshots=true&backups=true` | Remove all finished entries and also delete all of LUM's snapshots and/or vzdump backups (background; progress in `/api/status` → `purge`) |
 | DELETE | `/api/history/{id}/backup` | Delete the vzdump backup made before that update; `deleted: null` if it no longer exists |

@@ -92,6 +92,31 @@ class QueueItem:
                 "job_id": self.job_id, "note": self.note}
 
 
+@dataclass
+class Cleanup:
+    """Deleting all of LUM's snapshots and/or vzdump backups (from "Clear history")."""
+    snapshots: bool
+    backups: bool
+    state: str = "collecting"  # collecting | deleting | done
+    total: int = 0
+    done: int = 0
+    deleted_snapshots: int = 0
+    deleted_backups: int = 0
+    skipped: list[str] = field(default_factory=list)  # protected, guest busy
+    failed: list[str] = field(default_factory=list)
+    started: float = field(default_factory=time.time)
+    finished: float | None = None
+
+    def as_dict(self) -> dict:
+        return {
+            "snapshots": self.snapshots, "backups": self.backups, "state": self.state,
+            "total": self.total, "done": self.done, "deleted_snapshots": self.deleted_snapshots,
+            "deleted_backups": self.deleted_backups, "skipped": self.skipped, "failed": self.failed,
+            "elapsed": round((self.finished or time.time()) - self.started),
+            "since_finished": round(time.time() - self.finished) if self.finished else None,
+        }
+
+
 class UpdateService:
     def __init__(self, settings: Settings, db: Database, host, catalog: AppCatalog):
         self._s = settings
@@ -108,6 +133,7 @@ class UpdateService:
         self.refreshing = False
         self.queue: list[QueueItem] = []
         self._queue_task: asyncio.Task | None = None
+        self.cleanup: Cleanup | None = None
         self.self_vmid: int | None = None  # the container LUM runs in, if it is on this host
         self._find_self([{"vmid": c["vmid"], "name": c["name"]} for c in db.containers()])
         self._close_interrupted()
@@ -477,6 +503,56 @@ class UpdateService:
 
     def busy(self, vmid: int) -> bool:
         return vmid in self._busy
+
+    # --- delete all of LUM's snapshots / backups ------------------------------------
+
+    @property
+    def cleanup_active(self) -> bool:
+        return self.cleanup is not None and self.cleanup.state != "done"
+
+    def start_cleanup(self, snapshots: bool, backups: bool) -> Cleanup:
+        if self.cleanup_active:
+            raise RuntimeError("snapshots and backups are already being deleted")
+        self.cleanup = Cleanup(snapshots, backups)
+        asyncio.create_task(self._run_cleanup(self.cleanup))
+        return self.cleanup
+
+    async def _run_cleanup(self, cl: Cleanup) -> None:
+        """Only LUM's own snapshots (lum_*) and backups (note) of the guests LUM manages;
+        the host script enforces that as well. One at a time, like the Delete buttons."""
+        items: list[tuple[str, int, str | int]] = []
+        try:
+            for c in self.db.containers():
+                vmid, label = c["vmid"], f"{'VM' if c['type'] == 'qemu' else 'CT'} {c['vmid']}"
+                try:
+                    if cl.snapshots:
+                        items += [("snapshot", vmid, s["name"]) for s in await self.host.snapshots(vmid)]
+                    if cl.backups:
+                        for b in await self.host.backups(vmid):
+                            if b["protected"]:
+                                cl.skipped.append(f"{label}: backup of {time.strftime('%Y-%m-%d %H:%M', time.localtime(b['ctime']))} is protected")
+                            else:
+                                items.append(("backup", vmid, b["id"]))
+                except Exception as err:
+                    cl.failed.append(f"{label}: cannot list: {err}")
+            cl.total, cl.state = len(items), "deleting"
+            for kind, vmid, ref in items:
+                try:
+                    if kind == "snapshot":
+                        await self.delete_snapshot(vmid, str(ref))
+                        cl.deleted_snapshots += 1
+                    else:
+                        await self.delete_backup(vmid, int(ref))
+                        cl.deleted_backups += 1
+                except RuntimeError as err:  # a job runs on that guest
+                    cl.skipped.append(f"{vmid}: {kind} {ref}: {err}")
+                except Exception as err:
+                    cl.failed.append(f"{vmid}: {kind} {ref}: {err}")
+                cl.done += 1
+        finally:
+            cl.state, cl.finished = "done", time.time()
+            log.info("cleanup: %s snapshots and %s backups deleted, %s skipped, %s failed",
+                     cl.deleted_snapshots, cl.deleted_backups, len(cl.skipped), len(cl.failed))
 
     # --- queue: several guests, one after the other -------------------------------
 

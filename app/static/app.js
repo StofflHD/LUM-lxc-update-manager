@@ -231,8 +231,29 @@ const tasks = new Map(); // key -> { label, start, done }
 
 const elapsed = (t) => `${Math.round(((t.done || Date.now()) - t.start) / 1000)} s`;
 
+// "Clear history" with snapshots / backups runs on the server; shown with the tasks
+let serverCleanup = null;
+
+function cleanupTask(cl) {
+  if (!cl || (cl.state === "done" && cl.since_finished > 20)) return "";
+  const what = [cl.snapshots && "snapshots", cl.backups && "backups"].filter(Boolean).join(" and ");
+  const details = [...cl.failed.map((f) => `failed: ${f}`), ...cl.skipped.map((f) => `skipped: ${f}`)].join("\n");
+  if (cl.state !== "done") {
+    const progress = cl.state === "collecting" ? "looking for them" : `${cl.done} of ${cl.total}`;
+    return `<div class="task"><span class="spinner"></span><span>Deleting all LUM ${what} … ${progress}</span>`
+      + `<span class="elapsed">${cl.elapsed} s</span></div>`;
+  }
+  const parts = [`${cl.deleted_snapshots} snapshot${cl.deleted_snapshots === 1 ? "" : "s"}`,
+    `${cl.deleted_backups} backup${cl.deleted_backups === 1 ? "" : "s"} deleted`];
+  if (cl.skipped.length) parts.push(`${cl.skipped.length} skipped`);
+  if (cl.failed.length) parts.push(`${cl.failed.length} failed`);
+  return `<div class="task ${cl.failed.length ? "err" : "ok"}" title="${esc(details)}">`
+    + `<span class="${cl.failed.length ? "err" : "ok"}">${cl.failed.length ? "✘" : "✔"}</span>`
+    + `<span>${parts.join(", ")}</span><span class="elapsed">${cl.elapsed} s</span></div>`;
+}
+
 function renderTasks() {
-  $("#tasks").innerHTML = [...tasks.values()].map((t) => t.done
+  $("#tasks").innerHTML = cleanupTask(serverCleanup) + [...tasks.values()].map((t) => t.done
     ? `<div class="task ok"><span class="ok">✔</span><span>${esc(t.doneText)}</span><span class="elapsed">${elapsed(t)}</span></div>`
     : `<div class="task"><span class="spinner"></span><span>${esc(t.label)} …</span><span class="elapsed">${elapsed(t)}</span></div>`).join("");
   document.querySelectorAll("button[data-task]").forEach((b) => {
@@ -344,6 +365,7 @@ async function load() {
     $("#refresh").disabled = status.refreshing;
     backupCfg = status.backup;
     cleanupDefault = status.cleanup;
+    serverCleanup = status.purge;
     containers.forEach((c) => { guestTypes[c.vmid] = c.type; });
     lastContainers = containers;
     lastQueue = status.queue;
@@ -605,18 +627,49 @@ document.addEventListener("click", async (ev) => {
   load();
 });
 
-$("#clear-history").addEventListener("click", async () => {
-  const yes = await ask({
-    title: "Clear the whole history?",
-    text: "All finished entries and their logs are removed. Running updates stay.\n\n"
-      + "Snapshots and backups are not deleted – they stay available under each "
-      + "container's or VM's Backups button.",
-    ok: "Clear history",
-    danger: true,
+// Clear history, optionally with all of LUM's snapshots / backups
+function askClear() {
+  return new Promise((resolve) => {
+    const dlg = $("#clear-dialog");
+    const form = $("#clear-form");
+    form.reset();
+    const note = () => {
+      const snaps = form.snapshots.checked;
+      const backups = form.backups.checked;
+      $("#clear-ok").textContent = snaps || backups ? "Clear and delete" : "Clear history";
+      $("#clear-note").textContent = snaps || backups
+        ? `Deletes the ${[snaps && "snapshots", backups && "vzdump backups"].filter(Boolean).join(" and ")} `
+          + "LUM made, for every container and VM it manages – they can't be rolled back or restored "
+          + "any more. Your own snapshots and backups and protected backups are not touched. "
+          + "Runs in the background (bottom right)."
+        : "Snapshots and backups are not deleted – they stay available under each "
+          + "container's or VM's Backups button.";
+      $("#clear-note").className = snaps || backups ? "warn-text" : "muted";
+    };
+    form.snapshots.onchange = note;
+    form.backups.onchange = note;
+    note();
+    const finish = (value) => {
+      if (dlg.open) dlg.close();
+      resolve(value);
+    };
+    form.onsubmit = (ev) => {
+      ev.preventDefault();
+      finish({ snapshots: form.snapshots.checked, backups: form.backups.checked });
+    };
+    $("#clear-cancel").onclick = () => finish(null);
+    $("#clear-close").onclick = () => finish(null);
+    dlg.oncancel = () => resolve(null); // Esc
+    dlg.showModal();
+    $("#clear-cancel").focus();
   });
-  if (!yes) return;
+}
+
+$("#clear-history").addEventListener("click", async () => {
+  const choice = await askClear();
+  if (!choice) return;
   try {
-    await api("/api/history", { method: "DELETE" });
+    await api(`/api/history?snapshots=${choice.snapshots}&backups=${choice.backups}`, { method: "DELETE" });
   } catch (err) {
     await showError(err.message);
   }
