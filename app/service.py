@@ -243,7 +243,7 @@ class UpdateService:
                 )
                 return
             await self._check_disk(vmid)
-            if info.script:
+            if info.script and not (self.db.container(vmid) or {}).get("self_created"):
                 await self._check_app(vmid, info.script)
 
     async def _check_disk(self, vmid: int) -> None:
@@ -592,6 +592,8 @@ class UpdateService:
             return None if c["upgradable"] else "no OS updates"
         if c["type"] == "qemu":
             return "app updates are only supported for containers"
+        if c["self_created"]:
+            return "tagged self-created"
         if not c["community_script"]:
             return "no community-scripts app"
         if c["app_kind"] == "os":

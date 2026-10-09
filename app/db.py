@@ -44,6 +44,10 @@ HISTORY_COLS = ("h.id, h.vmid, h.kind, h.started, h.finished, h.success, h.backu
                 "h.backup_removed, h.detail, COALESCE(c.name, h.name) AS name")
 
 
+# Proxmox tag: a container built by hand that happens to look like a community-script
+# one (/usr/bin/update) - OS updates only, no app version check, no app update
+SELF_CREATED_TAG = "self-created"
+
 # "apt list --upgradable" line: "openssl/stable-security 3.5.7-1~deb13u3 amd64 [...]";
 # Ubuntu lists several suites: "libssl3t64/noble-updates,noble-security ...".
 # apk has no security channel, so Alpine guests never show security updates.
@@ -165,8 +169,11 @@ class Database:
             d["restart_required"] = d["restart_reboot"] or bool(d["restart_services"])
             d["community_script"] = bool(d["community_script"])
             d["tags"] = [t for t in d["tags"].split(";") if t]
-            d["app_update"] = is_update(d["app_installed"], d["app_latest"])
-            d["app_ahead"] = is_ahead(d["app_installed"], d["app_latest"])  # e.g. a pre-release
+            d["self_created"] = SELF_CREATED_TAG in {t.lower() for t in d["tags"]}
+            if d["self_created"]:  # takes effect at once, before the next check
+                d["community_script"] = False
+            d["app_update"] = not d["self_created"] and is_update(d["app_installed"], d["app_latest"])
+            d["app_ahead"] = not d["self_created"] and is_ahead(d["app_installed"], d["app_latest"])  # e.g. a pre-release
             result.append(d)
         return result
 

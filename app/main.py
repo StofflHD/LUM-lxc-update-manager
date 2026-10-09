@@ -315,6 +315,8 @@ async def update(vmid: int, kind: Literal["os", "app"] = "os", backup: bool = Tr
         raise HTTPException(409, "container is not running")
     if kind == "app" and c["type"] == "qemu":
         raise HTTPException(409, "app updates are only supported for LXC containers")
+    if kind == "app" and c["self_created"]:
+        raise HTTPException(409, "the container is tagged self-created - no app updates")
     if kind == "app" and not c["community_script"]:
         raise HTTPException(409, "container has no community-scripts update command")
     try:

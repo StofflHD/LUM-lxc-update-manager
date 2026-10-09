@@ -10,6 +10,14 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.17.0] – 2026-10-09
+
+### Added
+- Proxmox tag **`self-created`**: for containers you built yourself that LUM would take
+  for a community-script app. LUM then manages only their OS updates – no **App update**
+  button, no app version check, skipped by bulk app updates, refused by the API.
+- API: `/api/containers` has `self_created`.
+
 ## [0.16.0] – 2026-10-09
 
 ### Added
@@ -422,7 +430,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.16.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/420daa7...main
+[0.17.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ad0a71b...main
+[0.16.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/420daa7...ad0a71b
 [0.15.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/43d796e...420daa7
 [0.15.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/7b33fe8...43d796e
 [0.15.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0058f2b...7b33fe8

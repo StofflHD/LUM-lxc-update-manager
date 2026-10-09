@@ -22,6 +22,7 @@ _CONTAINERS = [
     (106, "forgejo", "running", "community-script;git", "apt", "forgejo", "14.0.2", "lxc"),     # Codeberg
     (107, "motioneye", "running", "community-script;camera", "apt", "motioneye", "0.42.1", "lxc"),  # PyPI
     (108, "backup-server", "running", "no-lum", "apt", None, "", "lxc"),  # hidden from LUM
+    (109, "my-webapp", "running", "self-created", "apt", "tandoor", "2.0.0", "lxc"),  # no app updates
     (200, "debian-vm", "running", "", "apt", None, "", "qemu"),
     (201, "windows-vm", "running", "", "unknown", None, "", "qemu"),  # no guest agent
 ]

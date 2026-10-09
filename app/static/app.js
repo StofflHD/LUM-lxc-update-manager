@@ -141,8 +141,8 @@ function renderContainers(all) {
       <td class="actions">
         <button data-act="check" data-id="${c.vmid}" ${!running || c.busy ? "disabled" : ""}>Check</button>
         <button data-act="os" data-id="${c.vmid}" ${!running || c.busy || !c.upgradable.length ? "disabled" : ""}>OS update</button>
-        ${c.type === "qemu"
-          // no app updates for VMs: invisible stand-in keeps the buttons aligned in the table
+        ${c.type === "qemu" || c.self_created
+          // no app updates for VMs and self-created containers: invisible stand-in keeps the buttons aligned
           ? '<button class="placeholder" tabindex="-1" aria-hidden="true" disabled>App update</button>'
           : `<button data-act="app" data-id="${c.vmid}" ${!running || c.busy || !c.community_script ? "disabled" : ""}
           class="${c.app_update ? "primary" : ""}">App update</button>`}
@@ -684,7 +684,8 @@ function renderBulk() {
     ? `${n} selected`
     : "Select containers and VMs to update several at once";
   $("#bulk-os").disabled = !n;
-  $("#bulk-app").disabled = ![...selected].some((v) => guestTypes[v] !== "qemu");
+  const appCapable = new Set(lastContainers.filter((c) => c.type !== "qemu" && !c.self_created).map((c) => String(c.vmid)));
+  $("#bulk-app").disabled = ![...selected].some((v) => appCapable.has(v));
   $("#sel-none").hidden = !n;
   const running = visibleGuests(lastContainers).filter((c) => c.status === "running");
   const all = running.length > 0 && running.every((c) => selected.has(String(c.vmid)));
@@ -726,10 +727,11 @@ document.querySelectorAll("[data-filter]").forEach((b) => b.addEventListener("cl
 }));
 
 async function bulkUpdate(kind) {
-  const vmids = [...selected].map(Number).filter((v) => kind === "os" || guestTypes[v] !== "qemu");
+  const appCapable = new Set(lastContainers.filter((c) => c.type !== "qemu" && !c.self_created).map((c) => c.vmid));
+  const vmids = [...selected].map(Number).filter((v) => kind === "os" || appCapable.has(v));
   const what = kind === "os" ? "OS updates" : "an app update";
   const extra = `They run one after the other, each with its own log in the history. Guests without ${what}`
-    + (kind === "app" ? " (and VMs)" : "") + " are skipped; a failed update does not stop the others.";
+    + (kind === "app" ? " (and VMs / self-created containers)" : "") + " are skipped; a failed update does not stop the others.";
   const choice = await askUpdate(`${vmids.length} guest${vmids.length === 1 ? "" : "s"}`, kind, extra);
   if (!choice) return;
   try {

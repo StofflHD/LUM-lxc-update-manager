@@ -251,6 +251,23 @@ by `;` (e.g. `--tags "mytag;no-lum"`).
 The change shows up with the next **Refresh list** or **Check all**. Remove the tag to let
 LUM manage the guest again.
 
+### Containers without app updates: `self-created`
+
+A container you built yourself may still have an `update` command (e.g. copied from a
+community-script container) and then shows up as a community-script app. Give it the tag
+**`self-created`** and LUM manages only its OS updates:
+
+- no **App update** button, no app version check, no app column;
+- bulk app updates skip it (*tagged self-created*), the API refuses an app update.
+
+```bash
+pct set <CTID> --tags "self-created"
+```
+
+The list picks the tag up within a minute (or with **Refresh list**); the tag is
+case-insensitive. Unlike `no-lum` this is not enforced by the host script – it is only
+about what LUM shows and offers.
+
 ## Login
 
 The web UI has one admin account. The installer asks for username and password
