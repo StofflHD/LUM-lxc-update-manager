@@ -10,6 +10,13 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.21.2] – 2026-10-09
+
+### Changed
+- Auto-update can be set at each guest: below its name `auto: off` / `auto: OS` /
+  `auto: OS + app` – a click opens the dialog for that guest. The greyed-out
+  **Auto-update …** button above the list explains that guests need to be selected.
+
 ## [0.21.1] – 2026-10-09
 
 ### Changed
@@ -515,7 +522,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.21.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/65281d6...main
+[0.21.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/857a654...main
+[0.21.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/65281d6...857a654
 [0.21.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/d0c5375...65281d6
 [0.20.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/9ee908b...d0c5375
 [0.19.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8fab477...9ee908b

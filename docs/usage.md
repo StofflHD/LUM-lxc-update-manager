@@ -14,6 +14,7 @@
 | | **Select all with updates** · **OS update** · **App update** | Update several guests in one go – see [Updating several guests](#updating-several-guests). |
 | | **Auto-update …** | Update the selected guests automatically in the maintenance window – see [Automatic updates](#automatic-updates-maintenance-window). |
 | Each row | ☐ `ID` · `LXC`/`VM` · node | Checkbox for a bulk update (the one in the header selects all running guests). Container or VM; in a [cluster](installation.md#proxmox-cluster) also its node. VMs need the QEMU guest agent, otherwise **no guest agent** is shown. |
+| | `auto: off` · `auto: OS` · `auto: OS + app` | Below the name: click to set the [automatic updates](#automatic-updates-maintenance-window) of this guest. |
 | | `▸ N packages` · `N security` | Pending OS updates – click to list them. **security**: how many come from a security repository (see [Security updates](#security-updates)); they are marked in the list. |
 | | App column | Installed app version (green) or `installed → latest` (orange) with a link to the release page, PyPI or npm. **held back**: the community script pins this version; **pre-release**: the installed version is newer than the latest stable one. Without a version source: *updated with the OS packages*, *no version check (Docker)* or *Version unknown* – see [App updates](#app-updates). |
 | | **Check** | Checks this one guest. |
@@ -60,9 +61,10 @@ applies to all of them.
    (`sun`, `sat,sun`, `mon-fri`, `daily`), the start (`03:00`) and optionally an end
    (`05:00`; an end before the start means the next day). The time is the local time of
    the LUM container.
-2. Select the guests and click **Auto-update …** above the list: **Off**, **OS
-   updates** or **OS and app updates**. The guests show `auto: OS` / `auto: OS + app`,
-   the status line the next window.
+2. Click **`auto: off`** below a guest's name – or select several guests and click
+   **Auto-update …** above the list – and choose **Off**, **OS updates** or **OS and app
+   updates**. The guests then show `auto: OS` / `auto: OS + app`, the status line the
+   next window.
 
 When the window starts, LUM checks all guests and then updates the auto-update guests
 through the [queue](#updating-several-guests): first the OS updates, then the app

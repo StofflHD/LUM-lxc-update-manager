@@ -134,6 +134,10 @@ label.check.indent { margin-left: 26px; }
 #auto-dialog form { padding: 4px 16px 16px; }
 #auto-dialog label.check { margin-top: 10px; }
 .tag.auto { color: var(--accent); }
+/* "auto: …" at each guest: a small text button */
+.tag-button { border: none; background: none; padding: 0; font-size: 11px; color: var(--muted); text-decoration: underline dotted; text-underline-offset: 2px; }
+.tag-button:hover:not(:disabled) { color: var(--text); }
+.tag-button.on { color: var(--accent); }
 #clear-dialog form { padding: 4px 16px 16px; }
 #clear-dialog label.check { margin-top: 12px; }
 #clear-note { margin: 12px 0 0; }

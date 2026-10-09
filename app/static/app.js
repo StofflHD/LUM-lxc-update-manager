@@ -134,10 +134,14 @@ const AUTO_LABEL = { os: "auto: OS", all: "auto: OS + app" };
 let clusterNodes = 0; // > 1: show each guest's node
 let maintenance = null;
 
+// per guest: "auto: off / OS / OS + app" - a click opens the auto-update dialog for it
 function autoTag(c) {
-  if (!AUTO_LABEL[c.auto_update]) return "";
-  const when = maintenance?.next ? `next: ${fmtTime(maintenance.next)}` : "no maintenance window set (Settings)";
-  return `<span class="tag auto" title="Updated automatically in the maintenance window – ${esc(when)}">${AUTO_LABEL[c.auto_update]}</span>`;
+  const on = Boolean(AUTO_LABEL[c.auto_update]);
+  const when = !on ? "Click to update this guest automatically in the maintenance window"
+    : maintenance?.next ? `Updated automatically in the maintenance window – next: ${fmtTime(maintenance.next)}`
+      : "Updated automatically in the maintenance window – none set yet (☰ → Settings → Auto-update)";
+  return `<button type="button" class="tag-button ${on ? "on" : ""}" data-act="auto" data-id="${c.vmid}"
+    title="${esc(when)}">${on ? AUTO_LABEL[c.auto_update] : "auto: off"}</button>`;
 }
 
 function maintenanceText(m) {
@@ -156,7 +160,7 @@ function renderContainers(all) {
     return `<tr>
       <td data-label="ID"><label class="sel"><input type="checkbox" data-sel="${c.vmid}" aria-label="Select ${c.vmid}"
         ${selected.has(String(c.vmid)) ? "checked" : ""} ${running ? "" : "disabled"}>${c.vmid}</label><br><span class="tag">${c.type === "qemu" ? "VM" : "LXC"}</span>${clusterNodes > 1 && c.node ? `<span class="tag" title="Cluster node">${esc(c.node)}</span>` : ""}</td>
-      <td data-label="Name"><strong>${esc(c.name)}</strong>${c.self ? ' <span class="badge muted" title="LUM runs in this container">LUM</span>' : ""}<br>${autoTag(c)}${c.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("")}</td>
+      <td data-label="Name"><strong>${esc(c.name)}</strong>${c.self ? ' <span class="badge muted" title="LUM runs in this container">LUM</span>' : ""}<br>${autoTag(c)}${c.tags.length ? "<br>" : ""}${c.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("")}</td>
       <td data-label="Status"><span class="badge ${running ? "ok" : "muted"}">${esc(c.status)}</span>${restartBadge(c)}${diskBadge(c)}${queued.has(c.vmid) ? '<br><span class="tag">queued</span>' : ""}</td>
       <td data-label="Package manager">${esc(c.pkg_manager || "–")}${c.community_script ? '<br><span class="tag">community-script</span>' : ""}</td>
       <td data-label="OS updates">${updatesCell(c)}</td>
@@ -639,6 +643,9 @@ document.addEventListener("click", async (ev) => {
         await api(`/api/history/${id}`, { method: "DELETE" });
         break;
       }
+      case "auto":
+        openAutoDialog([Number(id)]);
+        return;
       case "joblog": {
         const job = await api(`/api/jobs/${id}`);
         if (!job.done) {
@@ -722,6 +729,8 @@ function renderBulk() {
   $("#bulk-app").disabled = ![...selected].some((v) => appCapable.has(v));
   $("#sel-none").hidden = !n;
   $("#bulk-auto").disabled = !n;
+  $("#bulk-auto").title = n ? "Update the selected guests automatically in the maintenance window"
+    : "Select guests first (checkboxes in the list), or click \"auto: …\" at a single guest";
   const running = visibleGuests(lastContainers).filter((c) => c.status === "running");
   const all = running.length > 0 && running.every((c) => selected.has(String(c.vmid)));
   $("#sel-all").checked = all;
@@ -784,13 +793,15 @@ async function bulkUpdate(kind) {
 $("#bulk-os").addEventListener("click", () => bulkUpdate("os"));
 
 // auto-update mode for the selected guests
-$("#bulk-auto").addEventListener("click", () => {
-  const vmids = [...selected].map(Number);
+$("#bulk-auto").addEventListener("click", () => openAutoDialog([...selected].map(Number)));
+
+function openAutoDialog(vmids) {
   const modes = new Set(lastContainers.filter((c) => vmids.includes(c.vmid)).map((c) => c.auto_update || "off"));
   const form = $("#auto-form");
   form.reset();
   if (modes.size === 1) form.querySelector(`input[value="${[...modes][0]}"]`).checked = true;
-  $("#auto-title").textContent = `Auto-update – ${vmids.length} guest${vmids.length === 1 ? "" : "s"}`;
+  const one = vmids.length === 1 && lastContainers.find((c) => c.vmid === vmids[0]);
+  $("#auto-title").textContent = `Auto-update – ${one ? `${guestLabel(one.vmid)} ${one.name}` : `${vmids.length} guests`}`;
   const m = maintenance || {};
   $("#auto-window").textContent = m.days
     ? `Maintenance window: ${m.days} ${m.time}${m.until ? `–${m.until}` : ""}${m.restart ? ", restarts guests that need it" : ""}. `
@@ -813,7 +824,7 @@ $("#bulk-auto").addEventListener("click", () => {
   $("#auto-cancel").onclick = () => dlg.close();
   $("#auto-close").onclick = () => dlg.close();
   dlg.showModal();
-});
+}
 
 // --- export / import ------------------------------------------------------------------
 
