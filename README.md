@@ -21,7 +21,8 @@ web UI. With a snapshot before every update and rollback with one click.
   GitHub, Codeberg, GitLab, PyPI or npm
 - **Safety first** – snapshot or vzdump backup before every update, cleanup, rollback;
   restore or delete LUM's vzdump backups from the web UI
-- **History** with stored logs, snapshots can be rolled back or deleted from there
+- **History** with stored logs, snapshots can be rolled back or deleted and vzdump backups
+  deleted from there
 - **Secure by design** – the host only allows a fixed set of commands, LUM touches only
   its own snapshots and backups; login with lockout and CSRF protection
 - **Responsive** web UI with light and dark theme and a settings page, works behind a reverse proxy

@@ -17,9 +17,9 @@
 | | **OS update** | Opens the update dialog (with the backup checkbox), then runs apt/apk with a live log. |
 | | **App update** | Community-script app update (containers only; not shown for VMs). Highlighted when a newer app version exists. |
 | | **Backups** | The guest's LUM snapshots (**Rollback**, **Delete**) and vzdump backups (**Restore**, **Delete**) – see [Backup, cleanup and rollback](#backup-cleanup-and-rollback). |
-| History | **Rollback** · **Delete** | Roll back to / delete the snapshot made before that update. |
-| | **Log** · **Remove** | Show the stored log / remove the entry (the snapshot is kept). |
-| | **Clear history** | Removes all finished entries (running updates and snapshots stay). |
+| History | **Rollback** · **Delete** | Roll back to / delete the snapshot made before that update. With vzdump: **Delete** removes the backup made before that update (not protected ones). |
+| | **Log** · **Remove** | Show the stored log / remove the entry (the snapshot or backup is kept). |
+| | **Clear history** | Removes all finished entries (running updates stay; snapshots and backups are kept). |
 
 Below 1100 px window width every row turns into a card. The footer shows the version.
 If the host script on the Proxmox host is older than this LUM version needs, a yellow

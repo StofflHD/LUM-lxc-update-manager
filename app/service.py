@@ -278,6 +278,26 @@ class UpdateService:
         finally:
             self._busy.discard(vmid)
 
+    async def delete_history_backup(self, entry: dict) -> int | None:
+        """Delete the vzdump backup an update in the history made: the LUM backup on
+        its storage whose ctime falls into the job's runtime. Returns its id, or None
+        if it no longer exists (then the entry is just marked as removed)."""
+        vmid, started = entry["vmid"], entry["started"]
+        finished = entry["finished"] or started
+        found = [
+            b for b in await self.host.backups(vmid)
+            if b["storage"] == entry["backup_ref"] and started - 60 <= b["ctime"] <= finished + 60
+        ]
+        if not found:
+            self.db.mark_history_backup_removed(entry["id"])
+            return None
+        if len(found) > 1:
+            raise ValueError("several backups match this entry – delete it under the Backups button")
+        if found[0]["protected"]:
+            raise ValueError("the backup is protected in Proxmox – remove the protection there first")
+        await self.delete_backup(vmid, found[0]["id"])
+        return found[0]["id"]
+
     async def _run_restore(self, job: Job, history_id: int) -> bool:
         when = time.strftime("%Y-%m-%d %H:%M", time.localtime(int(job.target)))
         job.emit(f"### Restore from the vzdump backup of {when}")

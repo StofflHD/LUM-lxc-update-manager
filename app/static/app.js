@@ -129,6 +129,7 @@ function renderHistory(list) {
   list.forEach((h) => { historyById[h.id] = h; });
   $("#history").innerHTML = list.map((h) => {
     const canRollback = h.kind !== "rollback" && h.backup_kind === "snapshot" && !h.backup_removed && h.finished;
+    const canDeleteVzdump = h.backup_kind === "vzdump" && !h.backup_removed && h.finished;
     return `<tr>
       <td data-label="Time">${fmtTime(h.started)}</td><td data-label="ID">${guestLabel(h.vmid)}</td>
       <td data-label="Type">${KIND[h.kind] || esc(h.kind)}</td>
@@ -138,6 +139,7 @@ function renderHistory(list) {
       <td class="actions">
         ${canRollback ? `<button data-act="rollback" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}">Rollback</button>
           <button data-act="delsnap" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}" class="danger">Delete</button>` : ""}
+        ${canDeleteVzdump ? `<button data-act="delhistbackup" data-id="${h.id}" class="danger" title="Delete the vzdump backup made before this update">Delete</button>` : ""}
         <button data-act="log" data-id="${h.id}">Log</button>
         ${h.finished ? `<button data-act="delhist" data-id="${h.id}" title="Remove this entry from the history">Remove</button>` : ""}
       </td>
@@ -418,12 +420,30 @@ document.addEventListener("click", async (ev) => {
         followJob(await api(`/api/containers/${id}/rollback?snapshot=${encodeURIComponent(snap)}`, { method: "POST" }));
         break;
       }
+      case "delhistbackup": {
+        const h = historyById[id];
+        const yes = await ask({
+          title: `Delete vzdump backup of ${guestLabel(h.vmid)}?`,
+          text: `Backup on "${h.backup_ref}" made before the ${KIND[h.kind] || h.kind} of ${fmtTime(h.started)}`
+            + "\n\nIt is removed from the backup storage and can't be restored any more.",
+          ok: "Delete",
+          danger: true,
+        });
+        if (!yes) return;
+        btn.disabled = true;
+        btn.textContent = "…";
+        const res = await api(`/api/history/${id}/backup`, { method: "DELETE" });
+        if (res.deleted == null) {
+          await showError("The backup no longer exists on the storage – the entry is marked as deleted.");
+        }
+        break;
+      }
       case "delhist": {
         const yes = await ask({
           title: "Remove history entry?",
           text: "The entry and its log are removed from the history.\n\n"
-            + "A snapshot made for this update is not deleted – it stays available "
-            + "(and can be rolled back) under the Backups button of the container or VM.",
+            + "A snapshot or vzdump backup made for this update is not deleted – it stays "
+            + "available under the Backups button of the container or VM.",
           ok: "Remove",
           danger: true,
         });

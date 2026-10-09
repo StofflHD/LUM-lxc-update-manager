@@ -484,6 +484,25 @@ async def delete_history(history_id: int):
     return {"removed": history_id}
 
 
+@app.delete("/api/history/{history_id}/backup")
+async def delete_history_backup(history_id: int):
+    s = svc()
+    entry = s.db.history_entry(history_id)
+    if not entry:
+        raise HTTPException(404, "unknown entry")
+    if entry["backup_kind"] != "vzdump" or entry["backup_removed"]:
+        raise HTTPException(409, "this entry has no vzdump backup (any more)")
+    if entry["finished"] is None:
+        raise HTTPException(409, "this job is still running")
+    try:
+        return {"deleted": await s.delete_history_backup(entry)}
+    except (RuntimeError, ValueError) as err:
+        raise HTTPException(409, str(err))
+    except Exception as err:
+        log.warning("deleting the backup of history entry %s failed: %s", history_id, err)
+        raise HTTPException(502, f"cannot delete backup: {err}")
+
+
 @app.get("/api/history/{history_id}/log", response_class=PlainTextResponse)
 async def history_log(history_id: int):
     text = svc().db.history_log(history_id)

@@ -161,6 +161,10 @@ class Database:
                 (vmid, ctime, ctime),
             )
 
+    def mark_history_backup_removed(self, history_id: int) -> None:
+        with self._conn:
+            self._conn.execute("UPDATE history SET backup_removed=1 WHERE id=?", (history_id,))
+
     def mark_all_snapshots_removed(self, vmid: int) -> None:
         """A restore from a vzdump backup deletes all snapshots of the guest."""
         with self._conn:
