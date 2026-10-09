@@ -10,6 +10,22 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.9.1] – 2026-10-09
+
+### Fixed
+- An installed pre-release (e.g. motionEye 0.45.0a1) was offered a "downgrade" to the
+  latest stable release (0.44.0); the app update then did nothing but reported success.
+  Versions are compared properly now – pre-releases rank below the final release with
+  the same number – and an app newer than the latest stable release is shown green with
+  a *pre-release* hint instead of an update.
+- The highest release of a forge is picked with the same rule (rc below final).
+
+### Documentation
+- Usage: status line and app column (version sources, *held back*, *pre-release*) in the
+  web UI overview; development: what the demo mode simulates; reverse proxy: *Cache
+  Assets* in Nginx Proxy Manager is fine; README: `pkg-version` and `no-lum` in "How it
+  works".
+
 ## [0.9.0] – 2026-10-09
 
 ### Added
@@ -233,7 +249,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.9.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/58559b4...main
+[0.9.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/e347e7a...main
+[0.9.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/58559b4...e347e7a
 [0.8.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/777d354...58559b4
 [0.7.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ddbc9a0...777d354
 [0.6.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/4a80557...ddbc9a0

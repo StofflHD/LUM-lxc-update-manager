@@ -25,6 +25,8 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 
+from .versions import version_key
+
 log = logging.getLogger(__name__)
 
 SCRIPT_URL = "https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/{}.sh"
@@ -88,7 +90,8 @@ def normalize(version: str) -> str:
 
 
 def _version_key(tag: str) -> tuple:
-    return tuple(int(n) for n in re.findall(r"\d+", tag)) or (0,)
+    # pre-releases below the final release, like versions.compare
+    return version_key(tag) or ((0,), (0, 0, 0))
 
 
 def _update_body(text: str) -> str:

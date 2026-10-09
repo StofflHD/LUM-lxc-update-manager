@@ -78,7 +78,10 @@ function appCell(c) {
   const badge = c.app_update
     ? `<span class="badge warn">${esc(c.app_installed)} → ${esc(c.app_latest)}</span>`
     : `<span class="badge ok">${esc(c.app_installed)}</span>`;
-  return `${name} ${badge}${held}<br>${repo}`;
+  const ahead = c.app_ahead
+    ? ` <span class="tag" title="${esc(`Installed ${c.app_installed} is newer than the latest stable release ${c.app_latest}`)}">pre-release</span>`
+    : "";
+  return `${name} ${badge}${held}${ahead}<br>${repo}`;
 }
 
 function renderContainers(list) {

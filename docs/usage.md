@@ -9,11 +9,14 @@
 | Top right | **Refresh list** | Re-reads only the list of containers/VMs (fast). New running guests are checked right away; the result is shown below the status line. |
 | | **Check all** | Re-reads the list and checks every running guest for OS and app updates. Also runs automatically every `LUM_CHECK_INTERVAL_MINUTES`. |
 | | **☰** menu | **Theme** (System / Light / Dark, stored in the browser), **Settings** (see [Configuration](configuration.md#in-the-web-ui)) and **Change password**. |
-| Each row | **Check** | Checks this one guest. |
+| Status line | | Last check, backup mode, guests hidden by the `no-lum` tag (hover for their IDs), result of **Refresh list**, and a yellow note when the host script is outdated. |
+| Each row | `ID` · `LXC`/`VM` | Container or VM. VMs need the QEMU guest agent, otherwise **no guest agent** is shown. |
+| | `▸ N packages` | Pending OS updates – click to list them. |
+| | App column | Installed app version (green) or `installed → latest` (orange) with a link to the release page, PyPI or npm. **held back**: the community script pins this version; **pre-release**: the installed version is newer than the latest stable one. Without a version source: *updated with the OS packages*, *no version check (Docker)* or *Version unknown* – see [App updates](#app-updates). |
+| | **Check** | Checks this one guest. |
 | | **OS update** | Opens the update dialog (with the backup checkbox), then runs apt/apk with a live log. |
 | | **App update** | Community-script app update (containers only; not shown for VMs). Highlighted when a newer app version exists. |
 | | **Snapshots** | The guest's LUM snapshots with **Rollback** and **Delete**. |
-| | `▸ N packages` | Click to list the pending packages. |
 | History | **Rollback** · **Delete** | Roll back to / delete the snapshot made before that update. |
 | | **Log** · **Remove** | Show the stored log / remove the entry (the snapshot is kept). |
 | | **Clear history** | Removes all finished entries (running updates and snapshots stay). |
@@ -65,6 +68,8 @@ Like the community scripts LUM takes the *highest* stable release (no drafts or
 pre-releases, only tags with the script's prefix, if any). When a script **pins** a
 version on purpose (e.g. Immich: "each release is tested individually"), LUM shows that
 version as the latest and marks the app **held back** – the tooltip shows the reason.
+An installed pre-release that is newer than the latest stable release (e.g. `0.45.0a1`
+vs. `0.44.0`) is not an update – LUM shows it green with a **pre-release** hint.
 
 Apps without a usable source show a hint instead of a version, and can still be updated:
 

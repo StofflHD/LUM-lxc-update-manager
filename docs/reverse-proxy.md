@@ -35,7 +35,9 @@ LUM can run behind any reverse proxy for HTTPS and access from outside. Requirem
 - *SSL* tab: request a certificate, **Force SSL** on
 
 NPM sends `Host`, `X-Forwarded-For` and `X-Forwarded-Proto` by default. Set
-`FORWARDED_ALLOW_IPS` to the IP of the NPM container/host.
+`FORWARDED_ALLOW_IPS` to the IP of the NPM container/host. **Cache Assets** may stay on:
+LUM's CSS/JS links contain the version (`?v=…`), so an update never mixes old and new
+files.
 
 ### nginx
 

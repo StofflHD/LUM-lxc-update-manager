@@ -79,10 +79,11 @@ LXC 101, 102 …   VM 200, 201 … (via QEMU guest agent)
 
 LUM runs in its own container and reaches the Proxmox host over SSH with a key that may
 only call the host script (`lxc-update-wrapper`). The script accepts a fixed set of verbs
-(`version`, `list`, `info`, `check`, `upgrade`, `app-version`, `app-update`, `snapshot`,
-`snapshots`, `prune-snapshots`, `delete-snapshot`, `rollback`, `backup`, `prune-backups`),
-validates every argument and only ever touches snapshots named `lum_*` and backups with
-the note `lxc-update-manager`. LUM never gets a shell on the host.
+(`version`, `list`, `info`, `check`, `upgrade`, `app-version`, `pkg-version`, `app-update`,
+`snapshot`, `snapshots`, `prune-snapshots`, `delete-snapshot`, `rollback`, `backup`,
+`prune-backups`), validates every argument, refuses containers and VMs tagged `no-lum`
+and only ever touches snapshots named `lum_*` and backups with the note
+`lxc-update-manager`. LUM never gets a shell on the host.
 
 ## Roadmap
 

@@ -3,6 +3,8 @@ import sqlite3
 import time
 from pathlib import Path
 
+from .versions import is_ahead, is_update
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS containers (
     vmid INTEGER PRIMARY KEY,
@@ -117,9 +119,8 @@ class Database:
             d["upgradable"] = json.loads(d["upgradable"])
             d["community_script"] = bool(d["community_script"])
             d["tags"] = [t for t in d["tags"].split(";") if t]
-            d["app_update"] = bool(
-                d["app_installed"] and d["app_latest"] and d["app_installed"] != d["app_latest"]
-            )
+            d["app_update"] = is_update(d["app_installed"], d["app_latest"])
+            d["app_ahead"] = is_ahead(d["app_installed"], d["app_latest"])  # e.g. a pre-release
             result.append(d)
         return result
 
