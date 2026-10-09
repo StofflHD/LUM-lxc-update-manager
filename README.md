@@ -16,7 +16,8 @@ web UI. With a snapshot before every update and rollback with one click.
 
 - **Containers and VMs in one list** – LXC via `pct`, VMs via the QEMU guest agent
 - **OS updates** (apt / apk) with one click and a live log
-- **App updates** for community-script containers, with installed vs. latest version
+- **App updates** for community-script containers, with installed vs. latest version from
+  GitHub, Codeberg, GitLab, PyPI or npm
 - **Safety first** – snapshot or vzdump backup before every update, cleanup, rollback
 - **History** with stored logs, snapshots can be rolled back or deleted from there
 - **Secure by design** – the host only allows a fixed set of commands, LUM touches only
@@ -85,10 +86,10 @@ the note `lxc-update-manager`. LUM never gets a shell on the host.
 ## Roadmap
 
 - [x] App version detection and non-interactive app updates for community scripts
+- [x] Version detection for Codeberg, GitLab, Git tags, PyPI and npm, pinned versions
 - [x] VM support via the QEMU guest agent
 - [x] Snapshot / vzdump before updates, cleanup, rollback
 - [x] Login / authentication for the web UI
-- [ ] Version detection for Codeberg releases and apps without a release check
 - [ ] Schedules / maintenance windows, auto-update per container
 - [ ] Notifications (ntfy, Gotify, Telegram)
 - [ ] Restore a vzdump backup from the web UI

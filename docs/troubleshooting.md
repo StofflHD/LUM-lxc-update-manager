@@ -7,6 +7,7 @@
 | Yellow note *host script is outdated* | Run the installer with `--update` on the Proxmox host. |
 | VM shows **no guest agent** | Install `qemu-guest-agent` in the VM, enable *QEMU Guest Agent* in its options, fully stop and start the VM. |
 | Update fails at the snapshot step | The guest's storage has no snapshot support – use `LUM_BACKUP_MODE=vzdump`. |
+| App shows *Version unknown* or no version | The community script has no version check LUM can use – see [App updates](usage.md#where-the-version-comes-from). PyPI/npm versions need host script 4 (installer `--update` on the host). |
 | App update *skipped* (exit 75/113/114) | See [App updates](usage.md#app-updates). |
 | Live log stays empty behind a proxy | WebSockets not passed through, or the public host name is lost – see [Reverse proxy](reverse-proxy.md). |
 | Everyone is locked out after wrong passwords behind a proxy | Set `FORWARDED_ALLOW_IPS` to the proxy IP. |

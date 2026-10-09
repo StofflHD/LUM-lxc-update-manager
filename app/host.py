@@ -109,6 +109,10 @@ class HostClient:
     async def app_version(self, vmid: int, app: str) -> str:
         return (await self._run("app-version", vmid, app)).strip()
 
+    async def pkg_version(self, vmid: int, manager: str, package: str) -> str:
+        """Installed version of a pip / npm package ('' if not installed)."""
+        return (await self._run("pkg-version", vmid, manager, package)).strip()
+
     def upgrade(self, vmid: int) -> AsyncIterator[str]:
         return self._stream("upgrade", vmid)
 

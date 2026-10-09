@@ -49,6 +49,10 @@ class Database:
             "containers": {
                 **{c: "TEXT" for c in ("app_script", "app_repo", "app_installed", "app_latest")},
                 "type": "TEXT NOT NULL DEFAULT 'lxc'",  # lxc | qemu
+                # where the app version comes from (app.apps.AppSource.kind), link, hint
+                "app_kind": "TEXT",
+                "app_url": "TEXT",
+                "app_note": "TEXT",
             },
             "history": {
                 "backup_kind": "TEXT",
@@ -95,12 +99,14 @@ class Database:
             )
 
     def set_app_result(
-        self, vmid: int, script: str | None, repo: str | None, installed: str | None, latest: str | None
+        self, vmid: int, script: str | None, repo: str | None, installed: str | None, latest: str | None,
+        kind: str | None = None, url: str | None = None, note: str | None = None,
     ) -> None:
         with self._conn:
             self._conn.execute(
-                "UPDATE containers SET app_script=?, app_repo=?, app_installed=?, app_latest=? WHERE vmid=?",
-                (script, repo, installed, latest, vmid),
+                """UPDATE containers SET app_script=?, app_repo=?, app_installed=?, app_latest=?,
+                   app_kind=?, app_url=?, app_note=? WHERE vmid=?""",
+                (script, repo, installed, latest, kind, url, note, vmid),
             )
 
     def containers(self) -> list[dict]:

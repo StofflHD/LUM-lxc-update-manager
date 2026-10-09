@@ -6,7 +6,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 
-from .apps import AppCatalog, strip_v
+from .apps import AppCatalog, normalize
 from .config import Settings
 from .db import Database
 from .host import HostCommandError
@@ -129,17 +129,25 @@ class UpdateService:
                 await self._check_app(vmid, info.script)
 
     async def _check_app(self, vmid: int, script: str) -> None:
-        """Installed vs. latest upstream version; failures only leave the fields empty."""
-        repo = installed = latest = None
+        """Installed vs. latest app version; failures only leave the fields empty."""
+        src = await self.catalog.source(script)
+        if not src:
+            self.db.set_app_result(vmid, script, None, None, None)
+            return
+        installed = None
         try:
-            src = await self.catalog.source(script)
-            if src:
-                repo = src.repo
-                installed = strip_v(await self.host.app_version(vmid, src.app)) or None
-                latest = await self.catalog.latest(src.repo)
-        except (HostCommandError, OSError, ValueError) as err:
-            log.warning("app check %s (%s) failed: %s", vmid, script, err)
-        self.db.set_app_result(vmid, script, repo, installed, latest)
+            if src.kind in ("github", "codeberg", "gitlab", "gh_tag"):
+                installed = await self.host.app_version(vmid, src.app)
+            elif src.kind in ("pypi", "npm"):
+                installed = await self.host.pkg_version(vmid, "pip" if src.kind == "pypi" else "npm", src.repo)
+        except (HostCommandError, OSError, ValueError) as err:  # e.g. host script < 4: no pkg-version
+            log.warning("installed version of %s in %s: %s", script, vmid, err)
+        latest = await self.catalog.latest(src)
+        note = None
+        if src.pinned:
+            note = "held back by the community script" + (f": {src.pin_reason}" if src.pin_reason else "")
+        self.db.set_app_result(vmid, script, src.label or None, normalize(installed or "") or None, latest,
+                               src.kind, src.url or None, note)
 
     # --- jobs --------------------------------------------------------------
 

@@ -24,11 +24,39 @@ note below the status line says so and shows the command to update it.
 
 ## App updates
 
-Containers created with the community scripts have an `update` command. LUM reads the
-installed app version (`~/.<app>` in the container) and the latest release of the app's
-GitHub repository (from `check_for_gh_release` in the matching `ct/<app>.sh`) and runs the
-update in the official silent mode (`PHS_SILENT=1`, the same call the community scripts'
-`tools/pve/update-apps.sh` makes).
+Containers created with the community scripts have an `update` command. LUM runs it in
+the official silent mode (`PHS_SILENT=1`, the same call the community scripts'
+`tools/pve/update-apps.sh` makes) and compares the installed with the latest app version.
+
+### Where the version comes from
+
+LUM reads the app's `ct/<app>.sh` from the community scripts and uses the same source the
+script itself checks:
+
+| The script uses | Latest version from | Installed version from |
+|---|---|---|
+| `check_for_gh_release` | highest stable GitHub release | `~/.<app>` in the container |
+| `check_for_codeberg_release` | highest stable Codeberg release | `~/.<app>` |
+| `check_for_gl_release` | highest stable GitLab release (also self-hosted GitLab) | `~/.<app>` |
+| `check_for_gh_tag` | newest GitHub tag | `~/.<app>` |
+| no check, but deploys the app's release (`fetch_and_deploy_*_release`) | as above | `~/.<app>` |
+| no check, `pip install … --upgrade` | PyPI | `pip show` in the container |
+| no check, `npm … -g` | npm registry | `npm ls -g` in the container |
+
+Like the community scripts LUM takes the *highest* stable release (no drafts or
+pre-releases, only tags with the script's prefix, if any). When a script **pins** a
+version on purpose (e.g. Immich: "each release is tested individually"), LUM shows that
+version as the latest and marks the app **held back** – the tooltip shows the reason.
+
+Apps without a usable source show a hint instead of a version, and can still be updated:
+
+- **updated with the OS packages** – the app comes from apt/apk (e.g. AdGuard, Zammad);
+  its updates show up as OS updates.
+- **no version check (Docker)** – e.g. Home Assistant.
+- **Version unknown** – e.g. apps downloaded directly from the vendor.
+
+The GitHub API allows 60 requests per hour without a token; LUM caches each version for an
+hour. With many containers set `LUM_GITHUB_TOKEN` (menu ☰ → **Settings**).
 
 In silent mode the community script deliberately stops in these cases:
 
@@ -38,8 +66,6 @@ In silent mode the community script deliberately stops in these cases:
 | 113 | The container has less CPU/RAM than the script requires | Increase resources (e.g. Tandoor: 4 CPU / 4 GB) |
 | 114 | `/boot` is more than 80 % full | Free up space |
 
-Apps without `check_for_gh_release` (e.g. AdGuard, Home Assistant) show *Version unknown*
-but can still be updated.
 
 ## VMs
 

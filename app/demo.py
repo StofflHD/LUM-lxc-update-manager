@@ -19,6 +19,8 @@ _CONTAINERS = [
     (103, "tandoor", "running", "community-script;recipes", "apt", "tandoor", "2.0.0", "lxc"),
     (104, "vaultwarden", "running", "community-script", "apk", "vaultwarden", "1.30.0", "lxc"),
     (105, "test-debian", "stopped", "", "apt", None, "", "lxc"),
+    (106, "forgejo", "running", "community-script;git", "apt", "forgejo", "14.0.2", "lxc"),     # Codeberg
+    (107, "motioneye", "running", "community-script;camera", "apt", "motioneye", "0.42.1", "lxc"),  # PyPI
     (200, "debian-vm", "running", "", "apt", None, "", "qemu"),
     (201, "windows-vm", "running", "", "unknown", None, "", "qemu"),  # no guest agent
 ]
@@ -93,7 +95,10 @@ class DemoHostClient:
     async def app_version(self, vmid: int, app: str) -> str:
         if vmid in self._updated:  # after a demo app update report the real latest version
             src = await self._catalog.source(_ct(vmid)[5])
-            return (await self._catalog.latest(src.repo) if src else None) or ""
+            return (await self._catalog.latest(src) if src else None) or ""
+        return self._versions[vmid]
+
+    async def pkg_version(self, vmid: int, manager: str, package: str) -> str:
         return self._versions[vmid]
 
     async def _fake_stream(self, lines: list[str], exit_status: int = 0) -> AsyncIterator[str]:
@@ -138,7 +143,7 @@ class DemoHostClient:
         script = _ct(vmid)[5]
         app = script.capitalize()
         src = await self._catalog.source(script)
-        latest = (await self._catalog.latest(src.repo) if src else None) or "latest"
+        latest = (await self._catalog.latest(src) if src else None) or "latest"
         self._updated.add(vmid)
         async for line in self._fake_stream([
             f"✔️ Update available: {app} {self._versions[vmid] or '?'} -> {latest}",

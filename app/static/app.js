@@ -56,16 +56,29 @@ function updatesCell(c) {
     <ul>${c.upgradable.map((p) => `<li>${esc(p)}</li>`).join("")}</ul></details>`;
 }
 
+// where the app version comes from (app_kind) when there is no version to compare
+const APP_SOURCE_HINT = {
+  os: ["updated with the OS packages", "The app is installed from OS packages (apt/apk) and updated with the OS updates."],
+  docker: ["no version check (Docker)", "The app runs in Docker – LUM can't compare versions; the app update still works."],
+  none: ["Version unknown", "The community script has no version check LUM can use; the app update still works."],
+};
+
 function appCell(c) {
   if (!c.community_script) return `<span class="muted">–</span>`;
   const name = esc(c.app_script || "?");
-  if (!c.app_repo) return `${name}<br><span class="tag" title="Script does not use GitHub releases">Version unknown</span>`;
-  const repo = `<a class="tag repo" href="https://github.com/${esc(c.app_repo)}/releases" target="_blank" rel="noopener" title="${esc(c.app_repo)}">${esc(c.app_repo)}</a>`;
-  if (!c.app_installed || !c.app_latest) return `${name}<br>${repo}`;
+  const kind = c.app_kind || (c.app_repo ? "github" : "none");
+  if (APP_SOURCE_HINT[kind]) {
+    const [text, title] = APP_SOURCE_HINT[kind];
+    return `${name}<br><span class="tag" title="${esc(title)}">${esc(text)}</span>`;
+  }
+  const url = c.app_url || `https://github.com/${c.app_repo}/releases`;
+  const repo = `<a class="tag repo" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(c.app_repo)}">${esc(c.app_repo)}</a>`;
+  const held = c.app_note ? ` <span class="tag" title="${esc(c.app_note)}">held back</span>` : "";
+  if (!c.app_installed || !c.app_latest) return `${name}${held}<br>${repo}`;
   const badge = c.app_update
     ? `<span class="badge warn">${esc(c.app_installed)} → ${esc(c.app_latest)}</span>`
     : `<span class="badge ok">${esc(c.app_installed)}</span>`;
-  return `${name} ${badge}<br>${repo}`;
+  return `${name} ${badge}${held}<br>${repo}`;
 }
 
 function renderContainers(list) {

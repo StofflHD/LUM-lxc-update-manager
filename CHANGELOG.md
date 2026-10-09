@@ -10,6 +10,25 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.8.0] – 2026-10-09
+
+### Added
+- App versions from more sources, read from the app's community script: **Codeberg**,
+  **GitLab** (also self-hosted, e.g. `GITLAB_URL`), **GitHub tags**, apps that deploy a
+  release without a separate check, and apps updated with **pip** (PyPI) or **npm**.
+  **Host script** (new verb `pkg-version` for pip/npm)
+- Versions **pinned** by a script (e.g. Immich) are shown as the latest and the app is
+  marked *held back*, with the script's reason as tooltip – no more false update hints.
+- Apps without a version source say why: *updated with the OS packages*, *no version
+  check (Docker)* or *Version unknown*.
+
+### Changed
+- The latest version is the highest stable release (no drafts / pre-releases, tag prefix
+  respected), the same rule the community scripts use – not just GitHub's "latest".
+- Scripts that check several components (e.g. authentik: geoipupdate, xmlsec, authentik)
+  now use the check that matches the app, not the first one.
+- The release link points to the right forge or registry.
+
 ## [0.7.0] – 2026-10-09
 
 ### Added
@@ -207,7 +226,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.7.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ddbc9a0...main
+[0.8.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/777d354...main
+[0.7.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ddbc9a0...777d354
 [0.6.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/4a80557...ddbc9a0
 [0.6.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/d1d6bed...4a80557
 [0.5.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/d79944e...d1d6bed

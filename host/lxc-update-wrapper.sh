@@ -16,7 +16,8 @@
 #   info     <vmid>           pkg=<apt|apk|unknown> / community=<0|1> / script=<ct script name>
 #   check    <vmid>           one upgradable package per line
 #   upgrade  <vmid>           OS upgrade (streams output; for VMs at the end)
-#   app-version <vmid> <app>  installed app version (~/.<app>, written by check_for_gh_release)
+#   app-version <vmid> <app>  installed app version (~/.<app>, written by the check_for_* / fetch_and_deploy_* helpers)
+#   pkg-version <vmid> <pip|npm> <package>  installed version of a pip / npm package
 #   app-update <vmid>         community-scripts "update" in silent mode (PHS_SILENT=1), LXC only
 #                             exit 75 = needs interactive mode, 113 = under-provisioned,
 #                             114 = /boot storage low
@@ -35,7 +36,7 @@
 set -euo pipefail
 
 # bump when verbs are added or changed; LUM checks it and asks for a host update
-WRAPPER_VERSION=3
+WRAPPER_VERSION=4
 MARKER="lxc-update-manager"
 
 # SSH_ORIGINAL_COMMAND when called via SSH, "$*" for local testing.
@@ -167,6 +168,20 @@ case "$VERB" in
     APP="${ARGS[2]:-}"
     [[ "$APP" =~ ^[a-z0-9._-]{1,60}$ ]] || die "invalid app name"
     in_guest 60 "cat \"\$HOME/.$APP\" 2>/dev/null || true"
+    ;;
+
+  pkg-version)
+    # installed version of a pip or npm package (apps updated with pip / npm)
+    require_vmid; require_running
+    MGR="${ARGS[2]:-}"
+    PKG="${ARGS[3]:-}"
+    [[ "$MGR" =~ ^(pip|npm)$ ]] || die "invalid package manager"
+    [[ "$PKG" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$ ]] || die "invalid package name"
+    if [[ $MGR == pip ]]; then
+      in_guest 60 "for p in pip3 pip 'python3 -m pip'; do v=\$(\$p show $PKG 2>/dev/null | sed -n 's/^Version: //p'); [ -n \"\$v\" ] && { echo \"\$v\"; exit 0; }; done; true"
+    else
+      in_guest 60 "npm ls -g --depth=0 $PKG 2>/dev/null | grep -oE '$PKG@[^ ]+' | head -n1 | sed 's/.*@//'; true"
+    fi
     ;;
 
   check)
