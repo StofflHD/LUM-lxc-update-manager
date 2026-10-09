@@ -19,7 +19,7 @@ from .auth import COOKIE, Auth, write_credentials
 from .config import get_settings
 from .db import Database
 from .host import HostClient
-from .service import UpdateService, scheduler, status_poller
+from .service import UpdateService, maintenance_loop, scheduler, status_poller
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -61,7 +61,8 @@ async def lifespan(app: FastAPI):
         settings, Database(settings.db_path), host, catalog
     )
     tasks = [asyncio.create_task(scheduler(app.state.service, settings.check_interval_minutes)),
-             asyncio.create_task(status_poller(app.state.service))]
+             asyncio.create_task(status_poller(app.state.service)),
+             asyncio.create_task(maintenance_loop(app.state.service))]
     yield
     for task in tasks:
         task.cancel()
@@ -256,6 +257,7 @@ async def status():
             "outdated": s.wrapper_version is not None and s.wrapper_version < REQUIRED_WRAPPER_VERSION,
         },
         "queue": [i.as_dict() for i in s.queue],
+        "maintenance": s.maintenance_status(),
         "purge": s.cleanup.as_dict() if s.cleanup else None,  # "Clear history" deleting snapshots/backups
         "cleanup": cfg.cleanup,  # default of the "clean up" checkbox
         "backup": {
@@ -331,6 +333,32 @@ class QueueBody(BaseModel):
     kind: Literal["os", "app"] = "os"
     backup: bool = True
     cleanup: bool | None = None  # None: LUM_CLEANUP
+
+
+class AutoBody(BaseModel):
+    vmids: list[int]
+    mode: Literal["off", "os", "all"]
+
+
+@app.post("/api/auto")
+async def set_auto(body: AutoBody):
+    """Auto-update per guest: off, os (OS updates) or all (OS and app updates)."""
+    s = svc()
+    unknown = [v for v in body.vmids if not s.db.container(v)]
+    if unknown:
+        raise HTTPException(404, f"unknown container(s): {', '.join(map(str, unknown))}")
+    s.db.set_auto_update(body.vmids, body.mode)
+    return {"updated": len(body.vmids), "mode": body.mode}
+
+
+@app.post("/api/maintenance/run", status_code=202)
+async def maintenance_run():
+    """Run the automatic updates now (without a window end)."""
+    try:
+        svc().start_maintenance()
+    except RuntimeError as err:
+        raise HTTPException(409, str(err))
+    return {"started": True}
 
 
 @app.get("/api/queue")
@@ -519,7 +547,7 @@ async def settings_save(body: SettingsBody):
     changes = {k: v for k, v in values.items() if env.get(k) != v}
     if not changes:
         return {"saved": [], "restart": False}
-    if s._busy or s.refreshing or s.queue_active or s.cleanup_active:
+    if s._busy or s.refreshing or s.queue_active or s.cleanup_active or s.maintenance_running:
         raise HTTPException(409, "An update or check is running - save again when it has finished.")
     settings_edit.write(changes)
     log.info("settings changed in the web UI: %s", ", ".join(sorted(changes)))

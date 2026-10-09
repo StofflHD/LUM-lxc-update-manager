@@ -37,6 +37,10 @@ running.
 | `LUM_CHECK_INTERVAL_MINUTES` | `360` | Automatic **Check all** interval |
 | `LUM_MAX_PARALLEL_CHECKS` | `4` | Guests checked at the same time |
 | `LUM_CLEANUP` | `true` | Default of **Clean up afterwards** in the update dialog: `apt autoremove` + `apt clean` (apk: `apk cache clean`) after an OS update (see [Cleanup](usage.md#cleanup-after-an-os-update)) |
+| `LUM_AUTO_DAYS` | – | Days of the maintenance window: `sun`, `sat,sun`, `mon-fri`, `daily`; empty = no automatic updates (see [Automatic updates](usage.md#automatic-updates-maintenance-window)) |
+| `LUM_AUTO_TIME` | `03:00` | Start of the window (local time of the LUM container) |
+| `LUM_AUTO_UNTIL` | – | Optional end; guests not started by then are cancelled |
+| `LUM_AUTO_RESTART` | `false` | After the updates, restart guests that need it (not LUM's own container) |
 | `LUM_MIN_FREE_MB` | `500` | Free space in the guest's `/` needed for an update; `0` turns the check off (see [Free space](usage.md#free-space-before-an-update)) |
 | `LUM_GITHUB_TOKEN` | – | Optional, raises the GitHub API limit for app versions from 60 to 5000 requests/h |
 | `LUM_BACKUP_MODE` | `snapshot` | `snapshot`, `vzdump` or `none` |

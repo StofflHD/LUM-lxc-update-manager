@@ -19,6 +19,8 @@ rollback with one click and checks for free space and pending restarts.
   tag a guest `no-lum` to keep LUM away from it, or `self-created` for OS updates only
 - **OS updates** (apt / apk) with one click and a live log – or for several guests at
   once, one after the other; security updates are highlighted and can be filtered
+- **Automatic updates** per guest in a maintenance window (days, start, end), optionally
+  with restarts
 - **Restart required** – shows when services still run replaced libraries or a VM has a
   newer kernel, with a restart button
 - **Free space check** before every update, in the guest and on the vzdump storage, and
@@ -106,6 +108,7 @@ validates every argument, refuses containers and VMs tagged `no-lum` and only ev
 - [x] "Restart required" after kernel / library updates, with a restart button
 - [x] Check free disk space (guest and vzdump storage) before an update
 - [x] Optional cleanup after an update (`apt autoremove` / `apt clean`)
+- [x] Schedules / maintenance windows, auto-update per container
 
 Planned – not every item is decided yet:
 
@@ -113,7 +116,6 @@ Planned – not every item is decided yet:
 - [ ] Docker image updates inside containers (`docker compose pull` / `up`)
 - [ ] Release notes of the new app version in the update dialog
 - [ ] Hold back single packages per guest
-- [ ] Schedules / maintenance windows, auto-update per container
 - [ ] Notifications (ntfy, Gotify, Telegram)
 - [ ] Multiple users with a read-only role, login via OIDC (e.g. Authentik)
 - [ ] Prometheus metrics (pending updates per guest)

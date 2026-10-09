@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS history (
 # history rows with the guest's name: the current one, or the one stored when the
 # job ran if the guest no longer exists
 HISTORY_COLS = ("h.id, h.vmid, h.kind, h.started, h.finished, h.success, h.backup_kind, h.backup_ref, "
-                "h.backup_removed, h.detail, COALESCE(c.name, h.name) AS name")
+                "h.backup_removed, h.detail, COALESCE(c.name, h.name) AS name, h.auto")
 
 
 # Proxmox tag: a container built by hand that happens to look like a community-script
@@ -83,6 +83,7 @@ class Database:
                 "disk_free_kb": "INTEGER",  # free space in the guest's /
                 "disk_size_kb": "INTEGER",
                 "uptime": "INTEGER",  # seconds, from the host's list: a drop means a restart
+                "auto_update": "TEXT",  # off | os | all: updated in the maintenance window
             },
             "history": {
                 "backup_kind": "TEXT",
@@ -90,6 +91,7 @@ class Database:
                 "backup_removed": "INTEGER NOT NULL DEFAULT 0",
                 "detail": "TEXT",
                 "name": "TEXT",  # guest name when the job ran
+                "auto": "INTEGER NOT NULL DEFAULT 0",  # started by the maintenance window
             },
         }
         with self._conn:
@@ -180,12 +182,12 @@ class Database:
     def container(self, vmid: int) -> dict | None:
         return next((c for c in self.containers() if c["vmid"] == vmid), None)
 
-    def start_history(self, vmid: int, kind: str, detail: str | None = None) -> int:
+    def start_history(self, vmid: int, kind: str, detail: str | None = None, auto: bool = False) -> int:
         with self._conn:
             cur = self._conn.execute(
-                "INSERT INTO history (vmid, kind, started, detail, name) "
-                "VALUES (?, ?, ?, ?, (SELECT name FROM containers WHERE vmid=?))",
-                (vmid, kind, time.time(), detail, vmid),
+                "INSERT INTO history (vmid, kind, started, detail, name, auto) "
+                "VALUES (?, ?, ?, ?, (SELECT name FROM containers WHERE vmid=?), ?)",
+                (vmid, kind, time.time(), detail, vmid, int(auto)),
             )
         return cur.lastrowid
 
@@ -213,6 +215,12 @@ class Database:
                 """UPDATE history SET backup_removed=1 WHERE vmid=? AND backup_kind='vzdump'
                    AND started <= ? + 60 AND COALESCE(finished, started) + 60 >= ?""",
                 (vmid, ctime, ctime),
+            )
+
+    def set_auto_update(self, vmids: list[int], mode: str) -> None:
+        with self._conn:
+            self._conn.executemany(
+                "UPDATE containers SET auto_update=? WHERE vmid=?", [(None if mode == "off" else mode, v) for v in vmids]
             )
 
     def mark_history_backup_removed(self, history_id: int) -> None:

@@ -8,10 +8,11 @@
 |---|---|---|
 | Top right | **Refresh list** | Re-reads only the list of containers/VMs (fast). New running guests are checked right away; the result is shown below the status line. |
 | | **Check all** | Re-reads the list and checks every running guest for OS and app updates. Also runs automatically every `LUM_CHECK_INTERVAL_MINUTES`. |
-| | **☰** menu | **Theme** (System / Light / Dark, stored in the browser), **Settings** (see [Configuration](configuration.md#in-the-web-ui)) and **Change password**. |
+| | **☰** menu | **Theme** (System / Light / Dark, stored in the browser), **Settings** (see [Configuration](configuration.md#in-the-web-ui)), **Run auto-update now** and **Change password**. |
 | Status line | | Last check, backup mode, guests hidden by the `no-lum` tag (hover for their IDs), result of **Refresh list**, and a yellow note when the host script is outdated. |
 | Above the list | **All** · **With updates** · **Security** | Filter the list: every guest, only guests with OS or app updates, only guests with security updates (stored in the browser). Bulk selections only include visible guests. |
 | | **Select all with updates** · **OS update** · **App update** | Update several guests in one go – see [Updating several guests](#updating-several-guests). |
+| | **Auto-update …** | Update the selected guests automatically in the maintenance window – see [Automatic updates](#automatic-updates-maintenance-window). |
 | Each row | ☐ `ID` · `LXC`/`VM` | Checkbox for a bulk update (the one in the header selects all running guests). Container or VM. VMs need the QEMU guest agent, otherwise **no guest agent** is shown. |
 | | `▸ N packages` · `N security` | Pending OS updates – click to list them. **security**: how many come from a security repository (see [Security updates](#security-updates)); they are marked in the list. |
 | | App column | Installed app version (green) or `installed → latest` (orange) with a link to the release page, PyPI or npm. **held back**: the community script pins this version; **pre-release**: the installed version is newer than the latest stable one. Without a version source: *updated with the OS packages*, *no version check (Docker)* or *Version unknown* – see [App updates](#app-updates). |
@@ -52,6 +53,30 @@ applies to all of them.
   When the queue is done, **Clear** removes it (a new bulk update replaces it as well).
 - The queue lives in memory: restarting LUM ends it after the running update.
   Settings can't be saved while it runs.
+
+## Automatic updates (maintenance window)
+
+1. Set the **maintenance window** in ☰ → **Settings** → *Auto-update*: the days
+   (`sun`, `sat,sun`, `mon-fri`, `daily`), the start (`03:00`) and optionally an end
+   (`05:00`; an end before the start means the next day). The time is the local time of
+   the LUM container.
+2. Select the guests and click **Auto-update …** above the list: **Off**, **OS
+   updates** or **OS and app updates**. The guests show `auto: OS` / `auto: OS + app`,
+   the status line the next window.
+
+When the window starts, LUM checks all guests and then updates the auto-update guests
+through the [queue](#updating-several-guests): first the OS updates, then the app
+updates – each with backup, free space check, cleanup and log as usual, marked
+**auto** in the history. Guests with nothing to do are skipped.
+
+- **End:** guests that have not started when the window ends are cancelled; the update
+  running then finishes. Without an end everything is updated.
+- **Restart guests that need it afterwards** (setting): guests that show *restart
+  required* after their updates are restarted at the end – never LUM's own container.
+- **Run auto-update now** (☰ menu) runs the same without waiting for the window, e.g.
+  to try the setup.
+- LUM must be running at the start time (it checks every 20 seconds and starts a window
+  up to 5 minutes late). A missed window is not caught up.
 
 ## Security updates
 

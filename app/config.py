@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     min_free_mb: int = 500  # free space needed in the guest's / before an update, 0 = no check
     cleanup: bool = True  # after an OS update: apt autoremove + apt clean (default of the checkbox)
 
+    # maintenance window for automatic updates (see app/schedule.py); empty days = off
+    auto_days: str = ""
+    auto_time: str = "03:00"
+    auto_until: str = ""
+    auto_restart: bool = False  # afterwards restart guests that need it (not LUM's own)
+
     # web UI login, set with: venv/bin/python -m app.passwd
     auth_file: Path = Path("data/auth.json")
     secret_file: Path = Path("data/secret.key")
@@ -47,6 +53,15 @@ class Settings(BaseSettings):
             raise ValueError("LUM_BACKUP_MODE=vzdump needs LUM_BACKUP_STORAGE")
         if self.snapshot_keep < 1 or self.backup_keep < 1:
             raise ValueError("LUM_SNAPSHOT_KEEP / LUM_BACKUP_KEEP must be at least 1")
+        from .schedule import parse_days, parse_time
+
+        try:
+            parse_days(self.auto_days)
+            parse_time(self.auto_time)
+            if self.auto_until:
+                parse_time(self.auto_until)
+        except ValueError as err:
+            raise ValueError(f"auto-update window: {err}") from None
         return self
 
 

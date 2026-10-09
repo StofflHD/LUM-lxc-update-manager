@@ -7,9 +7,11 @@ import re
 import socket
 import time
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from .apps import AppCatalog, normalize
 from .config import Settings
+from . import schedule
 from .db import Database
 from .host import HostCommandError
 
@@ -34,6 +36,7 @@ class Job:
     target: str | None = None  # rollback: snapshot name, restore: backup id (ctime)
     backup: bool = True  # update: make a snapshot/vzdump first (LUM_BACKUP_MODE)
     cleanup: bool = True  # OS update: apt autoremove + apt clean afterwards
+    auto: bool = False  # started by the maintenance window
     lines: list[str] = field(default_factory=list)
     done: bool = False
     success: bool | None = None
@@ -89,15 +92,17 @@ NO_APP_UPDATE = re.compile(
 class QueueItem:
     """One guest in the update queue (several guests updated one after the other)."""
     vmid: int
-    kind: str  # "os" | "app"
+    kind: str  # "os" | "app" | "restart"
     backup: bool
     cleanup: bool = True
+    auto: bool = False  # maintenance window
     state: str = "waiting"  # waiting | running | ok | failed | skipped | cancelled
     job_id: int | None = None
     note: str = ""
 
     def as_dict(self) -> dict:
-        return {"vmid": self.vmid, "kind": self.kind, "backup": self.backup, "cleanup": self.cleanup, "state": self.state,
+        return {"vmid": self.vmid, "kind": self.kind, "backup": self.backup, "cleanup": self.cleanup,
+                "auto": self.auto, "state": self.state,
                 "job_id": self.job_id, "note": self.note}
 
 
@@ -143,6 +148,11 @@ class UpdateService:
         self.queue: list[QueueItem] = []
         self._queue_task: asyncio.Task | None = None
         self.cleanup: Cleanup | None = None
+        # maintenance window: the run in progress, the date of the last window, a summary
+        self._maint_items: list[QueueItem] | None = None
+        self._maint_end: datetime | None = None
+        self._last_window: datetime | None = None
+        self.maintenance_last: dict | None = None
         self.self_vmid: int | None = None  # the container LUM runs in, if it is on this host
         self._find_self([{"vmid": c["vmid"], "name": c["name"]} for c in db.containers()])
         self._close_interrupted()
@@ -335,13 +345,14 @@ class UpdateService:
     # --- jobs --------------------------------------------------------------
 
     def start_job(self, vmid: int, kind: str, target: str | None = None, backup: bool = True,
-                  cleanup: bool = True) -> Job:
+                  cleanup: bool = True, auto: bool = False) -> Job:
         """kind: "os" | "app" update, or "rollback" to the lum_ snapshot <target>.
         backup=False skips the safety copy for this one update, cleanup=False the
         apt autoremove / clean after an OS update."""
         if vmid in self._busy:
             raise RuntimeError(f"container {vmid} already has a running job")
-        job = Job(id=next(self._job_ids), vmid=vmid, kind=kind, target=target, backup=backup, cleanup=cleanup)
+        job = Job(id=next(self._job_ids), vmid=vmid, kind=kind, target=target, backup=backup, cleanup=cleanup,
+                  auto=auto)
         self.jobs[job.id] = job
         self._busy.add(vmid)
         run = {"rollback": self._run_rollback, "restore": self._run_restore,
@@ -350,7 +361,7 @@ class UpdateService:
         return job
 
     async def _guarded(self, job: Job, run) -> None:
-        history_id = self.db.start_history(job.vmid, job.kind, job.target)
+        history_id = self.db.start_history(job.vmid, job.kind, job.target, job.auto)
         success = False
         try:
             success = await run(job, history_id)
@@ -572,6 +583,76 @@ class UpdateService:
             log.info("cleanup: %s snapshots and %s backups deleted, %s skipped, %s failed",
                      cl.deleted_snapshots, cl.deleted_backups, len(cl.skipped), len(cl.failed))
 
+    # --- maintenance window: automatic updates -----------------------------------------
+
+    def _window(self) -> tuple:
+        """(weekdays, start time, end time or None) from the settings"""
+        s = self._s
+        return (schedule.parse_days(s.auto_days), schedule.parse_time(s.auto_time),
+                schedule.parse_time(s.auto_until) if s.auto_until else None)
+
+    @property
+    def maintenance_running(self) -> bool:
+        return self._maint_items is not None
+
+    def maintenance_status(self) -> dict:
+        days, start, until = self._window()
+        nxt = schedule.next_start(days, start, datetime.now()) if days else None
+        return {
+            "days": schedule.describe(days) if days else "", "time": self._s.auto_time,
+            "until": self._s.auto_until, "restart": self._s.auto_restart,
+            "next": nxt.timestamp() if nxt else None, "running": self.maintenance_running,
+            "guests": sum(1 for c in self.db.containers() if c["auto_update"] in ("os", "all")),
+            "last": self.maintenance_last,
+        }
+
+    async def maintenance_tick(self, now: datetime | None = None) -> None:
+        """Called every few seconds: start the window, or end it."""
+        days, start, until = self._window()
+        now = now or datetime.now()
+        if self.maintenance_running:
+            if self._maint_end and now >= self._maint_end:
+                for i in self._maint_items or []:
+                    if i.state == "waiting":
+                        i.state, i.note = "cancelled", "the maintenance window ended"
+            return
+        begin = schedule.window_start(days, start, now) if days else None
+        if begin and begin != self._last_window:
+            self._last_window = begin
+            self.start_maintenance(schedule.window_end(begin, until))
+
+    def start_maintenance(self, end: datetime | None = None) -> None:
+        if self.maintenance_running:
+            raise RuntimeError("the automatic updates are already running")
+        self._maint_items, self._maint_end = [], end
+        asyncio.create_task(self._run_maintenance())
+
+    async def _run_maintenance(self) -> None:
+        """Check everything, then queue the updates (and restarts) of the guests set to
+        auto-update - like a bulk update, marked "auto" in the history."""
+        started = time.time()
+        log.info("maintenance window: automatic updates start")
+        try:
+            await self.refresh_all()
+            guests = [c for c in self.db.containers()
+                      if c["auto_update"] in ("os", "all") and c["status"] == "running"]
+            items = [QueueItem(c["vmid"], "os", True, self._s.cleanup, auto=True) for c in guests]
+            items += [QueueItem(c["vmid"], "app", True, auto=True) for c in guests if c["auto_update"] == "all"]
+            if self._s.auto_restart:
+                items += [QueueItem(c["vmid"], "restart", False, auto=True) for c in guests]
+            self._maint_items = self._enqueue_items(items)
+            while any(i.state in ("waiting", "running") for i in self._maint_items):
+                await asyncio.sleep(5)
+            count = {s: sum(1 for i in self._maint_items if i.state == s)
+                     for s in ("ok", "failed", "skipped", "cancelled")}
+            self.maintenance_last = {"started": started, "finished": time.time(), "guests": len(guests), **count}
+            log.info("maintenance window done: %s", self.maintenance_last)
+        except Exception as err:
+            log.exception("maintenance window failed")
+            self.maintenance_last = {"started": started, "finished": time.time(), "error": str(err)}
+        finally:
+            self._maint_items, self._maint_end = None, None
+
     # --- queue: several guests, one after the other -------------------------------
 
     @property
@@ -580,14 +661,15 @@ class UpdateService:
 
     def enqueue(self, vmids: list[int], kind: str, backup: bool, cleanup: bool = True) -> int:
         """Add guests to the queue (once each); returns how many were added."""
+        return len(self._enqueue_items([QueueItem(v, kind, backup, cleanup) for v in dict.fromkeys(vmids)]))
+
+    def _enqueue_items(self, items: list[QueueItem]) -> list[QueueItem]:
+        """Append items not already waiting / running (same guest and kind); returns them."""
         if not self.queue_active:
             self.queue.clear()  # a new run: drop the results of the last one
-        queued = {i.vmid for i in self.queue if i.state in ("waiting", "running")}
-        added = 0
-        for vmid in dict.fromkeys(vmids):
-            if vmid not in queued:
-                self.queue.append(QueueItem(vmid, kind, backup, cleanup))
-                added += 1
+        queued = {(i.vmid, i.kind) for i in self.queue if i.state in ("waiting", "running")}
+        added = [i for i in items if (i.vmid, i.kind) not in queued]
+        self.queue.extend(added)
         if added and (self._queue_task is None or self._queue_task.done()):
             self._queue_task = asyncio.create_task(self._run_queue())
         return added
@@ -608,6 +690,10 @@ class UpdateService:
             return "not running"
         if item.kind == "os":
             return None if c["upgradable"] else "no OS updates"
+        if item.kind == "restart":
+            if c["vmid"] == self.self_vmid:
+                return "LUM's own container - restart it yourself"
+            return None if c["restart_required"] else "no restart needed"
         if c["type"] == "qemu":
             return "app updates are only supported for containers"
         if c["self_created"]:
@@ -629,12 +715,14 @@ class UpdateService:
                 await asyncio.sleep(2)
             if item.state != "waiting":  # cancelled meanwhile
                 continue
+            if item.kind == "restart":  # the updates before may just have changed it
+                await self._check_restart(item.vmid)
             reason = self._skip_reason(item)
             if reason:
                 item.state, item.note = "skipped", reason
                 continue
             try:
-                job = self.start_job(item.vmid, item.kind, backup=item.backup, cleanup=item.cleanup)
+                job = self.start_job(item.vmid, item.kind, backup=item.backup, cleanup=item.cleanup, auto=item.auto)
             except RuntimeError as err:
                 item.state, item.note = "failed", str(err)
                 continue
@@ -649,6 +737,15 @@ class UpdateService:
                 item.note = reasons[-1] if reasons else "see log"
                 if item.note.startswith("skipped"):
                     item.state = "skipped"
+
+
+async def maintenance_loop(service: UpdateService, seconds: int = 20) -> None:
+    while True:
+        await asyncio.sleep(seconds)
+        try:
+            await service.maintenance_tick()
+        except Exception:
+            log.exception("maintenance window failed")
 
 
 async def status_poller(service: UpdateService, seconds: int = 60) -> None:

@@ -130,6 +130,22 @@ function diskBadge(c) {
 // community script doesn't update at all (built-in updater)
 const noAppUpdate = (c) => c.type === "qemu" || c.self_created || c.app_kind === "os" || c.app_kind === "builtin";
 
+const AUTO_LABEL = { os: "auto: OS", all: "auto: OS + app" };
+let maintenance = null;
+
+function autoTag(c) {
+  if (!AUTO_LABEL[c.auto_update]) return "";
+  const when = maintenance?.next ? `next: ${fmtTime(maintenance.next)}` : "no maintenance window set (Settings)";
+  return `<span class="tag auto" title="Updated automatically in the maintenance window – ${esc(when)}">${AUTO_LABEL[c.auto_update]}</span>`;
+}
+
+function maintenanceText(m) {
+  if (!m) return "";
+  if (m.running) return " · Auto-update running";
+  if (m.next) return ` · Auto-update: ${fmtTime(m.next)} (${m.guests} guest${m.guests === 1 ? "" : "s"})`;
+  return m.guests ? " · Auto-update: no window set" : "";
+}
+
 function renderContainers(all) {
   const queued = new Set(lastQueue.filter((i) => i.state === "waiting").map((i) => i.vmid));
   const list = visibleGuests(all);
@@ -139,7 +155,7 @@ function renderContainers(all) {
     return `<tr>
       <td data-label="ID"><label class="sel"><input type="checkbox" data-sel="${c.vmid}" aria-label="Select ${c.vmid}"
         ${selected.has(String(c.vmid)) ? "checked" : ""} ${running ? "" : "disabled"}>${c.vmid}</label><br><span class="tag">${c.type === "qemu" ? "VM" : "LXC"}</span></td>
-      <td data-label="Name"><strong>${esc(c.name)}</strong>${c.self ? ' <span class="badge muted" title="LUM runs in this container">LUM</span>' : ""}<br>${c.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("")}</td>
+      <td data-label="Name"><strong>${esc(c.name)}</strong>${c.self ? ' <span class="badge muted" title="LUM runs in this container">LUM</span>' : ""}<br>${autoTag(c)}${c.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("")}</td>
       <td data-label="Status"><span class="badge ${running ? "ok" : "muted"}">${esc(c.status)}</span>${restartBadge(c)}${diskBadge(c)}${queued.has(c.vmid) ? '<br><span class="tag">queued</span>' : ""}</td>
       <td data-label="Package manager">${esc(c.pkg_manager || "–")}${c.community_script ? '<br><span class="tag">community-script</span>' : ""}</td>
       <td data-label="OS updates">${updatesCell(c)}</td>
@@ -187,7 +203,7 @@ function renderHistory(list) {
     return `<tr>
       <td data-label="Time">${fmtTime(h.started)}</td><td data-label="ID">${guestLabel(h.vmid)}</td>
       <td data-label="Name">${h.name ? esc(h.name) : '<span class="muted">–</span>'}</td>
-      <td data-label="Type">${KIND[h.kind] || esc(h.kind)}</td>
+      <td data-label="Type">${KIND[h.kind] || esc(h.kind)}${h.auto ? ' <span class="tag auto" title="Started by the maintenance window">auto</span>' : ""}</td>
       <td data-label="Result">${h.success == null ? '<span class="badge warn">running</span>'
         : h.success ? '<span class="badge ok">succeeded</span>' : '<span class="badge err">failed</span>'}</td>
       <td data-label="Backup">${backupCell(h)}</td>
@@ -359,6 +375,7 @@ async function load() {
     $("#status").textContent = (status.refreshing ? "Checking containers and VMs … · " : "")
       + `Last check: ${fmtTime(status.last_refresh)} · ${backupText(status.backup)}`
       + (status.hidden.length ? ` · ${status.hidden.length} hidden (tag no-lum)` : "")
+      + maintenanceText(status.maintenance)
       + (status.demo ? " · DEMO mode" : "");
     $("#status").title = status.hidden.length ? `Not managed by LUM (Proxmox tag "no-lum"): ${status.hidden.join(", ")}` : "";
     $("#version").textContent = `LUM v${status.version}`;
@@ -372,6 +389,7 @@ async function load() {
     $("#refresh").disabled = status.refreshing;
     backupCfg = status.backup;
     cleanupDefault = status.cleanup;
+    maintenance = status.maintenance;
     serverCleanup = status.purge;
     containers.forEach((c) => { guestTypes[c.vmid] = c.type; });
     lastContainers = containers;
@@ -694,6 +712,7 @@ function renderBulk() {
   const appCapable = new Set(lastContainers.filter((c) => !noAppUpdate(c)).map((c) => String(c.vmid)));
   $("#bulk-app").disabled = ![...selected].some((v) => appCapable.has(v));
   $("#sel-none").hidden = !n;
+  $("#bulk-auto").disabled = !n;
   const running = visibleGuests(lastContainers).filter((c) => c.status === "running");
   const all = running.length > 0 && running.every((c) => selected.has(String(c.vmid)));
   $("#sel-all").checked = all;
@@ -754,6 +773,60 @@ async function bulkUpdate(kind) {
   load();
 }
 $("#bulk-os").addEventListener("click", () => bulkUpdate("os"));
+
+// auto-update mode for the selected guests
+$("#bulk-auto").addEventListener("click", () => {
+  const vmids = [...selected].map(Number);
+  const modes = new Set(lastContainers.filter((c) => vmids.includes(c.vmid)).map((c) => c.auto_update || "off"));
+  const form = $("#auto-form");
+  form.reset();
+  if (modes.size === 1) form.querySelector(`input[value="${[...modes][0]}"]`).checked = true;
+  $("#auto-title").textContent = `Auto-update – ${vmids.length} guest${vmids.length === 1 ? "" : "s"}`;
+  const m = maintenance || {};
+  $("#auto-window").textContent = m.days
+    ? `Maintenance window: ${m.days} ${m.time}${m.until ? `–${m.until}` : ""}${m.restart ? ", restarts guests that need it" : ""}. `
+      + "Updates run like a bulk update, with backup and cleanup; VMs and apps without an app update only get OS updates."
+    : "No maintenance window is set yet – set days and time in ☰ → Settings → Auto-update.";
+  const dlg = $("#auto-dialog");
+  form.onsubmit = async (ev) => {
+    ev.preventDefault();
+    const mode = form.mode.value;
+    if (!mode) return;
+    dlg.close();
+    try {
+      await api("/api/auto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ vmids, mode }) });
+      notice(`Auto-update ${mode === "off" ? "turned off" : `set to ${AUTO_LABEL[mode].slice(6)}`} for ${vmids.length} guest${vmids.length === 1 ? "" : "s"}.`);
+    } catch (err) {
+      await showError(err.message);
+    }
+    load();
+  };
+  $("#auto-cancel").onclick = () => dlg.close();
+  $("#auto-close").onclick = () => dlg.close();
+  dlg.showModal();
+});
+
+$("#auto-run").addEventListener("click", async () => {
+  setMenu(false);
+  const m = maintenance || {};
+  if (!m.guests) {
+    await showError("No container or VM is set to auto-update. Select guests and use \"Auto-update …\" first.");
+    return;
+  }
+  const yes = await ask({
+    title: "Run the automatic updates now?",
+    text: `${m.guests} guest${m.guests === 1 ? "" : "s"} set to auto-update are checked and updated now, `
+      + "one after the other, as in the maintenance window" + (m.restart ? " (with restarts)." : "."),
+    ok: "Run now",
+  });
+  if (!yes) return;
+  try {
+    await api("/api/maintenance/run", { method: "POST" });
+  } catch (err) {
+    await showError(err.message);
+  }
+  load();
+});
 $("#bulk-app").addEventListener("click", () => bulkUpdate("app"));
 
 const QUEUE_STATE = {

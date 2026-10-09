@@ -121,6 +121,10 @@ label.sel input { margin: 0; accent-color: var(--accent); }
 #upd-extra { margin: 8px 0 0; }
 #upd-clean-row { margin-top: 14px; }
 #clear-dialog { width: min(480px, 95vw); }
+#auto-dialog { width: min(460px, 95vw); }
+#auto-dialog form { padding: 4px 16px 16px; }
+#auto-dialog label.check { margin-top: 10px; }
+.tag.auto { color: var(--accent); }
 #clear-dialog form { padding: 4px 16px 16px; }
 #clear-dialog label.check { margin-top: 12px; }
 #clear-note { margin: 12px 0 0; }
