@@ -119,6 +119,37 @@ class UpdateService:
         self.hidden = sorted(int(g["vmid"]) for g in hidden)
         return keep
 
+    def _apply_list(self, guests: list[dict]) -> tuple[list[int], list[int], list[int]]:
+        """Store the guest list from the host. Returns (added, removed, restarted):
+        restarted = running again with a lower uptime, or started - whoever did it
+        (LUM, the Proxmox UI, a host reboot). A restart resolves "restart required"."""
+        old = {c["vmid"]: c for c in self.db.containers()}
+        restarted = []
+        for g in guests:
+            vmid, before = int(g["vmid"]), old.get(int(g["vmid"]))
+            if not before or g.get("status") != "running":
+                continue
+            up, up_before = g.get("uptime"), before.get("uptime")
+            if before["status"] != "running" or (up is not None and up_before is not None and up < up_before):
+                restarted.append(vmid)
+        self.db.sync_containers(guests)
+        for vmid in restarted:
+            self.db.set_restart(vmid, False, [])
+        now = {int(g["vmid"]) for g in guests}
+        return sorted(now - set(old)), sorted(set(old) - now), restarted
+
+    async def poll_status(self) -> None:
+        """Cheap and frequent (one "list"): status changes, restarts done outside LUM,
+        new and removed guests. Restarted and new running guests are checked."""
+        if self.refreshing:
+            return
+        guests = self._managed(await self.host.list_containers())
+        added, _, restarted = self._apply_list(guests)
+        running = {int(g["vmid"]) for g in guests if g.get("status") == "running"}
+        for vmid in sorted(set(added + restarted) & running):
+            if vmid not in self._busy:
+                asyncio.create_task(self.check(vmid))
+
     async def refresh_all(self) -> None:
         if self.refreshing:
             return
@@ -129,7 +160,7 @@ class UpdateService:
             except (OSError, ValueError) as err:
                 log.warning("cannot read host script version: %s", err)
             containers = self._managed(await self.host.list_containers())
-            self.db.sync_containers(containers)
+            self._apply_list(containers)
             running = [int(c["vmid"]) for c in containers if c.get("status") == "running"]
             await asyncio.gather(*(self.check(vmid) for vmid in running if vmid not in self._busy))
             self.last_refresh = time.time()
@@ -139,14 +170,11 @@ class UpdateService:
     async def sync_guests(self) -> dict:
         """Re-read only the list of containers/VMs from the host - no package checks.
         New running guests get checked in the background so they show their state."""
-        before = {c["vmid"] for c in self.db.containers()}
         guests = self._managed(await self.host.list_containers())
-        self.db.sync_containers(guests)
-        now = {int(g["vmid"]) for g in guests}
-        added, removed = sorted(now - before), sorted(before - now)
+        added, removed, restarted = self._apply_list(guests)
         for g in guests:
             vmid = int(g["vmid"])
-            if vmid in added and g.get("status") == "running" and vmid not in self._busy:
+            if vmid in added + restarted and g.get("status") == "running" and vmid not in self._busy:
                 asyncio.create_task(self.check(vmid))
         return {"added": added, "removed": removed, "hidden": self.hidden}
 
@@ -154,6 +182,7 @@ class UpdateService:
         async with self._check_sem:
             try:
                 info = await self.host.info(vmid)
+                await self._check_restart(vmid)
                 packages = await self.host.check(vmid)
                 self.db.set_check_result(vmid, info.pkg_manager, info.community_script, packages, None)
             except (HostCommandError, OSError, ValueError) as err:
@@ -163,7 +192,6 @@ class UpdateService:
                     vmid, None, c.get("community_script", False), c.get("upgradable", []), str(err)
                 )
                 return
-            await self._check_restart(vmid)
             await self._check_disk(vmid)
             if info.script:
                 await self._check_app(vmid, info.script)
@@ -285,6 +313,12 @@ class UpdateService:
             self._busy.discard(job.vmid)
             job.finish(success)
         await self.check(job.vmid)
+        if job.kind == "restart":  # the guest may still be booting: try again a few times
+            for _ in range(3):
+                if not (self.db.container(job.vmid) or {}).get("last_error"):
+                    break
+                await asyncio.sleep(15)
+                await self.check(job.vmid)
 
     async def _run_update(self, job: Job, history_id: int) -> bool:
         await self._check_space(job)
@@ -398,6 +432,7 @@ class UpdateService:
         job.emit("### Restart")
         async for line in self.host.restart(job.vmid):
             job.emit(line)
+        self.db.set_restart(job.vmid, False, [])  # done - the next check confirms it
         job.emit("### Done")
         return True
 
@@ -484,6 +519,15 @@ class UpdateService:
                 item.note = reasons[-1] if reasons else "see log"
                 if item.note.startswith("skipped"):
                     item.state = "skipped"
+
+
+async def status_poller(service: UpdateService, seconds: int = 60) -> None:
+    while True:
+        await asyncio.sleep(seconds)
+        try:
+            await service.poll_status()
+        except Exception as err:  # host unreachable: the next "Check all" reports it
+            log.debug("status poll failed: %s", err)
 
 
 async def scheduler(service: UpdateService, interval_minutes: int) -> None:

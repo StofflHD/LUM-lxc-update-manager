@@ -192,7 +192,14 @@ restarted. After every check LUM looks for:
 Then the guest shows **restart required** (the tooltip lists the reason and the
 services) and a **Restart** button. It reboots the container or VM (`pct reboot` /
 `qm reboot`), waits until it answers again, checks it and shows up in the history as
-**Restart**. Afterwards the badge is gone. A restart is never done automatically.
+**Restart**. The badge is gone as soon as the restart is done. A restart is never done
+automatically.
+
+Restarts outside LUM count too: every minute LUM reads the guest list from the host
+(status and uptime, no commands in the guests). A guest whose uptime dropped – rebooted
+in the Proxmox UI, from inside, or by a host reboot – or that was started loses the
+badge and is checked again within about a minute. The same look-up keeps the
+running/stopped status current and adds new guests.
 
 Needs host script 7 or newer; with an older one nothing is shown.
 

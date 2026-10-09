@@ -75,6 +75,7 @@ class DemoHostClient:
         self._pending = {c[0]: random.sample(_PACKAGES, random.randint(0, 12)) for c in _CONTAINERS}
         self._versions = {c[0]: c[6] for c in _CONTAINERS}
         self._snapshots: dict[int, list[dict]] = {c[0]: [] for c in _CONTAINERS}  # newest first
+        self._booted = {c[0]: time.time() - random.randint(3600, 30 * 86400) for c in _CONTAINERS}
         # restart needed: vmid -> (reboot flag, services using replaced libraries)
         self._restart: dict[int, tuple[bool, list[str]]] = {107: (False, ["motioneye.service"]), 200: (True, [])}
         # a few vzdump backups made by LUM, newest first
@@ -96,7 +97,9 @@ class DemoHostClient:
 
     async def list_containers(self) -> list[dict]:
         await asyncio.sleep(0.2)
-        return [{"vmid": c[0], "name": c[1], "status": c[2], "tags": c[3], "type": c[7]} for c in _CONTAINERS]
+        return [{"vmid": c[0], "name": c[1], "status": c[2], "tags": c[3], "type": c[7],
+                 "uptime": int(time.time() - self._booted[c[0]]) if c[2] == "running" else 0}
+                for c in _CONTAINERS]
 
     async def info(self, vmid: int) -> ContainerInfo:
         if vmid in NO_AGENT:
@@ -126,6 +129,7 @@ class DemoHostClient:
 
     def restart(self, vmid: int) -> AsyncIterator[str]:
         self._restart.pop(vmid, None)
+        self._booted[vmid] = time.time()
         label = "VM" if _ct(vmid)[7] == "qemu" else "container"
         return self._fake_stream([f"restarting {label} {vmid}", "shutting down …", "starting …", "restart done"])
 

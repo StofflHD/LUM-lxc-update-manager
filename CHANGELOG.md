@@ -10,6 +10,21 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.15.1] – 2026-10-09
+
+### Fixed
+- *restart required* stayed visible long after a restart: it was only re-evaluated by
+  the next full check, which right after a boot could fail (then it stayed until the
+  next scheduled check, up to hours later). Now **Restart** clears it as soon as the
+  guest is back, the restart check runs before `apt-get update`, and a check that fails
+  because the guest is still booting is retried.
+
+### Added
+- Every minute LUM reads the guest list from the host (status and uptime only). Guests
+  restarted outside LUM (Proxmox UI, inside the guest, host reboot) lose *restart
+  required* and are checked again; status changes and new guests show up without
+  **Refresh list**.
+
 ## [0.15.0] – 2026-10-09
 
 **Host script** (version 9) – run the installer with `--update` on the Proxmox host.
@@ -379,7 +394,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.15.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0058f2b...main
+[0.15.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/7b33fe8...main
+[0.15.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0058f2b...7b33fe8
 [0.14.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/7b02fc6...0058f2b
 [0.13.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0dee04b...7b02fc6
 [0.12.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/dd5e36c...0dee04b

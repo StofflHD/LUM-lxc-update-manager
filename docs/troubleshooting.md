@@ -8,7 +8,7 @@
 | VM shows **no guest agent** | Install `qemu-guest-agent` in the VM, enable *QEMU Guest Agent* in its options, fully stop and start the VM. |
 | Update stops: *only … MB free in / of the guest* | Free up space in the guest (`apt clean`, old logs, `journalctl --vacuum-size=100M`) or enlarge its disk (Proxmox: *Resources → Disk Action → Resize*). Or lower `LUM_MIN_FREE_MB`. |
 | Update stops: *only … GB free on the vzdump storage* | Free up space on the storage, or untick the backup for this one update. |
-| *restart required* stays after a restart | A process that is not a service (e.g. started by hand or in a `screen`) still uses an old library – the tooltip names it; end or restart it. On a VM the new kernel only counts after a full reboot. |
+| *restart required* stays after a restart | Before 0.15.1 it stayed until the next check. Now it goes away with LUM's **Restart** at once and with a restart elsewhere within about a minute. If it comes back after the check: a process that is not a service (e.g. started by hand or in a `screen`) still uses an old library – the tooltip names it; end or restart it. On a VM the new kernel only counts after a full reboot. |
 | Queue: a guest is *skipped* | Nothing to do (no pending packages, app up to date, VM for an app update) or the community script refused – the *Note* column says why. |
 | No security updates shown for an Alpine guest | apk has no separate security repository – see [Security updates](usage.md#security-updates). |
 | Update fails at the snapshot step | The guest's storage has no snapshot support – use `LUM_BACKUP_MODE=vzdump`. |

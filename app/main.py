@@ -19,7 +19,7 @@ from .auth import COOKIE, Auth, write_credentials
 from .config import get_settings
 from .db import Database
 from .host import HostClient
-from .service import UpdateService, scheduler
+from .service import UpdateService, scheduler, status_poller
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -60,9 +60,11 @@ async def lifespan(app: FastAPI):
     app.state.service = UpdateService(
         settings, Database(settings.db_path), host, catalog
     )
-    task = asyncio.create_task(scheduler(app.state.service, settings.check_interval_minutes))
+    tasks = [asyncio.create_task(scheduler(app.state.service, settings.check_interval_minutes)),
+             asyncio.create_task(status_poller(app.state.service))]
     yield
-    task.cancel()
+    for task in tasks:
+        task.cancel()
 
 
 app = FastAPI(title="LXC Update Manager", lifespan=lifespan)
