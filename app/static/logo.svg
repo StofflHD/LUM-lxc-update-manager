@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="LUM">
+  <title>LUM – LXC Update Manager</title>
+  <defs>
+    <linearGradient id="lum-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5b8cff"/>
+      <stop offset="1" stop-color="#2f6fed"/>
+    </linearGradient>
+  </defs>
+  <!-- tile -->
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#lum-bg)"/>
+  <!-- container cube -->
+  <path d="M32 10 L52 21 V43 L32 54 L12 43 V21 Z" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M12 21 L32 32 L52 21 M32 32 V54" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round" opacity=".45"/>
+  <!-- update arrow -->
+  <path d="M32 18 L41 28 H35.5 V40 H28.5 V28 H23 Z" fill="#fff"/>
+</svg>

@@ -123,6 +123,11 @@ dialog::backdrop { background: rgb(0 0 0 / .5); }
   table.responsive button.placeholder { display: none; }
 }
 
+/* logo */
+h1.brand { display: flex; align-items: center; gap: 10px; }
+h1.brand img { flex: none; }
+.login-logo { display: block; margin-bottom: 12px; }
+
 /* footer */
 .site-footer { text-align: center; color: var(--muted); font-size: 12px; padding: 8px 16px 24px; }
 .site-footer a { color: var(--muted); }

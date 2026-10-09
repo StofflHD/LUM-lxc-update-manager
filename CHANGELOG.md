@@ -8,6 +8,14 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [1.5.0] – 2026-10-09
+
+### Added
+- Logo (container cube with an update arrow on a blue tile) in the header, on the login
+  page and in the README.
+- Favicon (SVG, PNG fallback and `/favicon.ico`) and an Apple touch icon for home-screen
+  shortcuts.
+
 ## [1.4.2] – 2026-10-09
 
 ### Changed
@@ -178,7 +186,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[1.4.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/4434b73...main
+[1.5.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8cb5636...main
+[1.4.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/4434b73...8cb5636
 [1.4.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/f6db5c7...4434b73
 [1.4.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0b1859e...f6db5c7
 [1.3.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/942b4bf...0b1859e

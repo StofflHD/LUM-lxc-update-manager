@@ -24,7 +24,11 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 log = logging.getLogger(__name__)
 STATIC = Path(__file__).parent / "static"
 # reachable without a session
-PUBLIC = {"/login", "/api/login", "/api/auth/state", "/static/style.css", "/static/login.js", "/static/theme.js"}
+PUBLIC = {
+    "/login", "/api/login", "/api/auth/state", "/favicon.ico",
+    "/static/style.css", "/static/login.js", "/static/theme.js",
+    "/static/logo.svg", "/static/favicon.svg", "/static/favicon-32.png", "/static/apple-touch-icon.png",
+}
 
 
 @asynccontextmanager
@@ -133,6 +137,12 @@ class LoginBody(BaseModel):
 class PasswordBody(BaseModel):
     current: str
     new: str
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    # browsers and bookmarks ask for /favicon.ico regardless of the <link> tags
+    return FileResponse(STATIC / "favicon-32.png", media_type="image/png")
 
 
 @app.get("/login")

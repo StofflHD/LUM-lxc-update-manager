@@ -1,3 +1,5 @@
+<p align="center"><img src="app/static/logo.svg" width="96" alt="LUM logo"></p>
+
 # LUM – LXC Update Manager
 
 Manage OS updates (apt/apk) of all LXC containers **and VMs** on a Proxmox host – and the
