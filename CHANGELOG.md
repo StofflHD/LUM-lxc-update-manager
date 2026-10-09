@@ -26,6 +26,11 @@ Update an installation with `update` inside the LUM container. When an entry say
   failed cleanup only warns instead of failing the update.
 - Settings: new group *Updates* (free space, cleanup).
 
+### Documentation
+- Usage: sections in a logical order (bulk and security updates first, then app updates,
+  free space, backups, cleanup, restart, VMs); what works for VMs; troubleshooting for
+  *restart required*, skipped queue entries and Alpine.
+
 ### Fixed
 - The update dialog said to restore a vzdump backup in the Proxmox UI – that works in
   LUM's Backups dialog since 0.10.0.

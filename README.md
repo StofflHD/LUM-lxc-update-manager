@@ -5,7 +5,8 @@
 Manage OS updates (apt/apk) of all LXC containers **and VMs** on a Proxmox host – and the
 app updates of containers created with the
 [Proxmox VE Community Scripts](https://github.com/community-scripts/ProxmoxVE) – from one
-web UI. With a snapshot before every update and rollback with one click.
+web UI. One guest or many at once, with a snapshot or backup before every update,
+rollback with one click and checks for free space and pending restarts.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/dashboard-dark.png">
@@ -63,7 +64,7 @@ options – see [VMs](docs/usage.md#vms).
 
 | | |
 |---|---|
-| [Using LUM](docs/usage.md) | Web UI, app updates, VMs, backups and rollback, login |
+| [Using LUM](docs/usage.md) | Web UI, bulk updates, security updates, app updates, free space, backups and rollback, cleanup, restart, VMs, login |
 | [Installation and updates](docs/installation.md) | Installer options, unattended install, updating, uninstall |
 | [Reverse proxy](docs/reverse-proxy.md) | HTTPS with Nginx Proxy Manager, nginx, Caddy or Traefik |
 | [Configuration](docs/configuration.md) | All settings in `.env` |

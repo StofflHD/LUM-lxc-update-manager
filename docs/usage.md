@@ -31,67 +31,6 @@ Below 1100 px window width every row turns into a card. The footer shows the ver
 If the host script on the Proxmox host is older than this LUM version needs, a yellow
 note below the status line says so and shows the command to update it.
 
-## Free space before an update
-
-A package manager that runs out of space halfway leaves a broken system, and a vzdump
-that fills its storage fails. So before every update LUM checks – and does not start
-the update (no backup either) if there is too little:
-
-- **in the guest:** free space in `/` must be at least `LUM_MIN_FREE_MB` (default
-  500 MB; menu ☰ → **Settings**, `0` turns the check off). Guests below that show
-  **low disk** in the list already after a check.
-- **on the vzdump storage** (only with `LUM_BACKUP_MODE=vzdump` and the backup ticked):
-  the free space must hold the backup – estimated from the size of the guest's last LUM
-  backup, without one from its data (about 60 % after compression), plus 10 %. Proxmox
-  Backup Server is not checked: it deduplicates, a backup needs little new space.
-
-The log shows the numbers (`### Free space in /: 1302 MB …`). If the space can't be
-read (e.g. host script older than 8), the log says so and the update runs anyway.
-
-## Cleanup after an OS update
-
-With the checkbox **Clean up afterwards** (default: `LUM_CLEANUP=true`, menu ☰ →
-**Settings**) an OS update ends with:
-
-- apt: `apt-get autoremove` (packages nothing needs any more, e.g. old kernels in a VM)
-  and `apt-get clean` (the downloaded `.deb` files);
-- apk: `apk cache clean` (only does something when a package cache is set up).
-
-The log shows how much space it freed (`--- cleanup freed 312 MB`). A failed cleanup
-only warns – the update itself has succeeded by then. Untick it to keep the downloaded
-packages or to look at what autoremove would remove first. App updates don't clean up.
-
-## Restart after updates
-
-An update replaces libraries and programs on disk, but running services keep using the
-old version until they are restarted – a fixed OpenSSL only helps once nginx has been
-restarted. After every check LUM looks for:
-
-- **services still using replaced files** – processes that map a deleted (= replaced)
-  library or binary, the same test `needrestart` makes (nothing needs to be installed in
-  the guest);
-- **the reboot flag** `/var/run/reboot-required` that some packages set;
-- **a newer kernel** (VMs only – containers share the host's kernel): the newest
-  `/boot/vmlinuz-*` is not the running one.
-
-Then the guest shows **restart required** (the tooltip lists the reason and the
-services) and a **Restart** button. It reboots the container or VM (`pct reboot` /
-`qm reboot`), waits until it answers again, checks it and shows up in the history as
-**Restart**. Afterwards the badge is gone. A restart is never done automatically.
-
-Needs host script 7 or newer; with an older one nothing is shown.
-
-## Security updates
-
-A package counts as a security update when apt lists it from a `*-security` suite
-(Debian `trixie-security`, Ubuntu `noble-security`, also when Ubuntu lists it as
-`noble-updates,noble-security`). The tile **Security updates** sums them up over all
-running guests, the filter **Security** shows only the guests that have some.
-
-- An OS update always installs *all* pending packages, security ones included.
-- Alpine (apk) has no separate security channel, so Alpine guests never show security
-  updates – their updates may still contain security fixes.
-
 ## Updating several guests
 
 Tick the checkboxes of the guests (or **Select all with updates**: every running guest
@@ -114,26 +53,16 @@ applies to all of them.
 - The queue lives in memory: restarting LUM ends it after the running update.
   Settings can't be saved while it runs.
 
-## Excluding containers and VMs
+## Security updates
 
-Give a container or VM the Proxmox tag **`no-lum`** and LUM leaves it alone: it is not
-listed, not checked and not updated. The host script refuses every command for such a
-guest as well, so not even a misbehaving LUM could touch it. The status line shows how
-many guests are hidden (hover for their IDs). The tag is case-insensitive.
+A package counts as a security update when apt lists it from a `*-security` suite
+(Debian `trixie-security`, Ubuntu `noble-security`, also when Ubuntu lists it as
+`noble-updates,noble-security`). The tile **Security updates** sums them up over all
+running guests, the filter **Security** shows only the guests that have some.
 
-Add the tag in the Proxmox UI (guest → *Summary* → pencil next to the tags) or on the
-host:
-
-```bash
-pct set <CTID> --tags "no-lum"   # container
-qm set <VMID> --tags "no-lum"    # VM
-```
-
-`--tags` replaces all tags of the guest. To keep existing ones, list them too, separated
-by `;` (e.g. `--tags "mytag;no-lum"`).
-
-The change shows up with the next **Refresh list** or **Check all**. Remove the tag to let
-LUM manage the guest again.
+- An OS update always installs *all* pending packages, security ones included.
+- Alpine (apk) has no separate security channel, so Alpine guests never show security
+  updates – their updates may still contain security fixes.
 
 ## App updates
 
@@ -181,20 +110,22 @@ In silent mode the community script deliberately stops in these cases:
 | 113 | The container has less CPU/RAM than the script requires | Increase resources (e.g. Tandoor: 4 CPU / 4 GB) |
 | 114 | `/boot` is more than 80 % full | Free up space |
 
+## Free space before an update
 
-## VMs
+A package manager that runs out of space halfway leaves a broken system, and a vzdump
+that fills its storage fails. So before every update LUM checks – and does not start
+the update (no backup either) if there is too little:
 
-OS updates, checks, snapshots, vzdump backups and rollback work for VMs too. Proxmox can
-only run commands inside a VM through the **QEMU guest agent**, so each VM needs:
+- **in the guest:** free space in `/` must be at least `LUM_MIN_FREE_MB` (default
+  500 MB; menu ☰ → **Settings**, `0` turns the check off). Guests below that show
+  **low disk** in the list already after a check.
+- **on the vzdump storage** (only with `LUM_BACKUP_MODE=vzdump` and the backup ticked):
+  the free space must hold the backup – estimated from the size of the guest's last LUM
+  backup, without one from its data (about 60 % after compression), plus 10 %. Proxmox
+  Backup Server is not checked: it deduplicates, a backup needs little new space.
 
-1. the agent installed and running in the VM, e.g. Debian/Ubuntu:
-   `apt install qemu-guest-agent && systemctl enable --now qemu-guest-agent`
-2. **QEMU Guest Agent** enabled in Proxmox (VM → Options), then a full VM shutdown and start
-   (a reboot from inside the VM is not enough).
-
-Without it the VM shows **no guest agent** (the tooltip explains what's missing).
-Supported are Linux VMs with apt or apk. The agent returns the output only when a command
-has finished, so the log of a VM update appears at the end. App updates are LXC only.
+The log shows the numbers (`### Free space in /: 1302 MB …`). If the space can't be
+read (e.g. host script older than 8), the log says so and the update runs anyway.
 
 ## Backup, cleanup and rollback
 
@@ -231,6 +162,76 @@ has finished, so the log of a VM update appears at the end. App updates are LXC 
   button and a panel bottom right show the elapsed time until it is done.
 
 <img alt="Backups dialog with LUM snapshots and vzdump backups" src="images/backups.png" width="70%">
+
+## Cleanup after an OS update
+
+With the checkbox **Clean up afterwards** (default: `LUM_CLEANUP=true`, menu ☰ →
+**Settings**) an OS update ends with:
+
+- apt: `apt-get autoremove` (packages nothing needs any more, e.g. old kernels in a VM)
+  and `apt-get clean` (the downloaded `.deb` files);
+- apk: `apk cache clean` (only does something when a package cache is set up).
+
+The log shows how much space it freed (`--- cleanup freed 312 MB`). A failed cleanup
+only warns – the update itself has succeeded by then. Untick it to keep the downloaded
+packages or to look at what autoremove would remove first. App updates don't clean up.
+
+## Restart after updates
+
+An update replaces libraries and programs on disk, but running services keep using the
+old version until they are restarted – a fixed OpenSSL only helps once nginx has been
+restarted. After every check LUM looks for:
+
+- **services still using replaced files** – processes that map a deleted (= replaced)
+  library or binary, the same test `needrestart` makes (nothing needs to be installed in
+  the guest);
+- **the reboot flag** `/var/run/reboot-required` that some packages set;
+- **a newer kernel** (VMs only – containers share the host's kernel): the newest
+  `/boot/vmlinuz-*` is not the running one.
+
+Then the guest shows **restart required** (the tooltip lists the reason and the
+services) and a **Restart** button. It reboots the container or VM (`pct reboot` /
+`qm reboot`), waits until it answers again, checks it and shows up in the history as
+**Restart**. Afterwards the badge is gone. A restart is never done automatically.
+
+Needs host script 7 or newer; with an older one nothing is shown.
+
+## VMs
+
+OS updates, bulk updates, checks, security updates, snapshots, vzdump backups, rollback,
+restore, the free space check, cleanup and *restart required* (including a newer kernel)
+work for VMs too. Proxmox can only run commands inside a VM through the **QEMU guest
+agent**, so each VM needs:
+
+1. the agent installed and running in the VM, e.g. Debian/Ubuntu:
+   `apt install qemu-guest-agent && systemctl enable --now qemu-guest-agent`
+2. **QEMU Guest Agent** enabled in Proxmox (VM → Options), then a full VM shutdown and start
+   (a reboot from inside the VM is not enough).
+
+Without it the VM shows **no guest agent** (the tooltip explains what's missing).
+Supported are Linux VMs with apt or apk. The agent returns the output only when a command
+has finished, so the log of a VM update appears at the end. App updates are LXC only.
+
+## Excluding containers and VMs
+
+Give a container or VM the Proxmox tag **`no-lum`** and LUM leaves it alone: it is not
+listed, not checked and not updated. The host script refuses every command for such a
+guest as well, so not even a misbehaving LUM could touch it. The status line shows how
+many guests are hidden (hover for their IDs). The tag is case-insensitive.
+
+Add the tag in the Proxmox UI (guest → *Summary* → pencil next to the tags) or on the
+host:
+
+```bash
+pct set <CTID> --tags "no-lum"   # container
+qm set <VMID> --tags "no-lum"    # VM
+```
+
+`--tags` replaces all tags of the guest. To keep existing ones, list them too, separated
+by `;` (e.g. `--tags "mytag;no-lum"`).
+
+The change shows up with the next **Refresh list** or **Check all**. Remove the tag to let
+LUM manage the guest again.
 
 ## Login
 
