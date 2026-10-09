@@ -40,6 +40,26 @@ From a local copy instead of GitHub: copy the project to the host and run
 `bash install.sh` in it. Manual installation inside an existing Debian LXC:
 `bash deploy/install.sh`, then follow the steps it prints.
 
+## Proxmox cluster
+
+LUM manages the guests of all nodes of a cluster from one installation. Install it on
+any node as usual – that node is the one LUM talks to. The installer puts the host
+script on **every online node** (over the cluster's root SSH) and prints a warning for a
+node it can't reach. LUM's SSH key ends up in `/root/.ssh/authorized_keys`, which a
+cluster shares in `/etc/pve`, so nothing else is needed.
+
+How it works: `list` collects the guests of all online nodes. A command for a guest on
+another node is passed on by the host script to the host script there – with the same
+checks (fixed verbs, plain arguments, `no-lum`, only LUM's own snapshots and backups).
+LUM itself never connects to the other nodes.
+
+- The list shows each guest's node, the status line the number of nodes.
+- A node added later, or one that was offline during the installation: run the
+  installer with `--update` again. Until then LUM warns: *host script missing or outdated
+  on node …*.
+- Guests of an offline node are not listed while it is offline.
+- A guest migrated to another node is found there automatically.
+
 ## Updating
 
 Inside the LUM container (e.g. `pct enter <CTID>`), like the community scripts:
@@ -55,7 +75,8 @@ Settings, login, SSH key and history are kept; the database is copied to
 
 The container cannot update the host script on the Proxmox host – on purpose, it may only
 run its fixed verbs there. When a new version needs a newer host script, `update` and the
-web UI tell you so. Then run on the Proxmox host (updates both):
+web UI tell you so. Then run on the Proxmox host (updates both; in a cluster on the node
+of the LUM container – it updates the host script on all nodes):
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update

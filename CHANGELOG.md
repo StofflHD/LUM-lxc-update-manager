@@ -10,6 +10,22 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.21.0] – 2026-10-09
+
+**Host script** (version 11) – run the installer with `--update` on the Proxmox host (in
+a cluster on the node of the LUM container; it updates all nodes).
+
+### Added
+- **Proxmox clusters:** LUM manages the guests of all online nodes from one installation.
+  The host script lists them cluster-wide and passes commands for a guest on another node
+  on to the host script there (over the cluster's root SSH, with the same checks). The
+  installer installs, updates and removes the host script on every online node.
+- The list shows each guest's node, the status line the number of nodes (and offline
+  ones), and a warning names nodes whose host script is missing or outdated.
+- Host script verb `nodes`; `list` has `node`. API: `/api/status` → `nodes`,
+  `host_script.nodes_outdated`; `/api/containers` → `node`.
+- Demo: a two-node cluster.
+
 ## [0.20.0] – 2026-10-09
 
 ### Added
@@ -492,7 +508,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.20.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/9ee908b...main
+[0.21.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/d0c5375...main
+[0.20.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/9ee908b...d0c5375
 [0.19.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8fab477...9ee908b
 [0.18.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/b6e7dca...8fab477
 [0.17.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/77ad4ba...b6e7dca

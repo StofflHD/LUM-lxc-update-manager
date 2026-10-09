@@ -91,6 +91,10 @@ class HostClient:
         except HostCommandError:
             return 0
 
+    async def nodes(self) -> list[dict]:
+        """Cluster nodes: [{"node", "online", "local", "wrapper"}] (wrapper 0 = missing)"""
+        return json.loads(await self._run("nodes", timeout=120))
+
     async def list_containers(self) -> list[dict]:
         return json.loads(await self._run("list"))
 

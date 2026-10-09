@@ -146,6 +146,7 @@ class UpdateService:
         self._check_sem = asyncio.Semaphore(settings.max_parallel_checks)
         self.last_refresh: float | None = None
         self.wrapper_version: int | None = None  # host script version, None = unknown
+        self.nodes: list[dict] | None = None  # cluster nodes with their wrapper version
         self.hidden: list[int] = []  # guests tagged EXCLUDE_TAG
         self.refreshing = False
         self.queue: list[QueueItem] = []
@@ -301,6 +302,7 @@ class UpdateService:
                 self.wrapper_version = await self.host.wrapper_version()
             except (OSError, ValueError) as err:
                 log.warning("cannot read host script version: %s", err)
+            await self._read_nodes()
             containers = self._managed(await self.host.list_containers())
             self._apply_list(containers)
             running = [int(c["vmid"]) for c in containers if c.get("status") == "running"]
@@ -309,10 +311,19 @@ class UpdateService:
         finally:
             self.refreshing = False
 
+    async def _read_nodes(self) -> None:
+        """Cluster nodes and their wrapper; unknown with host scripts < 11."""
+        try:
+            self.nodes = await self.host.nodes()
+        except (HostCommandError, OSError, ValueError) as err:
+            log.debug("cannot read the nodes: %s", err)
+            self.nodes = None
+
     async def sync_guests(self) -> dict:
         """Re-read only the list of containers/VMs from the host - no package checks.
         New running guests get checked in the background so they show their state."""
         guests = self._managed(await self.host.list_containers())
+        await self._read_nodes()
         added, removed, restarted = self._apply_list(guests)
         for g in guests:
             vmid = int(g["vmid"])

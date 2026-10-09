@@ -15,8 +15,9 @@ rollback with one click and checks for free space and pending restarts.
 
 ## Features
 
-- **Containers and VMs in one list** – LXC via `pct`, VMs via the QEMU guest agent;
-  tag a guest `no-lum` to keep LUM away from it, or `self-created` for OS updates only
+- **Containers and VMs in one list** – LXC via `pct`, VMs via the QEMU guest agent, on a
+  single host or all nodes of a cluster; tag a guest `no-lum` to keep LUM away from it,
+  or `self-created` for OS updates only
 - **OS updates** (apt / apk) with one click and a live log – or for several guests at
   once, one after the other; security updates are highlighted and can be filtered
 - **Automatic updates** per guest in a maintenance window (days, start, end), optionally
@@ -85,13 +86,14 @@ LXC "lxc-update-manager" (FastAPI + SQLite + web UI, port 8080)
         ▼
 Proxmox host: /usr/local/bin/lxc-update-wrapper
         │  pct exec / qm guest exec / snapshot / vzdump / pvesh
+        │  (cluster: guests on other nodes → their lxc-update-wrapper, cluster SSH)
         ▼
 LXC 101, 102 …   VM 200, 201 … (via QEMU guest agent)
 ```
 
 LUM runs in its own container and reaches the Proxmox host over SSH with a key that may
 only call the host script (`lxc-update-wrapper`). The script accepts a fixed set of verbs
-(`version`, `list`, `info`, `check`, `upgrade`, `app-version`, `pkg-version`, `app-update`,
+(`version`, `list`, `nodes`, `info`, `check`, `upgrade`, `app-version`, `pkg-version`, `app-update`,
 `restart-needed`, `restart`, `space`, `snapshot`, `snapshots`, `prune-snapshots`, `delete-snapshot`,
 `rollback`, `backup`, `prune-backups`, `backups`, `delete-backup`, `restore-backup`),
 validates every argument, refuses containers and VMs tagged `no-lum` and only ever touches snapshots named `lum_*` and backups with the note
@@ -113,6 +115,7 @@ validates every argument, refuses containers and VMs tagged `no-lum` and only ev
 - [x] Schedules / maintenance windows, auto-update per container
 - [x] Notifications via a Telegram bot
 - [x] Export / import of settings and history
+- [x] Multiple nodes / cluster
 
 Planned – not every item is decided yet:
 
@@ -123,7 +126,6 @@ Planned – not every item is decided yet:
 - [ ] Notifications via ntfy / Gotify
 - [ ] Multiple users with a read-only role, login via OIDC (e.g. Authentik)
 - [ ] Prometheus metrics (pending updates per guest)
-- [ ] Multiple nodes / cluster
 
 ## License
 

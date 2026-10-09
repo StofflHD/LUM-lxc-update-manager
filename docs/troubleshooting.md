@@ -13,6 +13,8 @@
 | *LUM runs in this container and can't roll back / restore it* | Roll back or restore LUM's own container in the Proxmox UI. |
 | *No test notification: Telegram: 400 … chat not found* | The bot never got a message from that chat: write to the bot (or in the group) first, then check the chat id. |
 | *Telegram: 401 Unauthorized* | The bot token is wrong – copy it again from @BotFather. |
+| *Host script missing or outdated on node …* | Run the installer with `--update` on the node of the LUM container; it installs the host script on all online nodes. If it warns for a node: check that `ssh root@<node-ip>` works from that node (cluster SSH). |
+| *… is on node …, which is offline* | The guest's node is down; it is managed again when the node is back. |
 | Queue: a guest is *skipped* | Nothing to do (no pending packages, app up to date, VM for an app update) or the community script refused – the *Note* column says why. |
 | No security updates shown for an Alpine guest | apk has no separate security repository – see [Security updates](usage.md#security-updates). |
 | Update fails at the snapshot step | The guest's storage has no snapshot support – use `LUM_BACKUP_MODE=vzdump`. |

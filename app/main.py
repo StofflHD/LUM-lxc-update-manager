@@ -256,7 +256,11 @@ async def status():
             "version": s.wrapper_version,
             "required": REQUIRED_WRAPPER_VERSION,
             "outdated": s.wrapper_version is not None and s.wrapper_version < REQUIRED_WRAPPER_VERSION,
+            # other cluster nodes whose wrapper is missing or too old
+            "nodes_outdated": [n["node"] for n in s.nodes or []
+                               if n["online"] and not n["local"] and n["wrapper"] < REQUIRED_WRAPPER_VERSION],
         },
+        "nodes": s.nodes,
         "queue": [i.as_dict() for i in s.queue],
         "maintenance": s.maintenance_status(),
         "purge": s.cleanup.as_dict() if s.cleanup else None,  # "Clear history" deleting snapshots/backups

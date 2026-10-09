@@ -10,9 +10,14 @@
 # Works for LXC containers (pct) and QEMU VMs (qm). Inside a VM commands run
 # through the QEMU guest agent, which must be installed and enabled.
 #
+# In a cluster LUM talks to one node. "list" covers the guests of all online nodes;
+# a verb for a guest on another node is passed on to the wrapper there over the
+# cluster's own root SSH (install the wrapper on every node - the installer does).
+#
 # Verbs:
 #   version                   version of this script (WRAPPER_VERSION)
-#   list                      JSON list of all containers and VMs on this node (with "type")
+#   list                      JSON list of all containers and VMs (with "type" and "node")
+#   nodes                     JSON list of the cluster nodes with their wrapper version
 #   info     <vmid>           pkg=<apt|apk|unknown> / community=<0|1> / script=<ct script name>
 #   check    <vmid>           one upgradable package per line
 #   upgrade  <vmid> [clean|keep]  OS upgrade (streams output; for VMs at the end), then
@@ -49,7 +54,8 @@
 set -euo pipefail
 
 # bump when verbs are added or changed; LUM checks it and asks for a host update
-WRAPPER_VERSION=10
+WRAPPER_VERSION=11
+WRAPPER_PATH=/usr/local/bin/lxc-update-wrapper
 # guests with this Proxmox tag are off limits for LUM (every verb except list/version)
 EXCLUDE_TAG="no-lum"
 MARKER="lxc-update-manager"
@@ -67,8 +73,42 @@ GUEST=""
 
 die() { echo "error: $*" >&2; exit 2; }
 
+# cluster nodes, one per line: "name ip online local" (a single host: just itself)
+cluster_nodes() {
+  local out
+  out=$(pvesh get /cluster/status --output-format json 2>/dev/null | perl -MJSON::PP -0 -e '
+    my $d = eval { decode_json(<STDIN>) } || []; for (@$d) {
+      next unless ($_->{type} // "") eq "node";
+      printf "%s %s %d %d\n", $_->{name}, $_->{ip} // "-", $_->{online} ? 1 : 0, $_->{local} ? 1 : 0;
+    }' || true)
+  [[ -n $out ]] && echo "$out" || echo "$NODE - 1 1"
+}
+
+# node a guest lives on, from the cluster-wide resource list (empty if unknown)
+guest_node() {
+  pvesh get /cluster/resources --type vm --output-format json 2>/dev/null | perl -MJSON::PP -0 -e '
+    my $id = shift;
+    my $d = eval { decode_json(<STDIN>) } || []; for (@$d) { if (($_->{vmid} // "") eq $id) { print $_->{node}; last } }
+  ' "$1" || true
+}
+
+# the guest is on another cluster node: run the same verb with the wrapper there
+forward_to_owner() {
+  local node ip a
+  node=$(guest_node "$VMID")
+  [[ -n $node && $node != "$NODE" ]] || return 0  # not in the cluster: "unknown vmid" follows
+  ip=$(cluster_nodes | awk -v n="$node" '$1 == n && $3 == 1 && $2 != "-" {print $2}')
+  [[ -n $ip ]] || die "$VMID is on node $node, which is offline"
+  # the arguments go through a remote shell: only plain tokens (LUM never sends more)
+  for a in "${ARGS[@]}"; do [[ $a =~ ^[A-Za-z0-9._-]{1,60}$ ]] || die "invalid argument"; done
+  exec ssh -o BatchMode=yes -o ConnectTimeout=10 "root@$ip" "LUM_FWD=1 $WRAPPER_PATH ${ARGS[*]}"
+}
+
 require_vmid() {
   [[ "$VMID" =~ ^[0-9]{3,9}$ ]] || die "invalid vmid"
+  if [[ -z ${LUM_FWD:-} ]] && ! pct config "$VMID" >/dev/null 2>&1 && ! qm config "$VMID" >/dev/null 2>&1; then
+    forward_to_owner
+  fi
   if pct config "$VMID" >/dev/null 2>&1; then
     TOOL=pct PVE_TYPE=lxc GUEST=container
   elif qm config "$VMID" >/dev/null 2>&1; then
@@ -181,19 +221,39 @@ case "$VERB" in
     ;;
 
   list)
-    # containers and VMs in one list, templates left out
-    LXC_JSON=$(pvesh get "/nodes/$NODE/lxc" --output-format json) \
-    QEMU_JSON=$(pvesh get "/nodes/$NODE/qemu" --output-format json) \
-    perl -MJSON::PP -e '
-      my @all;
-      for my $t (["lxc", $ENV{LXC_JSON}], ["qemu", $ENV{QEMU_JSON}]) {
-        for my $g (@{ decode_json($t->[1] || "[]") }) {
-          next if $g->{template};
-          $g->{type} = $t->[0];
-          push @all, $g;
-        }
+    # containers and VMs of all online nodes in one list (pvesh asks the other
+    # nodes itself), templates left out
+    for n in $(cluster_nodes | awk '$3 == 1 {print $1}'); do
+      for t in lxc qemu; do
+        echo "$n $t $(pvesh get "/nodes/$n/$t" --output-format json 2>/dev/null || echo '[]')"
+      done
+    done | perl -MJSON::PP -ne '
+      my ($node, $type, $json) = split / /, $_, 3;
+      my $d = eval { decode_json($json) } || []; for my $g (@$d) {
+        next if $g->{template};
+        $g->{type} = $type;
+        $g->{node} = $node;
+        push @all, $g;
       }
-      print JSON::PP->new->canonical->encode(\@all);
+      END { print JSON::PP->new->canonical->encode(\@all) }
+    '
+    ;;
+
+  nodes)
+    # every node with the version of its wrapper (0 = missing or unreachable)
+    cluster_nodes | while read -r name ip online local; do
+      v=0
+      if [[ $local == 1 ]]; then
+        v=$WRAPPER_VERSION
+      elif [[ $online == 1 && $ip != "-" ]]; then
+        v=$(ssh -o BatchMode=yes -o ConnectTimeout=5 "root@$ip" "$WRAPPER_PATH version" 2>/dev/null </dev/null || true)
+      fi
+      [[ $v =~ ^[0-9]+$ ]] || v=0
+      echo "$name $online $local $v"
+    done | perl -MJSON::PP -ne '
+      my ($n, $on, $loc, $v) = split;
+      push @all, { node => $n, online => $on + 0, local => $loc + 0, wrapper => $v + 0 };
+      END { print JSON::PP->new->canonical->encode(\@all) }
     '
     ;;
 

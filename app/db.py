@@ -84,6 +84,7 @@ class Database:
                 "disk_size_kb": "INTEGER",
                 "uptime": "INTEGER",  # seconds, from the host's list: a drop means a restart
                 "auto_update": "TEXT",  # off | os | all: updated in the maintenance window
+                "node": "TEXT",  # cluster node the guest runs on
             },
             "history": {
                 "backup_kind": "TEXT",
@@ -110,12 +111,13 @@ class Database:
         with self._conn:
             for c in containers:
                 self._conn.execute(
-                    """INSERT INTO containers (vmid, name, status, tags, type, uptime) VALUES (?, ?, ?, ?, ?, ?)
-                       ON CONFLICT(vmid) DO UPDATE SET name=excluded.name,
-                       status=excluded.status, tags=excluded.tags, type=excluded.type, uptime=excluded.uptime""",
+                    """INSERT INTO containers (vmid, name, status, tags, type, uptime, node)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)
+                       ON CONFLICT(vmid) DO UPDATE SET name=excluded.name, status=excluded.status,
+                       tags=excluded.tags, type=excluded.type, uptime=excluded.uptime, node=excluded.node""",
                     # host scripts before version 3 only listed containers, without "type"
                     (int(c["vmid"]), c.get("name", ""), c.get("status", ""), c.get("tags", ""),
-                     c.get("type", "lxc"), c.get("uptime")),
+                     c.get("type", "lxc"), c.get("uptime"), c.get("node")),
                 )
             ids = [int(c["vmid"]) for c in containers]
             if ids:

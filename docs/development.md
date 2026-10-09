@@ -25,6 +25,8 @@ internet access. The simulated guests cover the main cases:
 | 110 | unifi-os | *no update via the script* (built-in updater); an app update through the API ends as *skipped* |
 | 200 / 201 | debian-vm / windows-vm | VM with guest agent (*restart required*: newer kernel) / without (*no guest agent*) |
 
+The demo is a two-node cluster: 106, 200 and 201 run on `pve2`, the others on `pve1`.
+
 Updates, snapshots, vzdump backups (103 and 200 start with some, one of them protected),
 rollback, restore and cleanup are simulated in memory (reset on restart); deletes take a
 few seconds like on a real host. The database is real (`LUM_DB_PATH`). For vzdump instead

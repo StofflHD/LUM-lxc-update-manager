@@ -11,8 +11,8 @@ the header `X-Requested-With: lum`.
 | GET | `/api/auth/state` · `/api/me` | Login configured? / current user |
 | POST | `/api/password` | Change password |
 | GET · POST | `/api/settings` | Editable settings / save them (LUM restarts) |
-| GET | `/api/status` | Version, last check, backup mode, host script version, hidden (`no-lum`) guests, `queue`, `cleanup` (default of the cleanup checkbox), `purge` (progress of deleting all snapshots / backups), `maintenance` (window, next start, running, last run) |
-| GET | `/api/containers` | All containers/VMs with update status (`upgradable`, `security` = the security updates among them, `restart_required`, `restart_reboot`, `restart_services`, `disk_free_kb`, `disk_size_kb`, `low_disk`, `self` = LUM's own container, `self_created` = tagged `self-created`, `auto_update` = `os`/`all`/null) |
+| GET | `/api/status` | Version, last check, backup mode, host script version, hidden (`no-lum`) guests, `queue`, `nodes` (cluster nodes with their host script version; `host_script.nodes_outdated`), `cleanup` (default of the cleanup checkbox), `purge` (progress of deleting all snapshots / backups), `maintenance` (window, next start, running, last run) |
+| GET | `/api/containers` | All containers/VMs with update status (`upgradable`, `security` = the security updates among them, `restart_required`, `restart_reboot`, `restart_services`, `disk_free_kb`, `disk_size_kb`, `low_disk`, `self` = LUM's own container, `self_created` = tagged `self-created`, `auto_update` = `os`/`all`/null, `node`) |
 | POST | `/api/sync` | Re-read the list of containers/VMs only (no package checks) |
 | POST | `/api/refresh` | Check all (async) |
 | POST | `/api/containers/{id}/check` | Check one guest |

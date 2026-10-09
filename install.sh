@@ -198,6 +198,36 @@ install_wrapper() {
   install -m 0755 "$SRC/host/lxc-update-wrapper.sh" "$WRAPPER"
 }
 
+# the other online nodes of a cluster: "name ip" per line (nothing on a single host)
+cluster_peers() {
+  pvesh get /cluster/status --output-format json 2>/dev/null | perl -MJSON::PP -0 -e '
+    my $d = eval { decode_json(<STDIN>) } || [];
+    for (@$d) { print "$_->{name} $_->{ip}\n" if ($_->{type} // "") eq "node" && $_->{online} && !$_->{local} && $_->{ip} }
+  ' || true
+}
+
+# cluster: LUM talks to this node, the wrapper here passes verbs for guests on other
+# nodes on to the wrapper there (the nodes trust each other's root SSH key)
+install_wrapper_nodes() {
+  local name ip
+  while read -r name ip; do
+    if scp -q -o BatchMode=yes -o ConnectTimeout=10 "$SRC/host/lxc-update-wrapper.sh" "root@$ip:$WRAPPER.tmp" &&
+       ssh -n -o BatchMode=yes -o ConnectTimeout=10 "root@$ip" "install -m 0755 $WRAPPER.tmp $WRAPPER && rm -f $WRAPPER.tmp"; then
+      ok "Host script on node $name ($ip)"
+    else
+      warn "Could not install the host script on node $name ($ip) – guests there can't be managed until it is there"
+    fi
+  done < <(cluster_peers)
+}
+
+remove_wrapper_nodes() {
+  local name ip
+  while read -r name ip; do
+    ssh -n -o BatchMode=yes -o ConnectTimeout=10 "root@$ip" "rm -f $WRAPPER" && ok "Host script removed on node $name" ||
+      warn "Could not remove the host script on node $name ($ip)"
+  done < <(cluster_peers)
+}
+
 pick_template() {
   pveam update >>"$LOG" 2>&1 || warn "pveam update failed, using the existing template list"
   local v t
@@ -396,6 +426,7 @@ do_install() {
   echo
 
   step "Install host script" install_wrapper
+  install_wrapper_nodes
   TEMPLATE=$(pick_template)
   if ! pveam list "$LUM_TEMPLATE_STORAGE" | grep -q "$TEMPLATE"; then
     step "Download template $TEMPLATE" pveam download "$LUM_TEMPLATE_STORAGE" "$TEMPLATE"
@@ -436,6 +467,7 @@ do_update() {
   LUM_HOST_IP=$(pct exec "$CTID" -- sh -c "grep -m1 '^LUM_PVE_HOST=' $APP_DIR/.env | cut -d= -f2")
 
   step "Update host script" install_wrapper
+  install_wrapper_nodes
   step "Wait for network" wait_for_network
   step "Update app (settings and data are kept)" push_app
   local need_login=0
@@ -467,6 +499,7 @@ do_uninstall() {
   step "Remove SSH access for CT $CTID" unauthorize_key "$CTID"
   if [[ -z $(installed_ctids) ]]; then
     step "Remove host script" rm -f "$WRAPPER"
+    remove_wrapper_nodes
   else
     warn "Host script stays, other installations use it: $(installed_ctids | tr '\n' ' ')"
   fi

@@ -131,6 +131,7 @@ function diskBadge(c) {
 const noAppUpdate = (c) => c.type === "qemu" || c.self_created || c.app_kind === "os" || c.app_kind === "builtin";
 
 const AUTO_LABEL = { os: "auto: OS", all: "auto: OS + app" };
+let clusterNodes = 0; // > 1: show each guest's node
 let maintenance = null;
 
 function autoTag(c) {
@@ -154,7 +155,7 @@ function renderContainers(all) {
     const running = c.status === "running";
     return `<tr>
       <td data-label="ID"><label class="sel"><input type="checkbox" data-sel="${c.vmid}" aria-label="Select ${c.vmid}"
-        ${selected.has(String(c.vmid)) ? "checked" : ""} ${running ? "" : "disabled"}>${c.vmid}</label><br><span class="tag">${c.type === "qemu" ? "VM" : "LXC"}</span></td>
+        ${selected.has(String(c.vmid)) ? "checked" : ""} ${running ? "" : "disabled"}>${c.vmid}</label><br><span class="tag">${c.type === "qemu" ? "VM" : "LXC"}</span>${clusterNodes > 1 && c.node ? `<span class="tag" title="Cluster node">${esc(c.node)}</span>` : ""}</td>
       <td data-label="Name"><strong>${esc(c.name)}</strong>${c.self ? ' <span class="badge muted" title="LUM runs in this container">LUM</span>' : ""}<br>${autoTag(c)}${c.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("")}</td>
       <td data-label="Status"><span class="badge ${running ? "ok" : "muted"}">${esc(c.status)}</span>${restartBadge(c)}${diskBadge(c)}${queued.has(c.vmid) ? '<br><span class="tag">queued</span>' : ""}</td>
       <td data-label="Package manager">${esc(c.pkg_manager || "–")}${c.community_script ? '<br><span class="tag">community-script</span>' : ""}</td>
@@ -376,16 +377,24 @@ async function load() {
       + `Last check: ${fmtTime(status.last_refresh)} · ${backupText(status.backup)}`
       + (status.hidden.length ? ` · ${status.hidden.length} hidden (tag no-lum)` : "")
       + maintenanceText(status.maintenance)
+      + ((status.nodes || []).length > 1
+        ? ` · Cluster: ${status.nodes.length} nodes${status.nodes.some((n) => !n.online) ? ` (${status.nodes.filter((n) => !n.online).length} offline)` : ""}`
+        : "")
       + (status.demo ? " · DEMO mode" : "");
     $("#status").title = status.hidden.length ? `Not managed by LUM (Proxmox tag "no-lum"): ${status.hidden.join(", ")}` : "";
     $("#version").textContent = `LUM v${status.version}`;
     const hs = status.host_script;
-    $("#host-warning").hidden = !hs.outdated;
+    const update = "bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update";
+    $("#host-warning").hidden = !hs.outdated && !hs.nodes_outdated?.length;
     if (hs.outdated) {
       $("#host-warning").textContent = `The host script on the Proxmox host is outdated (version ${hs.version}, `
-        + `needs ${hs.required}) – some functions will fail. Update it on the host: `
-        + `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`;
+        + `needs ${hs.required}) – some functions will fail. Update it on the host: ${update}`;
+    } else if (hs.nodes_outdated?.length) {
+      $("#host-warning").textContent = `The host script is missing or outdated on node${hs.nodes_outdated.length === 1 ? "" : "s"} `
+        + `${hs.nodes_outdated.join(", ")} – guests there can't be checked or updated. Run on the node of the LUM `
+        + `container (it updates all nodes): ${update}`;
     }
+    clusterNodes = (status.nodes || []).length;
     $("#refresh").disabled = status.refreshing;
     backupCfg = status.backup;
     cleanupDefault = status.cleanup;

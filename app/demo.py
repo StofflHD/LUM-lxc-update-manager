@@ -28,6 +28,7 @@ _CONTAINERS = [
     (201, "windows-vm", "running", "", "unknown", None, "", "qemu"),  # no guest agent
 ]
 NO_AGENT = {201}
+PVE2 = {106, 200, 201}  # a two-node cluster: these live on the second node
 
 # realistic pending updates: (package, installed, new)
 _PACKAGES = [
@@ -97,9 +98,16 @@ class DemoHostClient:
 
         return REQUIRED_WRAPPER_VERSION
 
+    async def nodes(self) -> list[dict]:
+        from . import REQUIRED_WRAPPER_VERSION
+
+        return [{"node": "pve1", "online": 1, "local": 1, "wrapper": REQUIRED_WRAPPER_VERSION},
+                {"node": "pve2", "online": 1, "local": 0, "wrapper": REQUIRED_WRAPPER_VERSION}]
+
     async def list_containers(self) -> list[dict]:
         await asyncio.sleep(0.2)
         return [{"vmid": c[0], "name": c[1], "status": c[2], "tags": c[3], "type": c[7],
+                 "node": "pve2" if c[0] in PVE2 else "pve1",
                  "uptime": int(time.time() - self._booted[c[0]]) if c[2] == "running" else 0}
                 for c in _CONTAINERS]
 
