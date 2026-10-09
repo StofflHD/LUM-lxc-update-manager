@@ -115,6 +115,14 @@ function restartBadge(c) {
   return `<br><span class="badge warn" title="${esc(why)}">restart required</span>`;
 }
 
+const fmtKb = (kb) => (kb >= 1048576 ? `${(kb / 1048576).toFixed(1)} GB` : `${Math.floor(kb / 1024)} MB`);
+
+function diskBadge(c) {
+  if (c.status !== "running" || !c.low_disk) return "";
+  return `<br><span class="badge err" title="${esc(`Only ${fmtKb(c.disk_free_kb)} of ${fmtKb(c.disk_size_kb)} free in / – `
+    + "an update needs more (LUM_MIN_FREE_MB). Free up space or enlarge the disk.")}">low disk: ${fmtKb(c.disk_free_kb)} free</span>`;
+}
+
 function renderContainers(all) {
   const queued = new Set(lastQueue.filter((i) => i.state === "waiting").map((i) => i.vmid));
   const list = visibleGuests(all);
@@ -125,7 +133,7 @@ function renderContainers(all) {
       <td data-label="ID"><label class="sel"><input type="checkbox" data-sel="${c.vmid}" aria-label="Select ${c.vmid}"
         ${selected.has(String(c.vmid)) ? "checked" : ""} ${running ? "" : "disabled"}>${c.vmid}</label><br><span class="tag">${c.type === "qemu" ? "VM" : "LXC"}</span></td>
       <td data-label="Name"><strong>${esc(c.name)}</strong><br>${c.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("")}</td>
-      <td data-label="Status"><span class="badge ${running ? "ok" : "muted"}">${esc(c.status)}</span>${restartBadge(c)}${queued.has(c.vmid) ? '<br><span class="tag">queued</span>' : ""}</td>
+      <td data-label="Status"><span class="badge ${running ? "ok" : "muted"}">${esc(c.status)}</span>${restartBadge(c)}${diskBadge(c)}${queued.has(c.vmid) ? '<br><span class="tag">queued</span>' : ""}</td>
       <td data-label="Package manager">${esc(c.pkg_manager || "–")}${c.community_script ? '<br><span class="tag">community-script</span>' : ""}</td>
       <td data-label="OS updates">${updatesCell(c)}</td>
       <td data-label="App">${appCell(c)}</td>

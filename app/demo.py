@@ -111,6 +111,16 @@ class DemoHostClient:
         return [f"{name}/{'stable-security' if name in _SECURITY else 'stable'} {new} amd64 [upgradable from: {old}]"
                 for name, old, new in self._pending[vmid]]
 
+    async def space(self, vmid: int, storage: str = "") -> dict:
+        size = 20_000_000 if _ct(vmid)[7] == "qemu" else 4_000_000  # KiB
+        free = 180_000 if vmid == 104 else size // 3  # vaultwarden: almost full
+        sp = {"guest_size_kb": size, "guest_avail_kb": free}
+        if storage:
+            last = self._backups[vmid][0]["size"] if self._backups[vmid] else 0
+            sp.update(storage_type="pbs" if storage == "pbs" else "dir", storage_avail_kb=40_000_000,
+                      last_backup_bytes=last, guest_used_bytes=(size - free) * 1024)
+        return sp
+
     async def restart_needed(self, vmid: int) -> tuple[bool, list[str]]:
         return self._restart.get(vmid, (False, []))
 

@@ -16,7 +16,7 @@ internet access. The simulated guests cover the main cases:
 |---|---|---|
 | 101 | homeassistant | community script, *no version check (Docker)* |
 | 102 | adguard | *updated with the OS packages* |
-| 103 / 104 | tandoor / vaultwarden | GitHub app versions; 104 (apk) is *skipped* on an app update (under-provisioned) |
+| 103 / 104 | tandoor / vaultwarden | GitHub app versions; 104 (apk) is *skipped* on an app update (under-provisioned) and has *low disk* (an OS update stops) |
 | 105 | test-debian | stopped container |
 | 106 | forgejo | Codeberg app version |
 | 107 | motioneye | PyPI app version, *restart required* (a service uses replaced libraries) |

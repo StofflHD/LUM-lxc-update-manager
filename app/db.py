@@ -76,6 +76,8 @@ class Database:
                 # after updates: reboot flag / newer kernel, services using replaced libraries
                 "restart_reboot": "INTEGER",
                 "restart_services": "TEXT",
+                "disk_free_kb": "INTEGER",  # free space in the guest's /
+                "disk_size_kb": "INTEGER",
             },
             "history": {
                 "backup_kind": "TEXT",
@@ -131,6 +133,12 @@ class Database:
             self._conn.execute(
                 "UPDATE containers SET restart_reboot=?, restart_services=? WHERE vmid=?",
                 (None if reboot is None else int(reboot), None if services is None else json.dumps(services), vmid),
+            )
+
+    def set_disk(self, vmid: int, free_kb: int | None, size_kb: int | None) -> None:
+        with self._conn:
+            self._conn.execute(
+                "UPDATE containers SET disk_free_kb=?, disk_size_kb=? WHERE vmid=?", (free_kb, size_kb, vmid)
             )
 
     def set_app_result(

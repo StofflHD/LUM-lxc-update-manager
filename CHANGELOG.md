@@ -10,6 +10,20 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.14.0] – 2026-10-09
+
+**Host script** (version 8) – run the installer with `--update` on the Proxmox host.
+
+### Added
+- **Free space check before every update:** the guest's `/` needs at least
+  `LUM_MIN_FREE_MB` (default 500 MB, editable in the settings, `0` = off), and with
+  vzdump the backup storage must hold the backup (estimated from the last LUM backup;
+  not checked on Proxmox Backup Server). Too little space stops the update before the
+  backup, with a clear message; the log shows the numbers.
+- *low disk* badge in the list for guests below `LUM_MIN_FREE_MB` (updated by every check).
+- Host script verb `space`; API: `/api/containers` has `disk_free_kb`, `disk_size_kb`
+  and `low_disk`.
+
 ## [0.13.0] – 2026-10-09
 
 **Host script** (version 7) – run the installer with `--update` on the Proxmox host.
@@ -340,7 +354,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.13.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0dee04b...main
+[0.14.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/7b02fc6...main
+[0.13.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0dee04b...7b02fc6
 [0.12.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/dd5e36c...0dee04b
 [0.11.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/7fd71e4...dd5e36c
 [0.10.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ef91f34...7fd71e4

@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     backup_storage: str = ""  # vzdump target, e.g. "local" or a PBS storage
     backup_vzdump_mode: Literal["snapshot", "suspend", "stop"] = "snapshot"
     backup_keep: int = 2
+    min_free_mb: int = 500  # free space needed in the guest's / before an update, 0 = no check
 
     # web UI login, set with: venv/bin/python -m app.passwd
     auth_file: Path = Path("data/auth.json")

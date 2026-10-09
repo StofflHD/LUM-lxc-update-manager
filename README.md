@@ -20,6 +20,7 @@ web UI. With a snapshot before every update and rollback with one click.
   once, one after the other; security updates are highlighted and can be filtered
 - **Restart required** – shows when services still run replaced libraries or a VM has a
   newer kernel, with a restart button
+- **Free space check** before every update, in the guest and on the vzdump storage
 - **App updates** for community-script containers, with installed vs. latest version from
   GitHub, Codeberg, GitLab, PyPI or npm
 - **Safety first** – snapshot or vzdump backup before every update, cleanup, rollback;
@@ -85,7 +86,7 @@ LXC 101, 102 …   VM 200, 201 … (via QEMU guest agent)
 LUM runs in its own container and reaches the Proxmox host over SSH with a key that may
 only call the host script (`lxc-update-wrapper`). The script accepts a fixed set of verbs
 (`version`, `list`, `info`, `check`, `upgrade`, `app-version`, `pkg-version`, `app-update`,
-`restart-needed`, `restart`, `snapshot`, `snapshots`, `prune-snapshots`, `delete-snapshot`,
+`restart-needed`, `restart`, `space`, `snapshot`, `snapshots`, `prune-snapshots`, `delete-snapshot`,
 `rollback`, `backup`, `prune-backups`, `backups`, `delete-backup`, `restore-backup`),
 validates every argument, refuses containers and VMs tagged `no-lum` and only ever touches snapshots named `lum_*` and backups with the note
 `lxc-update-manager`. LUM never gets a shell on the host.
@@ -101,10 +102,10 @@ validates every argument, refuses containers and VMs tagged `no-lum` and only ev
 - [x] Update several guests in one go (select or "Select all with updates"), run as a queue
 - [x] Highlight security updates (`*-security`) with their own badge and filter
 - [x] "Restart required" after kernel / library updates, with a restart button
+- [x] Check free disk space (guest and vzdump storage) before an update
 
 Planned – not every item is decided yet:
 
-- [ ] Check free disk space (guest and vzdump storage) before an update
 - [ ] Optional cleanup after an update (`apt autoremove` / `apt clean`)
 - [ ] Health check after an update (guest running, app answers over HTTP), rollback offered if it fails
 - [ ] Docker image updates inside containers (`docker compose pull` / `up`)

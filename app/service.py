@@ -161,8 +161,55 @@ class UpdateService:
                 )
                 return
             await self._check_restart(vmid)
+            await self._check_disk(vmid)
             if info.script:
                 await self._check_app(vmid, info.script)
+
+    async def _check_disk(self, vmid: int) -> None:
+        """Free space in the guest for the "low disk" hint; unknown with host scripts < 8."""
+        try:
+            sp = await self.host.space(vmid)
+            self.db.set_disk(vmid, sp.get("guest_avail_kb"), sp.get("guest_size_kb"))
+        except (HostCommandError, OSError, ValueError) as err:
+            log.debug("disk check %s: %s", vmid, err)
+            self.db.set_disk(vmid, None, None)
+
+    def low_disk(self, c: dict) -> bool:
+        free = c.get("disk_free_kb")
+        return bool(self._s.min_free_mb) and free is not None and free < self._s.min_free_mb * 1024
+
+    async def _check_space(self, job: Job) -> None:
+        """Before an update: enough room in the guest, and on the vzdump storage for the
+        backup? Raises ValueError (the update doesn't start) if not. Can't be checked
+        (e.g. host script < 8): a warning, the update runs anyway."""
+        storage = self._s.backup_storage if job.backup and self._s.backup_mode == "vzdump" else ""
+        try:
+            sp = await self.host.space(job.vmid, storage)
+        except (HostCommandError, OSError, ValueError) as err:
+            job.emit(f"### Warning: free space not checked: {err}")
+            return
+        free_mb = sp.get("guest_avail_kb", 0) // 1024
+        self.db.set_disk(job.vmid, sp.get("guest_avail_kb"), sp.get("guest_size_kb"))
+        need_mb = self._s.min_free_mb
+        if need_mb:
+            job.emit(f"### Free space in /: {free_mb} MB (needs {need_mb} MB, LUM_MIN_FREE_MB)")
+            if free_mb < need_mb:
+                raise ValueError(
+                    f"only {free_mb} MB free in / of the guest, the update needs at least {need_mb} MB "
+                    "(LUM_MIN_FREE_MB) - free up space (e.g. apt clean, old logs) or enlarge the disk"
+                )
+        if storage and sp.get("storage_type") != "pbs":  # PBS deduplicates: a backup needs little
+            avail = sp.get("storage_avail_kb", 0) * 1024
+            # the next backup will be about as big as the last one; without one estimate
+            # from the guest's data (zstd compresses a system to roughly half)
+            need = sp.get("last_backup_bytes") or int(sp.get("guest_used_bytes", 0) * 0.6)
+            job.emit(f"### Free space on {storage}: {avail / 1e9:.1f} GB"
+                     + (f" (backup needs about {need / 1e9:.1f} GB)" if need else ""))
+            if need and avail < need * 1.1:
+                raise ValueError(
+                    f"only {avail / 1e9:.1f} GB free on the vzdump storage {storage}, the backup needs about "
+                    f"{need / 1e9:.1f} GB - free up space there, or untick the backup for this update"
+                )
 
     async def _check_restart(self, vmid: int) -> None:
         """Does the guest need a restart after updates? Unknown with host scripts < 7."""
@@ -235,6 +282,7 @@ class UpdateService:
         await self.check(job.vmid)
 
     async def _run_update(self, job: Job, history_id: int) -> bool:
+        await self._check_space(job)
         if job.backup:
             await self._make_backup(job, history_id)
         else:

@@ -265,7 +265,7 @@ async def status():
 @app.get("/api/containers")
 async def containers():
     s = svc()
-    return [{**c, "busy": s.busy(c["vmid"])} for c in s.db.containers()]
+    return [{**c, "busy": s.busy(c["vmid"]), "low_disk": s.low_disk(c)} for c in s.db.containers()]
 
 
 @app.post("/api/sync")

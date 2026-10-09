@@ -24,6 +24,9 @@
 #   restart-needed <vmid>     reboot=<0|1> (reboot-required flag, VM: newer kernel installed)
 #                             services=<units/processes still using replaced libraries>
 #   restart  <vmid>           reboot the guest and wait until it answers again
+#   space    <vmid> [storage] free space: guest_size_kb / guest_avail_kb of / in the guest;
+#                             with a storage also storage_type / storage_avail_kb and, to
+#                             estimate a backup, last_backup_bytes / guest_used_bytes
 #
 #   snapshot  <vmid> <name>            create snapshot (name must start with lum_)
 #   snapshots <vmid>                   JSON list of the guest's lum_ snapshots
@@ -43,7 +46,7 @@
 set -euo pipefail
 
 # bump when verbs are added or changed; LUM checks it and asks for a host update
-WRAPPER_VERSION=7
+WRAPPER_VERSION=8
 # guests with this Proxmox tag are off limits for LUM (every verb except list/version)
 EXCLUDE_TAG="no-lum"
 MARKER="lxc-update-manager"
@@ -298,6 +301,21 @@ case "$VERB" in
       done
       echo "services=$(for x in $s; do echo "$x"; done | sort -u | tr "\n" " ")"
     '
+    ;;
+
+  space)
+    require_vmid; require_running
+    # counted from the end: the device name may contain spaces
+    in_guest 60 'df -Pk / | tail -n 1 | awk "{print \"guest_size_kb=\" \$(NF-4); print \"guest_avail_kb=\" \$(NF-2)}"'
+    STORAGE="${ARGS[2]:-}"
+    if [[ -n $STORAGE ]]; then
+      require_storage "$STORAGE"
+      # pvesm status: Name Type Status Total Used Available % (KiB)
+      pvesm status --storage "$STORAGE" | awk 'NR==2 {print "storage_type=" $2; print "storage_avail_kb=" $6}'
+      # size of the newest LUM backup of this guest (best estimate for the next one)
+      echo "last_backup_bytes=$(lum_backups_json | perl -MJSON::PP -0 -e 'my @b = @{ decode_json(<STDIN>) }; print @b ? ($b[0]{size} // 0) : 0')"
+      echo "guest_used_bytes=$(pvesh get "/nodes/$NODE/$PVE_TYPE/$VMID/status/current" --output-format json | perl -MJSON::PP -0 -e 'print decode_json(<STDIN>)->{disk} // 0')"
+    fi
     ;;
 
   restart)

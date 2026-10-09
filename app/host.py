@@ -119,6 +119,13 @@ class HostClient:
         values = dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
         return values.get("reboot") == "1", values.get("services", "").split()
 
+    async def space(self, vmid: int, storage: str = "") -> dict:
+        """guest_size_kb / guest_avail_kb of / in the guest; with a storage also
+        storage_type, storage_avail_kb, last_backup_bytes, guest_used_bytes"""
+        out = await self._run("space", vmid, *([storage] if storage else []), timeout=120)
+        values = dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
+        return {k: v.strip() if k == "storage_type" else int(v.strip() or 0) for k, v in values.items()}
+
     def restart(self, vmid: int) -> AsyncIterator[str]:
         return self._stream("restart", vmid)
 

@@ -36,6 +36,7 @@ running.
 | `LUM_DB_PATH` | `data/lum.db` | Database (containers, history) |
 | `LUM_CHECK_INTERVAL_MINUTES` | `360` | Automatic **Check all** interval |
 | `LUM_MAX_PARALLEL_CHECKS` | `4` | Guests checked at the same time |
+| `LUM_MIN_FREE_MB` | `500` | Free space in the guest's `/` needed for an update; `0` turns the check off (see [Free space](usage.md#free-space-before-an-update)) |
 | `LUM_GITHUB_TOKEN` | – | Optional, raises the GitHub API limit for app versions from 60 to 5000 requests/h |
 | `LUM_BACKUP_MODE` | `snapshot` | `snapshot`, `vzdump` or `none` |
 | `LUM_SNAPSHOT_KEEP` | `2` | LUM snapshots kept per guest |

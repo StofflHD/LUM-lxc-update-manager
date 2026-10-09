@@ -18,6 +18,7 @@
 | | **Check** | Checks this one guest. |
 | | **OS update** | Opens the update dialog (with the backup checkbox), then runs apt/apk with a live log. |
 | | **App update** | Community-script app update (containers only; not shown for VMs). Highlighted when a newer app version exists. |
+| | `low disk: … free` | Less free space in `/` than an update needs – see [Free space](#free-space-before-an-update). |
 | | `restart required` · **Restart** | After updates the guest should be restarted – hover the badge for the reason, see [Restart after updates](#restart-after-updates). |
 | | **Backups** | The guest's LUM snapshots (**Rollback**, **Delete**) and vzdump backups (**Restore**, **Delete**) – see [Backup, cleanup and rollback](#backup-cleanup-and-rollback). |
 | Queue | **Log** · **Cancel remaining** · **Clear** | Progress of a bulk update, see below. |
@@ -29,6 +30,23 @@
 Below 1100 px window width every row turns into a card. The footer shows the version.
 If the host script on the Proxmox host is older than this LUM version needs, a yellow
 note below the status line says so and shows the command to update it.
+
+## Free space before an update
+
+A package manager that runs out of space halfway leaves a broken system, and a vzdump
+that fills its storage fails. So before every update LUM checks – and does not start
+the update (no backup either) if there is too little:
+
+- **in the guest:** free space in `/` must be at least `LUM_MIN_FREE_MB` (default
+  500 MB; menu ☰ → **Settings**, `0` turns the check off). Guests below that show
+  **low disk** in the list already after a check.
+- **on the vzdump storage** (only with `LUM_BACKUP_MODE=vzdump` and the backup ticked):
+  the free space must hold the backup – estimated from the size of the guest's last LUM
+  backup, without one from its data (about 60 % after compression), plus 10 %. Proxmox
+  Backup Server is not checked: it deduplicates, a backup needs little new space.
+
+The log shows the numbers (`### Free space in /: 1302 MB …`). If the space can't be
+read (e.g. host script older than 8), the log says so and the update runs anyway.
 
 ## Restart after updates
 
