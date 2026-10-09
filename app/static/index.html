@@ -31,12 +31,19 @@
           <button role="menuitemradio" data-theme-choice="light" aria-checked="false">Light</button>
           <button role="menuitemradio" data-theme-choice="dark" aria-checked="false">Dark</button>
           <hr>
+          <span class="menu-label">Configuration</span>
           <button id="settings-open" role="menuitem">Settings</button>
-          <button id="auto-run" role="menuitem">Run auto-update now</button>
-          <button id="notify-test" role="menuitem">Send test notification</button>
           <button id="export-open" role="menuitem">Export …</button>
           <button id="import-open" role="menuitem">Import …</button>
-          <button id="pw-open" role="menuitem" hidden>Change password</button>
+          <hr>
+          <span class="menu-label">Actions</span>
+          <button id="auto-run" role="menuitem">Run auto-update now</button>
+          <button id="notify-test" role="menuitem">Send test notification</button>
+          <div id="menu-account" class="menu-group" hidden>
+            <hr>
+            <span class="menu-label">Account</span>
+            <button id="pw-open" role="menuitem">Change password</button>
+          </div>
         </div>
       </div>
     </div>

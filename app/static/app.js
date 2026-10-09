@@ -1030,7 +1030,7 @@ $("#snap-close").addEventListener("click", () => $("#snap-dialog").close());
 api("/api/me").then((me) => {
   if (!me.auth_enabled) return;
   $("#user").textContent = me.user;
-  $("#pw-open").hidden = false;
+  $("#menu-account").hidden = false;
   $("#logout").hidden = false;
 }).catch(() => {});
 

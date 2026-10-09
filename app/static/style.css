@@ -69,6 +69,8 @@ button.placeholder { visibility: hidden; }
 .menu-panel button:hover:not(:disabled) { background: var(--bg); }
 .menu-label { font-size: 11px; color: var(--muted); padding: 6px 10px 2px; }
 .menu-panel hr { border: none; border-top: 1px solid var(--border); margin: 6px 0; width: 100%; }
+.menu-group { display: flex; flex-direction: column; }
+.menu-group[hidden] { display: none; }
 .menu-panel [role="menuitemradio"]::before { content: ""; display: inline-block; width: 18px; }
 .menu-panel [role="menuitemradio"][aria-checked="true"]::before { content: "✓"; color: var(--accent); }
 #notice { margin: 6px 0 0; font-size: 12px; }
