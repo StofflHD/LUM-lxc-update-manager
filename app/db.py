@@ -32,9 +32,15 @@ CREATE TABLE IF NOT EXISTS history (
     backup_kind TEXT,
     backup_ref TEXT,
     backup_removed INTEGER NOT NULL DEFAULT 0,
-    detail TEXT
+    detail TEXT,
+    name TEXT
 );
 """
+
+# history rows with the guest's name: the current one, or the one stored when the
+# job ran if the guest no longer exists
+HISTORY_COLS = ("h.id, h.vmid, h.kind, h.started, h.finished, h.success, h.backup_kind, h.backup_ref, "
+                "h.backup_removed, h.detail, COALESCE(c.name, h.name) AS name")
 
 
 class Database:
@@ -61,6 +67,7 @@ class Database:
                 "backup_ref": "TEXT",
                 "backup_removed": "INTEGER NOT NULL DEFAULT 0",
                 "detail": "TEXT",
+                "name": "TEXT",  # guest name when the job ran
             },
         }
         with self._conn:
@@ -69,6 +76,10 @@ class Database:
                 for col, decl in cols.items():
                     if col not in have:
                         self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
+            # entries from before the name was stored
+            self._conn.execute(
+                "UPDATE history SET name=(SELECT name FROM containers c WHERE c.vmid=history.vmid) WHERE name IS NULL"
+            )
 
     def sync_containers(self, containers: list[dict]) -> None:
         """Upsert the container list from Proxmox and drop removed ones."""
@@ -130,8 +141,9 @@ class Database:
     def start_history(self, vmid: int, kind: str, detail: str | None = None) -> int:
         with self._conn:
             cur = self._conn.execute(
-                "INSERT INTO history (vmid, kind, started, detail) VALUES (?, ?, ?, ?)",
-                (vmid, kind, time.time(), detail),
+                "INSERT INTO history (vmid, kind, started, detail, name) "
+                "VALUES (?, ?, ?, ?, (SELECT name FROM containers WHERE vmid=?))",
+                (vmid, kind, time.time(), detail, vmid),
             )
         return cur.lastrowid
 
@@ -184,8 +196,7 @@ class Database:
 
     def history_entry(self, history_id: int) -> dict | None:
         row = self._conn.execute(
-            "SELECT id, vmid, kind, started, finished, success, backup_kind, backup_ref, backup_removed, detail "
-            "FROM history WHERE id=?",
+            f"SELECT {HISTORY_COLS} FROM history h LEFT JOIN containers c USING (vmid) WHERE h.id=?",
             (history_id,),
         ).fetchone()
         return dict(row) if row else None
@@ -199,8 +210,7 @@ class Database:
 
     def history(self, limit: int = 50) -> list[dict]:
         rows = self._conn.execute(
-            "SELECT id, vmid, kind, started, finished, success, backup_kind, backup_ref, backup_removed, detail "
-            "FROM history ORDER BY id DESC LIMIT ?",
+            f"SELECT {HISTORY_COLS} FROM history h LEFT JOIN containers c USING (vmid) ORDER BY h.id DESC LIMIT ?",
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]

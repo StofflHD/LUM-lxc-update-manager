@@ -132,6 +132,7 @@ function renderHistory(list) {
     const canDeleteVzdump = h.backup_kind === "vzdump" && !h.backup_removed && h.finished;
     return `<tr>
       <td data-label="Time">${fmtTime(h.started)}</td><td data-label="ID">${guestLabel(h.vmid)}</td>
+      <td data-label="Name">${h.name ? esc(h.name) : '<span class="muted">–</span>'}</td>
       <td data-label="Type">${KIND[h.kind] || esc(h.kind)}</td>
       <td data-label="Result">${h.success == null ? '<span class="badge warn">running</span>'
         : h.success ? '<span class="badge ok">succeeded</span>' : '<span class="badge err">failed</span>'}</td>
@@ -144,7 +145,7 @@ function renderHistory(list) {
         ${h.finished ? `<button data-act="delhist" data-id="${h.id}" title="Remove this entry from the history">Remove</button>` : ""}
       </td>
     </tr>`;
-  }).join("") || `<tr><td colspan="6" class="muted">No updates run yet.</td></tr>`;
+  }).join("") || `<tr><td colspan="7" class="muted">No updates run yet.</td></tr>`;
   renderTasks();
 }
 
@@ -503,7 +504,7 @@ document.addEventListener("click", async (ev) => {
       }
       case "log":
         const h = historyById[id];
-        openLog(h ? `${guestLabel(h.vmid)} – ${KIND[h.kind] || h.kind} · ${fmtTime(h.started)}` : `History #${id}`);
+        openLog(h ? `${guestLabel(h.vmid)}${h.name ? ` ${h.name}` : ""} – ${KIND[h.kind] || h.kind} · ${fmtTime(h.started)}` : `History #${id}`);
         $("#log").textContent = await api(`/api/history/${id}/log`);
         break;
     }
