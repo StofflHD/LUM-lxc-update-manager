@@ -17,6 +17,7 @@ the header `X-Requested-With: lum`.
 | POST | `/api/refresh` | Check all (async) |
 | POST | `/api/containers/{id}/check` | Check one guest |
 | POST | `/api/containers/{id}/update?kind=os\|app&backup=true\|false&cleanup=true\|false` | Start an update → job (`cleanup` left out: `LUM_CLEANUP`) |
+| GET | `/api/containers/{id}/release-notes` | Releases between the installed and the latest app version: `releases` (`tag`, `name`, `body`, `published`, `url`, `cut`), `more` |
 | POST | `/api/containers/{id}/restart` | Reboot the guest → job |
 | GET | `/api/jobs/{id}` | Job status + log |
 | POST | `/api/auto` | Body `{"vmids": [101], "mode": "off"\|"os"\|"all"}` – auto-update per guest |

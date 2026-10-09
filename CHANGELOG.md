@@ -10,6 +10,19 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.22.0] – 2026-10-09
+
+### Added
+- **Release notes in the App update dialog:** every release between the installed and
+  the latest version (GitHub, Codeberg, GitLab), newest first, with simple formatting;
+  releases mentioning breaking changes or a migration are marked *read before
+  updating*. At most 20, with a link to the rest; cached together with the version
+  lookup. API: `GET /api/containers/{id}/release-notes`.
+
+### Changed
+- Roadmap: the remaining ideas (health check, Docker image updates, holding back
+  packages, ntfy / Gotify, multiple users / OIDC, Prometheus) are dropped.
+
 ## [0.21.2] – 2026-10-09
 
 ### Changed
@@ -522,7 +535,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.21.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/857a654...main
+[0.22.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/f3b9160...main
+[0.21.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/857a654...f3b9160
 [0.21.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/65281d6...857a654
 [0.21.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/d0c5375...65281d6
 [0.20.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/9ee908b...d0c5375

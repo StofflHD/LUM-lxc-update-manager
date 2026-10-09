@@ -403,6 +403,35 @@ async def queue_cancel():
     return {"queue": [i.as_dict() for i in s.queue]}
 
 
+NOTES_MAX = 20  # releases shown in the update dialog
+NOTE_CHARS = 6000  # per release
+
+
+@app.get("/api/containers/{vmid}/release-notes")
+async def release_notes(vmid: int):
+    """What changed between the installed and the latest app version (forge releases)."""
+    s = svc()
+    c = s.db.container(vmid)
+    if not c:
+        raise HTTPException(404, "unknown container")
+    out = {"installed": c["app_installed"], "latest": c["app_latest"], "url": c["app_url"], "releases": [], "more": 0}
+    if not c["app_script"] or not c["app_update"]:
+        return out
+    src = await s.catalog.source(c["app_script"])
+    if not src:
+        return out
+    try:
+        notes = await s.catalog.release_notes(src, c["app_installed"], c["app_latest"])
+    except Exception as err:  # rate limit, network: the update itself still works
+        log.warning("release notes of %s: %s", c["app_script"], err)
+        out["error"] = "the release notes can't be loaded right now"
+        return out
+    out["releases"] = [{**r, "body": r["body"][:NOTE_CHARS], "cut": len(r["body"]) > NOTE_CHARS}
+                       for r in notes[:NOTES_MAX]]
+    out["more"] = max(0, len(notes) - NOTES_MAX)
+    return out
+
+
 @app.post("/api/containers/{vmid}/restart", status_code=202)
 async def restart(vmid: int):
     """Reboot the guest (e.g. after updates that replaced libraries or the kernel) → job"""

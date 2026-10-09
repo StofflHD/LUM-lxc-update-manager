@@ -195,6 +195,7 @@ class AppCatalog:
         self._token = github_token
         self._sources: dict[str, tuple[float, AppSource | None]] = {}
         self._latest: dict[tuple, tuple[float, str | None]] = {}
+        self._releases: dict[tuple, tuple[float, list[dict]]] = {}  # forge release lists
 
     def _get(self, url: str, accept: str = "application/json") -> str:
         headers = {"Accept": accept, "User-Agent": "lxc-update-manager"}
@@ -253,17 +254,51 @@ class AppCatalog:
             return normalize(tags[0]["name"]) if tags else None
 
         # forge releases: the highest stable one, like the community scripts pick it
+        tags = [r["tag"] for r in await self._stable_releases(src)]
+        return normalize(max(tags, key=_version_key)) if tags else None
+
+    async def _stable_releases(self, src: AppSource) -> list[dict]:
+        """Stable releases of a forge (no drafts / pre-releases, tag prefix), the same for
+        GitHub, Codeberg and GitLab: [{"tag", "name", "body", "published", "url"}].
+        Cached like the latest version."""
+        key = (src.kind, src.host, src.repo, src.prefix)
+        cached = self._releases.get(key)
+        if cached and time.time() - cached[0] < LATEST_TTL:
+            return cached[1]
+        repo = src.repo
         if src.kind == "github":
-            releases = await self._json(f"https://api.github.com/repos/{repo}/releases?per_page=100")
+            raw = await self._json(f"https://api.github.com/repos/{repo}/releases?per_page=100")
         elif src.kind == "codeberg":
-            releases = await self._json(f"https://codeberg.org/api/v1/repos/{repo}/releases?limit=100")
+            raw = await self._json(f"https://codeberg.org/api/v1/repos/{repo}/releases?limit=100")
         else:  # gitlab
             base = src.host or "https://gitlab.com"
-            releases = await self._json(f"{base}/api/v4/projects/{urllib.parse.quote(repo, safe='')}"
-                                        "/releases?per_page=100&order_by=released_at&sort=desc")
-        tags = [
-            r["tag_name"] for r in releases
-            if not r.get("draft") and not r.get("prerelease") and not r.get("upcoming_release")
-            and r.get("tag_name", "").startswith(src.prefix)
-        ]
-        return normalize(max(tags, key=_version_key)) if tags else None
+            raw = await self._json(f"{base}/api/v4/projects/{urllib.parse.quote(repo, safe='')}"
+                                   "/releases?per_page=100&order_by=released_at&sort=desc")
+        releases = []
+        for r in raw:
+            tag = r.get("tag_name", "")
+            if r.get("draft") or r.get("prerelease") or r.get("upcoming_release") or not tag.startswith(src.prefix):
+                continue
+            url = r.get("html_url") or (r.get("_links") or {}).get("self") or ""
+            if src.kind == "gitlab" and not url:
+                url = f"{src.host or 'https://gitlab.com'}/{repo}/-/releases/{urllib.parse.quote(tag)}"
+            releases.append({
+                "tag": tag, "name": r.get("name") or tag, "url": url,
+                "body": r.get("body") if "body" in r else r.get("description") or "",
+                "published": r.get("published_at") or r.get("released_at") or r.get("created_at") or "",
+            })
+        self._releases[key] = (time.time(), releases)
+        return releases
+
+    async def release_notes(self, src: AppSource, installed: str, latest: str) -> list[dict]:
+        """Releases after the installed version up to the latest, newest first. Only
+        for GitHub, Codeberg and GitLab - tags, PyPI and npm have no release texts."""
+        if src.kind not in ("github", "codeberg", "gitlab") or not latest:
+            return []
+        low, high = version_key(installed or "0"), version_key(latest)
+        if high is None:
+            return []
+        notes = [r for r in await self._stable_releases(src)
+                 if (k := version_key(normalize(r["tag"]))) is not None
+                 and (low is None or k > low) and k <= high]
+        return sorted(notes, key=lambda r: _version_key(normalize(r["tag"])), reverse=True)

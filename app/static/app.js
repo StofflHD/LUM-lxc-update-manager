@@ -421,8 +421,9 @@ async function load() {
 }
 
 // Ask before an update; resolves to { backup, cleanup } or null when cancelled.
-// target: what is updated ("CT 103", "3 guests"), extra: an additional note
-function askUpdate(target, kind, extra = "") {
+// target: what is updated ("CT 103", "3 guests"), extra: an additional note,
+// vmidForNotes: a single app update shows the release notes of the new version(s)
+function askUpdate(target, kind, extra = "", vmidForNotes = null) {
   return new Promise((resolve) => {
     const dlg = $("#upd-dialog");
     const form = $("#upd-form");
@@ -431,6 +432,10 @@ function askUpdate(target, kind, extra = "") {
     $("#upd-title").textContent = `${kind === "os" ? "OS update" : "App update (community script)"} – ${target}`;
     $("#upd-extra").textContent = extra;
     $("#upd-extra").hidden = !extra;
+    $("#upd-notes").hidden = true;
+    $("#upd-notes").innerHTML = "";
+    dlg.classList.remove("wide");
+    if (kind === "app" && vmidForNotes) showReleaseNotes(vmidForNotes, dlg);
     $("#upd-backup-label").textContent = {
       snapshot: "Create a snapshot before the update",
       vzdump: `Create a vzdump backup to ${backupCfg?.storage} before the update`,
@@ -475,6 +480,67 @@ function askUpdate(target, kind, extra = "") {
   });
 }
 
+// --- release notes (app update dialog) ------------------------------------------------
+
+// the notes are Markdown from the forge: escape everything, then allow a small safe
+// subset (headings, lists, bold, code, http(s) links); words like "breaking" stand out
+function markdown(text) {
+  const inline = (s) => esc(s)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/\b(breaking( changes?)?|migration|migrate|deprecated|important|warning|backup)\b/gi, "<mark>$1</mark>");
+  const out = [];
+  let list = false;
+  for (const raw of text.replace(/\r/g, "").split("\n")) {
+    const line = raw.replace(/<!--.*?-->/g, "").trimEnd();
+    const item = /^\s*[-*+]\s+(.*)$/.exec(line);
+    if (item) {
+      if (!list) { out.push("<ul>"); list = true; }
+      out.push(`<li>${inline(item[1])}</li>`);
+      continue;
+    }
+    if (list) { out.push("</ul>"); list = false; }
+    const head = /^(#{1,6})\s+(.*)$/.exec(line);
+    if (head) out.push(`<h${head[1].length <= 2 ? 4 : 5}>${inline(head[2])}</h${head[1].length <= 2 ? 4 : 5}>`);
+    else if (line.trim()) out.push(`<p>${inline(line)}</p>`);
+  }
+  if (list) out.push("</ul>");
+  return out.join("");
+}
+
+const BREAKING = /\b(breaking|migration|migrate|deprecated)\b/i;
+
+async function showReleaseNotes(vmid, dlg) {
+  const box = $("#upd-notes");
+  box.innerHTML = '<div class="notes-head">Loading the release notes …</div>';
+  box.hidden = false;
+  try {
+    const n = await api(`/api/containers/${vmid}/release-notes`);
+    if (!dlg.open) return;
+    if (!n.releases.length) {
+      box.innerHTML = n.error
+        ? `<div class="notes-head">${esc(n.error)}${n.url ? ` – <a href="${esc(n.url)}" target="_blank" rel="noopener">release page</a>` : ""}</div>`
+        : "";
+      box.hidden = !n.error;
+      return;
+    }
+    dlg.classList.add("wide");
+    const releases = n.releases.map((r, i) => `<details ${i === 0 ? "open" : ""}>
+        <summary>${esc(r.name || r.tag)}<span class="when">${r.published ? esc(new Date(r.published).toLocaleDateString("en-GB")) : ""}</span>
+          ${BREAKING.test(r.body) ? '<span class="badge warn" title="The notes mention breaking changes or a migration">read before updating</span>' : ""}</summary>
+        <div class="note">${markdown(r.body || "") || '<p class="muted">No description.</p>'}
+          ${r.cut || r.url ? `<p><a href="${esc(r.url)}" target="_blank" rel="noopener">${r.cut ? "continue reading" : "release page"}</a></p>` : ""}</div>
+      </details>`).join("");
+    const count = n.releases.length + n.more;
+    box.innerHTML = `<div class="notes-head">What's new: ${count} release${count === 1 ? "" : "s"} from ${esc(n.installed)} to ${esc(n.latest)}</div>`
+      + releases
+      + (n.more ? `<div class="notes-foot">… and ${n.more} older ones – <a href="${esc(n.url)}" target="_blank" rel="noopener">all release notes</a></div>` : "");
+  } catch (err) {
+    box.innerHTML = `<div class="notes-head">Release notes not available: ${esc(err.message)}</div>`;
+  }
+}
+
 function openLog(title) {
   $("#log-title").textContent = title;
   $("#log").textContent = "";
@@ -514,7 +580,7 @@ document.addEventListener("click", async (ev) => {
         break;
       case "os":
       case "app": {
-        const choice = await askUpdate(guestLabel(id), btn.dataset.act);
+        const choice = await askUpdate(guestLabel(id), btn.dataset.act, "", btn.dataset.act === "app" ? id : null);
         if (!choice) return;
         followJob(await api(`/api/containers/${id}/update?kind=${btn.dataset.act}&backup=${choice.backup}`
           + `&cleanup=${choice.cleanup}`, { method: "POST" }));

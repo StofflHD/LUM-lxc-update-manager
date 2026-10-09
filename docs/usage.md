@@ -19,7 +19,7 @@
 | | App column | Installed app version (green) or `installed → latest` (orange) with a link to the release page, PyPI or npm. **held back**: the community script pins this version; **pre-release**: the installed version is newer than the latest stable one. Without a version source: *updated with the OS packages*, *no version check (Docker)* or *Version unknown* – see [App updates](#app-updates). |
 | | **Check** | Checks this one guest. |
 | | **OS update** | Opens the update dialog (backup and cleanup checkboxes), then runs apt/apk with a live log. |
-| | **App update** | Community-script app update. Highlighted when a newer app version exists. Not shown for VMs, containers tagged `self-created`, apps *updated with the OS packages* and apps with *no update via the script*. |
+| | **App update** | Community-script app update; the dialog shows the [release notes](#release-notes) of the new versions. Highlighted when a newer app version exists. Not shown for VMs, containers tagged `self-created`, apps *updated with the OS packages* and apps with *no update via the script*. |
 | | `low disk: … free` | Less free space in `/` than an update needs – see [Free space](#free-space-before-an-update). |
 | | `restart required` · **Restart** | After updates the guest should be restarted – hover the badge for the reason, see [Restart after updates](#restart-after-updates). |
 | | **Backups** | The guest's LUM snapshots (**Rollback**, **Delete**) and vzdump backups (**Restore**, **Delete**) – see [Backup, cleanup and rollback](#backup-cleanup-and-rollback). |
@@ -96,6 +96,19 @@ running guests, the filter **Security** shows only the guests that have some.
 Containers created with the community scripts have an `update` command. LUM runs it in
 the official silent mode (`PHS_SILENT=1`, the same call the community scripts'
 `tools/pve/update-apps.sh` makes) and compares the installed with the latest app version.
+
+### Release notes
+
+When a newer app version exists, the **App update** dialog shows what changed: the
+release notes of every release after the installed version up to the latest one, newest
+first (the first one open, at most 20 – a link leads to the rest). Releases whose notes
+mention *breaking* changes, a *migration* or a deprecation are marked **read before
+updating**, such words are highlighted.
+
+They come from the same place as the version: GitHub, Codeberg or GitLab releases
+(cached for an hour). PyPI, npm, Git tags and apps without a version check have no
+release texts – then the dialog shows none. Bulk updates don't show them. The notes are
+shown as plain text with simple formatting; nothing from them is run in the browser.
 
 ### Where the version comes from
 

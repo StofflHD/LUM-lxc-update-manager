@@ -29,7 +29,7 @@ rollback with one click and checks for free space and pending restarts.
 - **Free space check** before every update, in the guest and on the vzdump storage, and
   an optional cleanup afterwards (`apt autoremove`, `apt clean`)
 - **App updates** for community-script containers, with installed vs. latest version from
-  GitHub, Codeberg, GitLab, PyPI or npm
+  GitHub, Codeberg, GitLab, PyPI or npm, and the release notes of the new versions
 - **Safety first** – snapshot or vzdump backup before every update, cleanup, rollback;
   restore or delete LUM's vzdump backups from the web UI
 - **History** with stored logs, snapshots can be rolled back or deleted and vzdump backups
@@ -116,16 +116,7 @@ validates every argument, refuses containers and VMs tagged `no-lum` and only ev
 - [x] Notifications via a Telegram bot
 - [x] Export / import of settings and history
 - [x] Multiple nodes / cluster
-
-Planned – not every item is decided yet:
-
-- [ ] Health check after an update (guest running, app answers over HTTP), rollback offered if it fails
-- [ ] Docker image updates inside containers (`docker compose pull` / `up`)
-- [ ] Release notes of the new app version in the update dialog
-- [ ] Hold back single packages per guest
-- [ ] Notifications via ntfy / Gotify
-- [ ] Multiple users with a read-only role, login via OIDC (e.g. Authentik)
-- [ ] Prometheus metrics (pending updates per guest)
+- [x] Release notes of the new app version in the update dialog
 
 ## License
 
