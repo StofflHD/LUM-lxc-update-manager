@@ -3,6 +3,7 @@
 import asyncio
 import itertools
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 
@@ -12,6 +13,8 @@ from .db import Database
 from .host import HostCommandError
 
 log = logging.getLogger(__name__)
+
+EXCLUDE_TAG = "no-lum"  # Proxmox tag: LUM leaves this container / VM alone
 
 # exit codes of the community-scripts update with PHS_SILENT=1 that mean
 # "skipped on purpose", see tools/pve/update-apps.sh
@@ -77,9 +80,19 @@ class UpdateService:
         self._check_sem = asyncio.Semaphore(settings.max_parallel_checks)
         self.last_refresh: float | None = None
         self.wrapper_version: int | None = None  # host script version, None = unknown
+        self.hidden: list[int] = []  # guests tagged EXCLUDE_TAG
         self.refreshing = False
 
     # --- checks ------------------------------------------------------------
+
+    def _managed(self, guests: list[dict]) -> list[dict]:
+        """Drop guests tagged "no-lum" (the host script refuses them as well)."""
+        keep, hidden = [], []
+        for g in guests:
+            tags = {t.lower() for t in re.split(r"[;, ]+", g.get("tags") or "") if t}
+            (hidden if EXCLUDE_TAG in tags else keep).append(g)
+        self.hidden = sorted(int(g["vmid"]) for g in hidden)
+        return keep
 
     async def refresh_all(self) -> None:
         if self.refreshing:
@@ -90,7 +103,7 @@ class UpdateService:
                 self.wrapper_version = await self.host.wrapper_version()
             except (OSError, ValueError) as err:
                 log.warning("cannot read host script version: %s", err)
-            containers = await self.host.list_containers()
+            containers = self._managed(await self.host.list_containers())
             self.db.sync_containers(containers)
             running = [int(c["vmid"]) for c in containers if c.get("status") == "running"]
             await asyncio.gather(*(self.check(vmid) for vmid in running if vmid not in self._busy))
@@ -102,7 +115,7 @@ class UpdateService:
         """Re-read only the list of containers/VMs from the host - no package checks.
         New running guests get checked in the background so they show their state."""
         before = {c["vmid"] for c in self.db.containers()}
-        guests = await self.host.list_containers()
+        guests = self._managed(await self.host.list_containers())
         self.db.sync_containers(guests)
         now = {int(g["vmid"]) for g in guests}
         added, removed = sorted(now - before), sorted(before - now)
@@ -110,7 +123,7 @@ class UpdateService:
             vmid = int(g["vmid"])
             if vmid in added and g.get("status") == "running" and vmid not in self._busy:
                 asyncio.create_task(self.check(vmid))
-        return {"added": added, "removed": removed}
+        return {"added": added, "removed": removed, "hidden": self.hidden}
 
     async def check(self, vmid: int) -> None:
         async with self._check_sem:

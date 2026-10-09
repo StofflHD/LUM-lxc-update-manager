@@ -22,6 +22,24 @@ Below 1100 px window width every row turns into a card. The footer shows the ver
 If the host script on the Proxmox host is older than this LUM version needs, a yellow
 note below the status line says so and shows the command to update it.
 
+## Excluding containers and VMs
+
+Give a container or VM the Proxmox tag **`no-lum`** and LUM leaves it alone: it is not
+listed, not checked and not updated. The host script refuses every command for such a
+guest as well, so not even a misbehaving LUM could touch it. The status line shows how
+many guests are hidden (hover for their IDs). The tag is case-insensitive.
+
+Add the tag in the Proxmox UI (guest → *Summary* → pencil next to the tags) or on the
+host – keep the existing tags, `--tags` replaces them:
+
+```bash
+pct set <CTID> --tags "community-script;no-lum"   # container
+qm set <VMID> --tags "no-lum"                     # VM
+```
+
+The change shows up with the next **Refresh list** or **Check all**. Remove the tag to let
+LUM manage the guest again.
+
 ## App updates
 
 Containers created with the community scripts have an `update` command. LUM runs it in

@@ -10,6 +10,13 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.9.0] – 2026-10-09
+
+### Added
+- Proxmox tag **`no-lum`**: containers and VMs with it are not listed, checked or updated.
+  The host script refuses every command for them too (exit 6). The status line shows how
+  many guests are hidden. **Host script**
+
 ## [0.8.0] – 2026-10-09
 
 ### Added
@@ -226,7 +233,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.8.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/777d354...main
+[0.9.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/58559b4...main
+[0.8.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/777d354...58559b4
 [0.7.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ddbc9a0...777d354
 [0.6.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/4a80557...ddbc9a0
 [0.6.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/d1d6bed...4a80557

@@ -14,7 +14,8 @@ web UI. With a snapshot before every update and rollback with one click.
 
 ## Features
 
-- **Containers and VMs in one list** – LXC via `pct`, VMs via the QEMU guest agent
+- **Containers and VMs in one list** – LXC via `pct`, VMs via the QEMU guest agent;
+  tag a guest `no-lum` to keep LUM away from it
 - **OS updates** (apt / apk) with one click and a live log
 - **App updates** for community-script containers, with installed vs. latest version from
   GitHub, Codeberg, GitLab, PyPI or npm

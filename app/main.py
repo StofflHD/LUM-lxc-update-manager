@@ -247,6 +247,7 @@ async def status():
         "last_refresh": s.last_refresh,
         "demo": cfg.demo,
         "version": __version__,
+        "hidden": s.hidden,
         "host_script": {
             "version": s.wrapper_version,
             "required": REQUIRED_WRAPPER_VERSION,

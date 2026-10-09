@@ -207,7 +207,9 @@ async function load() {
     const [status, containers, history] = await Promise.all([api("/api/status"), api("/api/containers"), api("/api/history")]);
     $("#status").textContent = (status.refreshing ? "Checking containers and VMs … · " : "")
       + `Last check: ${fmtTime(status.last_refresh)} · ${backupText(status.backup)}`
+      + (status.hidden.length ? ` · ${status.hidden.length} hidden (tag no-lum)` : "")
       + (status.demo ? " · DEMO mode" : "");
+    $("#status").title = status.hidden.length ? `Not managed by LUM (Proxmox tag "no-lum"): ${status.hidden.join(", ")}` : "";
     $("#version").textContent = `LUM v${status.version}`;
     const hs = status.host_script;
     $("#host-warning").hidden = !hs.outdated;
@@ -420,7 +422,7 @@ $("#sync").addEventListener("click", async () => {
     const r = await api("/api/sync", { method: "POST" });
     const parts = [];
     if (r.added.length) parts.push(`New: ${r.added.join(", ")}`);
-    if (r.removed.length) parts.push(`Removed: ${r.removed.join(", ")}`);
+    if (r.removed.length) parts.push(`Removed or tagged no-lum: ${r.removed.join(", ")}`);
     notice(parts.length ? `List refreshed · ${parts.join(" · ")}` : "List refreshed · no new or removed containers/VMs");
   } catch (err) {
     await showError(err.message);

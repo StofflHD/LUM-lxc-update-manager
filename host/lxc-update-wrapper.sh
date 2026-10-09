@@ -32,11 +32,14 @@
 #
 # The manager can only ever touch snapshots named lum_* and backups whose note
 # is exactly "lxc-update-manager" - never your own snapshots or backup jobs.
+# Containers and VMs tagged "no-lum" are refused completely.
 
 set -euo pipefail
 
 # bump when verbs are added or changed; LUM checks it and asks for a host update
-WRAPPER_VERSION=4
+WRAPPER_VERSION=5
+# guests with this Proxmox tag are off limits for LUM (every verb except list/version)
+EXCLUDE_TAG="no-lum"
 MARKER="lxc-update-manager"
 
 # SSH_ORIGINAL_COMMAND when called via SSH, "$*" for local testing.
@@ -60,6 +63,10 @@ require_vmid() {
     TOOL=qm PVE_TYPE=qemu GUEST=VM
   else
     die "unknown vmid $VMID"
+  fi
+  if "$TOOL" config "$VMID" 2>/dev/null | sed -n 's/^tags: //p' | tr ';, ' '\n\n\n' | grep -qix "$EXCLUDE_TAG"; then
+    echo "error: $GUEST $VMID is tagged $EXCLUDE_TAG - LUM does not manage it" >&2
+    exit 6
   fi
 }
 
