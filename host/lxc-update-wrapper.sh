@@ -15,7 +15,9 @@
 #   list                      JSON list of all containers and VMs on this node (with "type")
 #   info     <vmid>           pkg=<apt|apk|unknown> / community=<0|1> / script=<ct script name>
 #   check    <vmid>           one upgradable package per line
-#   upgrade  <vmid>           OS upgrade (streams output; for VMs at the end)
+#   upgrade  <vmid> [clean|keep]  OS upgrade (streams output; for VMs at the end), then
+#                             clean = apt autoremove + apt clean / apk cache clean,
+#                             keep = no cleanup; without (LUM < 0.15) = apt autoremove
 #   app-version <vmid> <app>  installed app version (~/.<app>, written by the check_for_* / fetch_and_deploy_* helpers)
 #   pkg-version <vmid> <pip|npm> <package>  installed version of a pip / npm package
 #   app-update <vmid>         community-scripts "update" in silent mode (PHS_SILENT=1), LXC only
@@ -46,7 +48,7 @@
 set -euo pipefail
 
 # bump when verbs are added or changed; LUM checks it and asks for a host update
-WRAPPER_VERSION=8
+WRAPPER_VERSION=9
 # guests with this Proxmox tag are off limits for LUM (every verb except list/version)
 EXCLUDE_TAG="no-lum"
 MARKER="lxc-update-manager"
@@ -249,19 +251,36 @@ case "$VERB" in
 
   upgrade)
     require_vmid; require_running
+    CLEAN="${ARGS[2]:-auto}"
+    [[ "$CLEAN" =~ ^(clean|keep|auto)$ ]] || die "invalid cleanup option"
     [[ $TOOL == qm ]] && echo "running in VM $VMID through the QEMU guest agent - the output appears when the update has finished"
-    in_guest 7200 '
+    # a failed cleanup only warns: the update itself has succeeded by then
+    in_guest 7200 "CLEAN=$CLEAN"'
+      free_kb() { df -Pk / | tail -n 1 | awk "{print \$(NF-2)}"; }
       if command -v apt-get >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
         # no changelog reading/mailing during an unattended upgrade
         export APT_LISTCHANGES_FRONTEND=none
         apt-get update &&
-        apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade &&
-        apt-get -y autoremove
+        apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade || exit $?
+        before=$(free_kb)
+        case "$CLEAN" in
+          clean) echo "--- cleanup: apt-get autoremove, apt-get clean"
+                 { apt-get -y autoremove && apt-get clean; } || echo "--- warning: cleanup failed" ;;
+          auto)  apt-get -y autoremove || echo "--- warning: cleanup failed" ;;
+        esac
       elif command -v apk >/dev/null 2>&1; then
-        apk -U upgrade
+        apk -U upgrade || exit $?
+        before=$(free_kb)
+        if [ "$CLEAN" = clean ]; then
+          echo "--- cleanup: apk cache clean"
+          apk cache clean >/dev/null 2>&1 || true  # fails when no package cache is set up
+        fi
       else
         echo "unsupported package manager" >&2; exit 4
+      fi
+      if [ "$CLEAN" = clean ]; then
+        echo "--- cleanup freed $(( ($(free_kb) - before) / 1024 )) MB"
       fi
     ' 2>&1
     ;;

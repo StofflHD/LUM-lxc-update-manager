@@ -119,6 +119,8 @@ label.sel { display: inline-flex; align-items: center; gap: 8px; cursor: pointer
 label.sel input { margin: 0; accent-color: var(--accent); }
 .spinner.inline { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; }
 #upd-extra { margin: 8px 0 0; }
+#upd-clean-row { margin-top: 14px; }
+#upd-clean-row[hidden] { display: none; }
 
 /* filter: segmented buttons */
 .seg { display: inline-flex; }

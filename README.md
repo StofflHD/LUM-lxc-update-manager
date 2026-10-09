@@ -20,7 +20,8 @@ web UI. With a snapshot before every update and rollback with one click.
   once, one after the other; security updates are highlighted and can be filtered
 - **Restart required** – shows when services still run replaced libraries or a VM has a
   newer kernel, with a restart button
-- **Free space check** before every update, in the guest and on the vzdump storage
+- **Free space check** before every update, in the guest and on the vzdump storage, and
+  an optional cleanup afterwards (`apt autoremove`, `apt clean`)
 - **App updates** for community-script containers, with installed vs. latest version from
   GitHub, Codeberg, GitLab, PyPI or npm
 - **Safety first** – snapshot or vzdump backup before every update, cleanup, rollback;
@@ -103,10 +104,10 @@ validates every argument, refuses containers and VMs tagged `no-lum` and only ev
 - [x] Highlight security updates (`*-security`) with their own badge and filter
 - [x] "Restart required" after kernel / library updates, with a restart button
 - [x] Check free disk space (guest and vzdump storage) before an update
+- [x] Optional cleanup after an update (`apt autoremove` / `apt clean`)
 
 Planned – not every item is decided yet:
 
-- [ ] Optional cleanup after an update (`apt autoremove` / `apt clean`)
 - [ ] Health check after an update (guest running, app answers over HTTP), rollback offered if it fails
 - [ ] Docker image updates inside containers (`docker compose pull` / `up`)
 - [ ] Release notes of the new app version in the update dialog

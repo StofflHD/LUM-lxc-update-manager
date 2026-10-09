@@ -145,7 +145,20 @@ class DemoHostClient:
         if exit_status:
             raise HostCommandError("demo", exit_status, "simulated")
 
-    def upgrade(self, vmid: int) -> AsyncIterator[str]:
+    def upgrade(self, vmid: int, cleanup: bool = True) -> AsyncIterator[str]:
+        lines = self._upgrade_lines(vmid)
+        if cleanup:
+            if _ct(vmid)[4] == "apk":
+                lines += ["--- cleanup: apk cache clean", "--- cleanup freed 14 MB"]
+            else:
+                lines += ["--- cleanup: apt-get autoremove, apt-get clean", "Reading package lists...",
+                          "The following packages will be REMOVED:", "  linux-image-6.12.38+deb13-amd64"
+                          if _ct(vmid)[7] == "qemu" else "  libicu72",
+                          "0 upgraded, 0 newly installed, 1 to remove and 0 not upgraded.",
+                          f"--- cleanup freed {312 if _ct(vmid)[7] == 'qemu' else 87} MB"]
+        return self._fake_stream(lines)
+
+    def _upgrade_lines(self, vmid: int) -> list[str]:
         pkgs, self._pending[vmid] = self._pending[vmid], []
         # replaced libraries: the services using them keep the old code until restarted
         if {"libc6", "openssl", "libssl3t64", "systemd"} & {n for n, _, _ in pkgs}:
@@ -155,7 +168,7 @@ class DemoHostClient:
             lines = ["fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/APKINDEX.tar.gz"]
             lines += [f"({i}/{len(pkgs)}) Upgrading {n} ({o} -> {v})" for i, (n, o, v) in enumerate(pkgs, 1)]
             lines.append(f"OK: 48 MiB in {60 + len(pkgs)} packages")
-            return self._fake_stream(lines)
+            return lines
         names = " ".join(n for n, _, _ in pkgs)
         lines = [
             "Hit:1 http://deb.debian.org/debian trixie InRelease",
@@ -173,7 +186,7 @@ class DemoHostClient:
         if _ct(vmid)[7] == "qemu":
             lines.insert(0, f"running in VM {vmid} through the QEMU guest agent - "
                             "the output appears when the update has finished")
-        return self._fake_stream(lines)
+        return lines
 
     def app_update(self, vmid: int) -> AsyncIterator[str]:
         if vmid == 104:  # show how a deliberately skipped update looks

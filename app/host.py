@@ -129,8 +129,8 @@ class HostClient:
     def restart(self, vmid: int) -> AsyncIterator[str]:
         return self._stream("restart", vmid)
 
-    def upgrade(self, vmid: int) -> AsyncIterator[str]:
-        return self._stream("upgrade", vmid)
+    def upgrade(self, vmid: int, cleanup: bool = True) -> AsyncIterator[str]:
+        return self._stream("upgrade", vmid, "clean" if cleanup else "keep")
 
     def app_update(self, vmid: int) -> AsyncIterator[str]:
         return self._stream("app-update", vmid)

@@ -16,7 +16,7 @@
 | | `▸ N packages` · `N security` | Pending OS updates – click to list them. **security**: how many come from a security repository (see [Security updates](#security-updates)); they are marked in the list. |
 | | App column | Installed app version (green) or `installed → latest` (orange) with a link to the release page, PyPI or npm. **held back**: the community script pins this version; **pre-release**: the installed version is newer than the latest stable one. Without a version source: *updated with the OS packages*, *no version check (Docker)* or *Version unknown* – see [App updates](#app-updates). |
 | | **Check** | Checks this one guest. |
-| | **OS update** | Opens the update dialog (with the backup checkbox), then runs apt/apk with a live log. |
+| | **OS update** | Opens the update dialog (backup and cleanup checkboxes), then runs apt/apk with a live log. |
 | | **App update** | Community-script app update (containers only; not shown for VMs). Highlighted when a newer app version exists. |
 | | `low disk: … free` | Less free space in `/` than an update needs – see [Free space](#free-space-before-an-update). |
 | | `restart required` · **Restart** | After updates the guest should be restarted – hover the badge for the reason, see [Restart after updates](#restart-after-updates). |
@@ -47,6 +47,19 @@ the update (no backup either) if there is too little:
 
 The log shows the numbers (`### Free space in /: 1302 MB …`). If the space can't be
 read (e.g. host script older than 8), the log says so and the update runs anyway.
+
+## Cleanup after an OS update
+
+With the checkbox **Clean up afterwards** (default: `LUM_CLEANUP=true`, menu ☰ →
+**Settings**) an OS update ends with:
+
+- apt: `apt-get autoremove` (packages nothing needs any more, e.g. old kernels in a VM)
+  and `apt-get clean` (the downloaded `.deb` files);
+- apk: `apk cache clean` (only does something when a package cache is set up).
+
+The log shows how much space it freed (`--- cleanup freed 312 MB`). A failed cleanup
+only warns – the update itself has succeeded by then. Untick it to keep the downloaded
+packages or to look at what autoremove would remove first. App updates don't clean up.
 
 ## Restart after updates
 
@@ -83,7 +96,8 @@ running guests, the filter **Security** shows only the guests that have some.
 
 Tick the checkboxes of the guests (or **Select all with updates**: every running guest
 with OS or app updates), then click **OS update** or **App update** above the list. The
-update dialog asks once for the backup checkbox; it applies to all of them.
+update dialog asks once for the backup (and for OS updates the cleanup) checkbox; it
+applies to all of them.
 
 - The guests are updated **one after the other**, each exactly like a single update –
   with its own backup, cleanup, live log and history entry. A queued guest shows

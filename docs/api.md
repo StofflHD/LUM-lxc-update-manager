@@ -11,16 +11,16 @@ the header `X-Requested-With: lum`.
 | GET | `/api/auth/state` · `/api/me` | Login configured? / current user |
 | POST | `/api/password` | Change password |
 | GET · POST | `/api/settings` | Editable settings / save them (LUM restarts) |
-| GET | `/api/status` | Version, last check, backup mode, host script version, hidden (`no-lum`) guests, `queue` |
+| GET | `/api/status` | Version, last check, backup mode, host script version, hidden (`no-lum`) guests, `queue`, `cleanup` (default of the cleanup checkbox) |
 | GET | `/api/containers` | All containers/VMs with update status (`upgradable`, `security` = the security updates among them, `restart_required`, `restart_reboot`, `restart_services`, `disk_free_kb`, `disk_size_kb`, `low_disk`) |
 | POST | `/api/sync` | Re-read the list of containers/VMs only (no package checks) |
 | POST | `/api/refresh` | Check all (async) |
 | POST | `/api/containers/{id}/check` | Check one guest |
-| POST | `/api/containers/{id}/update?kind=os\|app&backup=true\|false` | Start an update → job |
+| POST | `/api/containers/{id}/update?kind=os\|app&backup=true\|false&cleanup=true\|false` | Start an update → job (`cleanup` left out: `LUM_CLEANUP`) |
 | POST | `/api/containers/{id}/restart` | Reboot the guest → job |
 | GET | `/api/jobs/{id}` | Job status + log |
 | GET | `/api/queue` | Bulk update queue: `vmid`, `kind`, `backup`, `state` (`waiting`, `running`, `ok`, `failed`, `skipped`, `cancelled`), `job_id`, `note` |
-| POST | `/api/queue` | Body `{"vmids": [101, 102], "kind": "os"\|"app", "backup": true}` – update them one after the other |
+| POST | `/api/queue` | Body `{"vmids": [101, 102], "kind": "os"\|"app", "backup": true, "cleanup": true}` – update them one after the other |
 | DELETE | `/api/queue` | Cancel the waiting guests, or clear a finished queue |
 | WS | `/ws/jobs/{id}` | Live log of a job |
 | GET | `/api/containers/{id}/snapshots` | The guest's LUM snapshots (`lum_*`) |

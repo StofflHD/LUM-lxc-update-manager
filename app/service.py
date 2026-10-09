@@ -32,6 +32,7 @@ class Job:
     kind: str  # "os" | "app" | "rollback" | "restore" | "restart"
     target: str | None = None  # rollback: snapshot name, restore: backup id (ctime)
     backup: bool = True  # update: make a snapshot/vzdump first (LUM_BACKUP_MODE)
+    cleanup: bool = True  # OS update: apt autoremove + apt clean afterwards
     lines: list[str] = field(default_factory=list)
     done: bool = False
     success: bool | None = None
@@ -69,6 +70,7 @@ class Job:
     def as_dict(self) -> dict:
         return {
             "id": self.id, "vmid": self.vmid, "kind": self.kind, "target": self.target, "backup": self.backup,
+            "cleanup": self.cleanup,
             "done": self.done, "success": self.success,
         }
 
@@ -79,12 +81,13 @@ class QueueItem:
     vmid: int
     kind: str  # "os" | "app"
     backup: bool
+    cleanup: bool = True
     state: str = "waiting"  # waiting | running | ok | failed | skipped | cancelled
     job_id: int | None = None
     note: str = ""
 
     def as_dict(self) -> dict:
-        return {"vmid": self.vmid, "kind": self.kind, "backup": self.backup, "state": self.state,
+        return {"vmid": self.vmid, "kind": self.kind, "backup": self.backup, "cleanup": self.cleanup, "state": self.state,
                 "job_id": self.job_id, "note": self.note}
 
 
@@ -244,12 +247,14 @@ class UpdateService:
 
     # --- jobs --------------------------------------------------------------
 
-    def start_job(self, vmid: int, kind: str, target: str | None = None, backup: bool = True) -> Job:
+    def start_job(self, vmid: int, kind: str, target: str | None = None, backup: bool = True,
+                  cleanup: bool = True) -> Job:
         """kind: "os" | "app" update, or "rollback" to the lum_ snapshot <target>.
-        backup=False skips the safety copy for this one update."""
+        backup=False skips the safety copy for this one update, cleanup=False the
+        apt autoremove / clean after an OS update."""
         if vmid in self._busy:
             raise RuntimeError(f"container {vmid} already has a running job")
-        job = Job(id=next(self._job_ids), vmid=vmid, kind=kind, target=target, backup=backup)
+        job = Job(id=next(self._job_ids), vmid=vmid, kind=kind, target=target, backup=backup, cleanup=cleanup)
         self.jobs[job.id] = job
         self._busy.add(vmid)
         run = {"rollback": self._run_rollback, "restore": self._run_restore,
@@ -289,7 +294,7 @@ class UpdateService:
             job.emit("### No backup (turned off for this update)")
 
         job.emit("### OS update" if job.kind == "os" else "### App update (PHS_SILENT=1)")
-        stream = self.host.upgrade(job.vmid) if job.kind == "os" else self.host.app_update(job.vmid)
+        stream = self.host.upgrade(job.vmid, job.cleanup) if job.kind == "os" else self.host.app_update(job.vmid)
         async for line in stream:
             job.emit(line)
 
@@ -412,7 +417,7 @@ class UpdateService:
     def queue_active(self) -> bool:
         return any(i.state in ("waiting", "running") for i in self.queue)
 
-    def enqueue(self, vmids: list[int], kind: str, backup: bool) -> int:
+    def enqueue(self, vmids: list[int], kind: str, backup: bool, cleanup: bool = True) -> int:
         """Add guests to the queue (once each); returns how many were added."""
         if not self.queue_active:
             self.queue.clear()  # a new run: drop the results of the last one
@@ -420,7 +425,7 @@ class UpdateService:
         added = 0
         for vmid in dict.fromkeys(vmids):
             if vmid not in queued:
-                self.queue.append(QueueItem(vmid, kind, backup))
+                self.queue.append(QueueItem(vmid, kind, backup, cleanup))
                 added += 1
         if added and (self._queue_task is None or self._queue_task.done()):
             self._queue_task = asyncio.create_task(self._run_queue())
@@ -464,7 +469,7 @@ class UpdateService:
                 item.state, item.note = "skipped", reason
                 continue
             try:
-                job = self.start_job(item.vmid, item.kind, backup=item.backup)
+                job = self.start_job(item.vmid, item.kind, backup=item.backup, cleanup=item.cleanup)
             except RuntimeError as err:
                 item.state, item.note = "failed", str(err)
                 continue

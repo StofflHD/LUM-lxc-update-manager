@@ -10,6 +10,26 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.15.0] – 2026-10-09
+
+**Host script** (version 9) – run the installer with `--update` on the Proxmox host.
+
+### Added
+- **Cleanup after an OS update** is a checkbox in the update dialog (also for bulk
+  updates): `apt-get autoremove` + `apt-get clean`, on Alpine `apk cache clean`. The
+  log shows how much space it freed. Default from the new setting `LUM_CLEANUP`
+  (true, editable in the settings).
+- API: `cleanup` for `/api/containers/{id}/update` and `POST /api/queue`.
+
+### Changed
+- `apt-get autoremove` used to run after every OS update; now it can be turned off. A
+  failed cleanup only warns instead of failing the update.
+- Settings: new group *Updates* (free space, cleanup).
+
+### Fixed
+- The update dialog said to restore a vzdump backup in the Proxmox UI – that works in
+  LUM's Backups dialog since 0.10.0.
+
 ## [0.14.0] – 2026-10-09
 
 **Host script** (version 8) – run the installer with `--update` on the Proxmox host.
@@ -354,7 +374,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.14.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/7b02fc6...main
+[0.15.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0058f2b...main
+[0.14.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/7b02fc6...0058f2b
 [0.13.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0dee04b...7b02fc6
 [0.12.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/dd5e36c...0dee04b
 [0.11.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/7fd71e4...dd5e36c

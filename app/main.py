@@ -254,6 +254,7 @@ async def status():
             "outdated": s.wrapper_version is not None and s.wrapper_version < REQUIRED_WRAPPER_VERSION,
         },
         "queue": [i.as_dict() for i in s.queue],
+        "cleanup": cfg.cleanup,  # default of the "clean up" checkbox
         "backup": {
             "mode": cfg.backup_mode,
             "keep": cfg.snapshot_keep if cfg.backup_mode == "snapshot" else cfg.backup_keep,
@@ -293,7 +294,7 @@ async def check(vmid: int):
 
 
 @app.post("/api/containers/{vmid}/update", status_code=202)
-async def update(vmid: int, kind: Literal["os", "app"] = "os", backup: bool = True):
+async def update(vmid: int, kind: Literal["os", "app"] = "os", backup: bool = True, cleanup: bool | None = None):
     s = svc()
     c = s.db.container(vmid)
     if not c:
@@ -305,7 +306,8 @@ async def update(vmid: int, kind: Literal["os", "app"] = "os", backup: bool = Tr
     if kind == "app" and not c["community_script"]:
         raise HTTPException(409, "container has no community-scripts update command")
     try:
-        return s.start_job(vmid, kind, backup=backup).as_dict()
+        clean = get_settings().cleanup if cleanup is None else cleanup
+        return s.start_job(vmid, kind, backup=backup, cleanup=clean).as_dict()
     except RuntimeError as err:
         raise HTTPException(409, str(err))
 
@@ -314,6 +316,7 @@ class QueueBody(BaseModel):
     vmids: list[int]
     kind: Literal["os", "app"] = "os"
     backup: bool = True
+    cleanup: bool | None = None  # None: LUM_CLEANUP
 
 
 @app.get("/api/queue")
@@ -330,7 +333,8 @@ async def queue_add(body: QueueBody):
         raise HTTPException(404, f"unknown container(s): {', '.join(map(str, unknown))}")
     if not body.vmids:
         raise HTTPException(400, "no guests selected")
-    added = s.enqueue(body.vmids, body.kind, body.backup)
+    clean = get_settings().cleanup if body.cleanup is None else body.cleanup
+    added = s.enqueue(body.vmids, body.kind, body.backup, clean)
     return {"added": added, "queue": [i.as_dict() for i in s.queue]}
 
 

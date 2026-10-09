@@ -317,6 +317,7 @@ async function showBackups(vmid) {
 }
 
 let backupCfg = null;
+let cleanupDefault = true;
 
 function backupText(b) {
   if (b.mode === "snapshot") return `Backup: snapshot (keeps ${b.keep})`;
@@ -342,6 +343,7 @@ async function load() {
     }
     $("#refresh").disabled = status.refreshing;
     backupCfg = status.backup;
+    cleanupDefault = status.cleanup;
     containers.forEach((c) => { guestTypes[c.vmid] = c.type; });
     lastContainers = containers;
     lastQueue = status.queue;
@@ -358,7 +360,7 @@ async function load() {
   }
 }
 
-// Ask before an update; resolves to { backup: bool } or null when cancelled.
+// Ask before an update; resolves to { backup, cleanup } or null when cancelled.
 // target: what is updated ("CT 103", "3 guests"), extra: an additional note
 function askUpdate(target, kind, extra = "") {
   return new Promise((resolve) => {
@@ -375,6 +377,9 @@ function askUpdate(target, kind, extra = "") {
     }[mode] || "Create a backup before the update";
     box.disabled = mode === "none";
     box.checked = mode !== "none";
+    // apt autoremove / clean: OS updates only
+    $("#upd-clean-row").hidden = kind !== "os";
+    form.cleanup.checked = cleanupDefault;
 
     const note = () => {
       const el = $("#upd-note");
@@ -387,7 +392,7 @@ function askUpdate(target, kind, extra = "") {
       } else {
         el.textContent = mode === "snapshot"
           ? "You can roll back to it from the history or the Backups button."
-          : "Restore it in the Proxmox UI if needed.";
+          : "You can restore it under the Backups button.";
         el.className = "muted";
       }
     };
@@ -400,7 +405,7 @@ function askUpdate(target, kind, extra = "") {
     };
     form.onsubmit = (ev) => {
       ev.preventDefault();
-      finish({ backup: box.checked });
+      finish({ backup: box.checked, cleanup: kind === "os" && form.cleanup.checked });
     };
     $("#upd-cancel").onclick = () => finish(null);
     $("#upd-close").onclick = () => finish(null);
@@ -451,7 +456,8 @@ document.addEventListener("click", async (ev) => {
       case "app": {
         const choice = await askUpdate(guestLabel(id), btn.dataset.act);
         if (!choice) return;
-        followJob(await api(`/api/containers/${id}/update?kind=${btn.dataset.act}&backup=${choice.backup}`, { method: "POST" }));
+        followJob(await api(`/api/containers/${id}/update?kind=${btn.dataset.act}&backup=${choice.backup}`
+          + `&cleanup=${choice.cleanup}`, { method: "POST" }));
         break;
       }
       case "delsnap": {
@@ -670,7 +676,7 @@ async function bulkUpdate(kind) {
     await api("/api/queue", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ vmids, kind, backup: choice.backup }),
+      body: JSON.stringify({ vmids, kind, backup: choice.backup, cleanup: choice.cleanup }),
     });
     selected.clear();
   } catch (err) {
