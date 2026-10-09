@@ -126,8 +126,8 @@ class HostClient:
         values = dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
         return {k: v.strip() if k == "storage_type" else int(v.strip() or 0) for k, v in values.items()}
 
-    def restart(self, vmid: int) -> AsyncIterator[str]:
-        return self._stream("restart", vmid)
+    def restart(self, vmid: int, background: bool = False) -> AsyncIterator[str]:
+        return self._stream("restart", vmid, *(["background"] if background else []))
 
     def upgrade(self, vmid: int, cleanup: bool = True) -> AsyncIterator[str]:
         return self._stream("upgrade", vmid, "clean" if cleanup else "keep")

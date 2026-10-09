@@ -132,7 +132,7 @@ function renderContainers(all) {
     return `<tr>
       <td data-label="ID"><label class="sel"><input type="checkbox" data-sel="${c.vmid}" aria-label="Select ${c.vmid}"
         ${selected.has(String(c.vmid)) ? "checked" : ""} ${running ? "" : "disabled"}>${c.vmid}</label><br><span class="tag">${c.type === "qemu" ? "VM" : "LXC"}</span></td>
-      <td data-label="Name"><strong>${esc(c.name)}</strong><br>${c.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("")}</td>
+      <td data-label="Name"><strong>${esc(c.name)}</strong>${c.self ? ' <span class="badge muted" title="LUM runs in this container">LUM</span>' : ""}<br>${c.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("")}</td>
       <td data-label="Status"><span class="badge ${running ? "ok" : "muted"}">${esc(c.status)}</span>${restartBadge(c)}${diskBadge(c)}${queued.has(c.vmid) ? '<br><span class="tag">queued</span>' : ""}</td>
       <td data-label="Package manager">${esc(c.pkg_manager || "–")}${c.community_script ? '<br><span class="tag">community-script</span>' : ""}</td>
       <td data-label="OS updates">${updatesCell(c)}</td>
@@ -521,14 +521,21 @@ document.addEventListener("click", async (ev) => {
         break;
       }
       case "restart": {
+        const isSelf = lastContainers.find((c) => String(c.vmid) === id)?.self;
         const yes = await ask({
           title: `Restart ${guestLabel(id)}?`,
           text: "It is shut down and started again, so its services use the updated libraries "
-            + "(and a VM the new kernel). It is unavailable for a moment.",
+            + "(and a VM the new kernel). It is unavailable for a moment."
+            + (isSelf ? "\n\nLUM runs in this container: LUM restarts with it, and this page reloads "
+              + "when LUM is back (about half a minute)." : ""),
           ok: "Restart",
         });
         if (!yes) return;
         followJob(await api(`/api/containers/${id}/restart`, { method: "POST" }));
+        if (isSelf) {
+          notice("LUM is restarting with its container …");
+          setTimeout(async () => { if (await waitForRestart()) location.reload(); }, 3000);
+        }
         break;
       }
       case "rollback": {

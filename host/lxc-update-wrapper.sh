@@ -25,7 +25,8 @@
 #                             114 = /boot storage low
 #   restart-needed <vmid>     reboot=<0|1> (reboot-required flag, VM: newer kernel installed)
 #                             services=<units/processes still using replaced libraries>
-#   restart  <vmid>           reboot the guest and wait until it answers again
+#   restart  <vmid> [background]  reboot the guest and wait until it answers again;
+#                             background: reboot in 5 s, detached (LUM's own container)
 #   space    <vmid> [storage] free space: guest_size_kb / guest_avail_kb of / in the guest;
 #                             with a storage also storage_type / storage_avail_kb and, to
 #                             estimate a backup, last_backup_bytes / guest_used_bytes
@@ -48,7 +49,7 @@
 set -euo pipefail
 
 # bump when verbs are added or changed; LUM checks it and asks for a host update
-WRAPPER_VERSION=9
+WRAPPER_VERSION=10
 # guests with this Proxmox tag are off limits for LUM (every verb except list/version)
 EXCLUDE_TAG="no-lum"
 MARKER="lxc-update-manager"
@@ -340,6 +341,13 @@ case "$VERB" in
   restart)
     require_vmid
     is_running || die "$GUEST $VMID is not running"
+    if [[ "${ARGS[2]:-}" == background ]]; then
+      # LUM restarts the container it runs in: this SSH session ends with it. Reboot
+      # detached and a few seconds later, so LUM can finish and store the job first.
+      setsid sh -c "sleep 5; $TOOL reboot $VMID" >/dev/null 2>&1 </dev/null &
+      echo "$GUEST $VMID restarts in 5 seconds"
+      exit 0
+    fi
     echo "restarting $GUEST $VMID"
     "$TOOL" reboot "$VMID" 2>&1
     # wait until the guest answers again (VM: through the guest agent)

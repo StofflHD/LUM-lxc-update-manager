@@ -195,6 +195,12 @@ services) and a **Restart** button. It reboots the container or VM (`pct reboot`
 **Restart**. The badge is gone as soon as the restart is done. A restart is never done
 automatically.
 
+**LUM's own container** (found by its host name, marked **LUM** in the list) can be
+restarted the same way: the host reboots it a few seconds after the job is stored, LUM
+comes back with it and the page reloads. LUM does not roll back or restore its own
+container – that would stop LUM halfway; use the Proxmox UI for it. If LUM was stopped
+while a job ran, the history entry is closed as *Interrupted* when LUM starts again.
+
 Restarts outside LUM count too: every minute LUM reads the guest list from the host
 (status and uptime, no commands in the guests). A guest whose uptime dropped – rebooted
 in the Proxmox UI, from inside, or by a host reboot – or that was started loses the

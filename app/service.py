@@ -4,6 +4,7 @@ import asyncio
 import itertools
 import logging
 import re
+import socket
 import time
 from dataclasses import dataclass, field
 
@@ -107,6 +108,28 @@ class UpdateService:
         self.refreshing = False
         self.queue: list[QueueItem] = []
         self._queue_task: asyncio.Task | None = None
+        self.self_vmid: int | None = None  # the container LUM runs in, if it is on this host
+        self._find_self([{"vmid": c["vmid"], "name": c["name"]} for c in db.containers()])
+        self._close_interrupted()
+
+    def _find_self(self, guests: list[dict]) -> None:
+        """LUM's own container: the one named like this host (only if exactly one is)."""
+        me = socket.gethostname().split(".")[0].lower()
+        found = [int(g["vmid"]) for g in guests if str(g.get("name", "")).lower() == me]
+        self.self_vmid = found[0] if len(found) == 1 else None
+
+    def _close_interrupted(self) -> None:
+        """Jobs still "running" in the history were cut off when LUM stopped - e.g. when
+        it restarted its own container. Close them so they don't stay "running"."""
+        for h in self.db.unfinished_history():
+            own_restart = h["kind"] == "restart" and h["vmid"] == self.self_vmid
+            note = ("### LUM's own container was restarted - LUM is running again, so the restart worked"
+                    if own_restart else
+                    "### Interrupted: LUM was stopped or restarted while this ran - check the guest")
+            self.db.finish_history(h["id"], own_restart, note)
+            if own_restart:
+                self.db.set_restart(h["vmid"], False, [])
+            log.warning("history entry %s (%s of %s) was interrupted by a LUM restart", h["id"], h["kind"], h["vmid"])
 
     # --- checks ------------------------------------------------------------
 
@@ -133,6 +156,7 @@ class UpdateService:
             if before["status"] != "running" or (up is not None and up_before is not None and up < up_before):
                 restarted.append(vmid)
         self.db.sync_containers(guests)
+        self._find_self(guests)
         for vmid in restarted:
             self.db.set_restart(vmid, False, [])
         now = {int(g["vmid"]) for g in guests}
@@ -430,6 +454,14 @@ class UpdateService:
 
     async def _run_restart(self, job: Job, history_id: int) -> bool:
         job.emit("### Restart")
+        if job.vmid == self.self_vmid:
+            # our own container: the host reboots it a few seconds after this job is stored
+            job.emit("This is the container LUM runs in - LUM restarts with it and is back in about half a minute.")
+            async for line in self.host.restart(job.vmid, background=True):
+                job.emit(line)
+            self.db.set_restart(job.vmid, False, [])
+            job.emit("### Done")
+            return True
         async for line in self.host.restart(job.vmid):
             job.emit(line)
         self.db.set_restart(job.vmid, False, [])  # done - the next check confirms it

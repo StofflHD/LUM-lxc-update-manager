@@ -127,7 +127,7 @@ class DemoHostClient:
     async def restart_needed(self, vmid: int) -> tuple[bool, list[str]]:
         return self._restart.get(vmid, (False, []))
 
-    def restart(self, vmid: int) -> AsyncIterator[str]:
+    def restart(self, vmid: int, background: bool = False) -> AsyncIterator[str]:
         self._restart.pop(vmid, None)
         self._booted[vmid] = time.time()
         label = "VM" if _ct(vmid)[7] == "qemu" else "container"

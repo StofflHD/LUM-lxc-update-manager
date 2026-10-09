@@ -268,7 +268,16 @@ async def status():
 @app.get("/api/containers")
 async def containers():
     s = svc()
-    return [{**c, "busy": s.busy(c["vmid"]), "low_disk": s.low_disk(c)} for c in s.db.containers()]
+    return [{**c, "busy": s.busy(c["vmid"]), "low_disk": s.low_disk(c), "self": c["vmid"] == s.self_vmid}
+            for c in s.db.containers()]
+
+
+def _not_self(s, vmid: int, what: str) -> None:
+    """A rollback / restore stops the guest - for LUM's own container that would cut
+    the job off halfway and could leave it stopped."""
+    if vmid == s.self_vmid:
+        raise HTTPException(409, f"LUM runs in this container and can't {what} it itself - "
+                                 "do it in the Proxmox UI (the snapshots / backups are listed under Backups)")
 
 
 @app.post("/api/sync")
@@ -405,6 +414,7 @@ async def restore(vmid: int, backup: int):
     s = svc()
     if not s.db.container(vmid):
         raise HTTPException(404, "unknown container")
+    _not_self(s, vmid, "restore")
     try:
         return s.start_job(vmid, "restore", str(backup)).as_dict()
     except RuntimeError as err:
@@ -435,6 +445,7 @@ async def rollback(vmid: int, snapshot: str):
         raise HTTPException(404, "unknown container")
     if not re.fullmatch(r"lum_[0-9_]{1,30}", snapshot):
         raise HTTPException(400, "only snapshots created by the update manager (lum_*) can be rolled back")
+    _not_self(s, vmid, "roll back")
     try:
         return s.start_job(vmid, "rollback", snapshot).as_dict()
     except RuntimeError as err:

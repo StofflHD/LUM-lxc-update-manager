@@ -9,6 +9,8 @@
 | Update stops: *only … MB free in / of the guest* | Free up space in the guest (`apt clean`, old logs, `journalctl --vacuum-size=100M`) or enlarge its disk (Proxmox: *Resources → Disk Action → Resize*). Or lower `LUM_MIN_FREE_MB`. |
 | Update stops: *only … GB free on the vzdump storage* | Free up space on the storage, or untick the backup for this one update. |
 | *restart required* stays after a restart | Before 0.15.1 it stayed until the next check. Now it goes away with LUM's **Restart** at once and with a restart elsewhere within about a minute. If it comes back after the check: a process that is not a service (e.g. started by hand or in a `screen`) still uses an old library – the tooltip names it; end or restart it. On a VM the new kernel only counts after a full reboot. |
+| History entry *Interrupted* | LUM was stopped or restarted (e.g. its container) while the job ran. Check the guest; run the update again if needed. |
+| *LUM runs in this container and can't roll back / restore it* | Roll back or restore LUM's own container in the Proxmox UI. |
 | Queue: a guest is *skipped* | Nothing to do (no pending packages, app up to date, VM for an app update) or the community script refused – the *Note* column says why. |
 | No security updates shown for an Alpine guest | apk has no separate security repository – see [Security updates](usage.md#security-updates). |
 | Update fails at the snapshot step | The guest's storage has no snapshot support – use `LUM_BACKUP_MODE=vzdump`. |

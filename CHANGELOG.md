@@ -10,6 +10,24 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.15.2] – 2026-10-09
+
+**Host script** (version 10) – run the installer with `--update` on the Proxmox host.
+
+### Fixed
+- Restarting LUM's own container from the web UI left the history entry on *running*
+  for good (LUM stopped in the middle of the job) and it couldn't be removed. LUM now
+  recognises its own container (by host name, marked **LUM** in the list): the job is
+  stored first and the host reboots the container 5 seconds later, detached from the
+  SSH session; the page reloads when LUM is back.
+- Entries still *running* when LUM starts are closed: LUM's own restart as succeeded,
+  anything else as *Interrupted*. This also fixes the entry left by 0.15.1.
+- LUM refuses to roll back or restore its own container (it would stop halfway and
+  could leave the container stopped) and points to the Proxmox UI.
+
+### Added
+- Host script: `restart <vmid> background`. API: `/api/containers` has `self`.
+
 ## [0.15.1] – 2026-10-09
 
 ### Fixed
@@ -394,7 +412,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.15.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/7b33fe8...main
+[0.15.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/43d796e...main
+[0.15.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/7b33fe8...43d796e
 [0.15.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0058f2b...7b33fe8
 [0.14.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/7b02fc6...0058f2b
 [0.13.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0dee04b...7b02fc6

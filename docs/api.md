@@ -12,7 +12,7 @@ the header `X-Requested-With: lum`.
 | POST | `/api/password` | Change password |
 | GET · POST | `/api/settings` | Editable settings / save them (LUM restarts) |
 | GET | `/api/status` | Version, last check, backup mode, host script version, hidden (`no-lum`) guests, `queue`, `cleanup` (default of the cleanup checkbox) |
-| GET | `/api/containers` | All containers/VMs with update status (`upgradable`, `security` = the security updates among them, `restart_required`, `restart_reboot`, `restart_services`, `disk_free_kb`, `disk_size_kb`, `low_disk`) |
+| GET | `/api/containers` | All containers/VMs with update status (`upgradable`, `security` = the security updates among them, `restart_required`, `restart_reboot`, `restart_services`, `disk_free_kb`, `disk_size_kb`, `low_disk`, `self` = LUM's own container) |
 | POST | `/api/sync` | Re-read the list of containers/VMs only (no package checks) |
 | POST | `/api/refresh` | Check all (async) |
 | POST | `/api/containers/{id}/check` | Check one guest |

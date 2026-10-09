@@ -236,6 +236,10 @@ class Database:
         ).fetchone()
         return dict(row) if row else None
 
+    def unfinished_history(self) -> list[dict]:
+        rows = self._conn.execute("SELECT id, vmid, kind FROM history WHERE finished IS NULL").fetchall()
+        return [dict(r) for r in rows]
+
     def finish_history(self, history_id: int, success: bool, log: str) -> None:
         with self._conn:
             self._conn.execute(
