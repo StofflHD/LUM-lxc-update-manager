@@ -10,6 +10,7 @@ the header `X-Requested-With: lum`.
 | POST | `/api/login` · `/api/logout` | Log in / out (cookie) |
 | GET | `/api/auth/state` · `/api/me` | Login configured? / current user |
 | POST | `/api/password` | Change password |
+| GET · POST | `/api/settings` | Editable settings / save them (LUM restarts) |
 | GET | `/api/status` | Version, last check, backup mode, host script version |
 | GET | `/api/containers` | All containers/VMs with update status |
 | POST | `/api/sync` | Re-read the list of containers/VMs only (no package checks) |

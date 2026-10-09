@@ -430,7 +430,6 @@ api("/api/me").then((me) => {
   if (!me.auth_enabled) return;
   $("#user").textContent = me.user;
   $("#pw-open").hidden = false;
-  $("#menu-account-sep").hidden = false;
   $("#logout").hidden = false;
 }).catch(() => {});
 
@@ -482,6 +481,95 @@ document.querySelectorAll("[data-theme-choice]").forEach((b) => b.addEventListen
   } catch { /* blocked: still applies until reload */ }
   applyTheme(choice);
 }));
+
+// --- settings (.env) ----------------------------------------------------------------
+
+const settingsForm = $("#settings-form");
+const settingsMsg = (text, cls = "muted") => {
+  $("#settings-msg").textContent = text;
+  $("#settings-msg").className = cls;
+  $("#settings-msg").hidden = !text;
+};
+
+function fieldHtml(f) {
+  const id = `set-${f.key}`;
+  let input;
+  if (f.kind === "readonly") {
+    input = `<span class="readonly" title="Change with the installer (--update) or in .env">${esc(f.value || "–")}</span>`;
+  } else if (f.kind === "bool") {
+    input = `<input type="checkbox" id="${id}" name="${f.key}" ${f.value ? "checked" : ""}>`;
+  } else if (f.kind === "choice") {
+    input = `<select id="${id}" name="${f.key}">${f.options.map((o) => `<option ${o === f.value ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
+  } else if (f.kind === "secret") {
+    input = `<input type="password" id="${id}" name="${f.key}" autocomplete="off"
+      placeholder="${f.value ? "set – leave empty to keep, '-' to remove" : "not set"}">`;
+  } else if (f.kind === "int") {
+    input = `<input type="number" id="${id}" name="${f.key}" value="${esc(f.value)}" min="${f.min}" max="${f.max}" required>`;
+  } else {
+    input = `<input type="text" id="${id}" name="${f.key}" value="${esc(f.value)}" placeholder="${esc(f.placeholder || "")}">`;
+  }
+  return `<label for="${id}"><span>${esc(f.label)}</span>${input}</label>`;
+}
+
+async function openSettings() {
+  setMenu(false);
+  settingsMsg("");
+  $("#settings-fields").innerHTML = '<p class="muted">Loading …</p>';
+  $("#settings-dialog").showModal();
+  try {
+    const { fields, restart_supported: canRestart } = await api("/api/settings");
+    const groups = [...new Set(fields.map((f) => f.group))];
+    $("#settings-fields").innerHTML = groups.map((g) => `<fieldset><legend>${esc(g)}</legend>
+      ${fields.filter((f) => f.group === g).map(fieldHtml).join("")}</fieldset>`).join("");
+    if (!canRestart) settingsMsg("LUM doesn't run as a systemd service here – restart it yourself after saving.");
+  } catch (err) {
+    $("#settings-fields").innerHTML = `<p class="err">${esc(err.message)}</p>`;
+  }
+}
+
+async function waitForRestart() {
+  // first wait until it went away (or 6 s passed), then until it answers again
+  const up = async () => { try { return (await fetch("/api/auth/state", { cache: "no-store" })).ok; } catch { return false; } };
+  for (let i = 0; i < 12 && await up(); i++) await new Promise((r) => setTimeout(r, 500));
+  for (let i = 0; i < 60; i++) {
+    if (await up()) return true;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return false;
+}
+
+settingsForm.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const values = {};
+  for (const el of settingsForm.querySelectorAll("[name]")) {
+    values[el.name] = el.type === "checkbox" ? el.checked : el.value;
+  }
+  const btn = settingsForm.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  try {
+    const r = await api("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ values }),
+    });
+    if (!r.saved.length) {
+      settingsMsg("Nothing changed.");
+    } else if (r.restart) {
+      settingsMsg(`Saved (${r.saved.join(", ")}). LUM is restarting …`, "ok");
+      if (await waitForRestart()) location.reload();
+      else settingsMsg("Saved, but LUM did not come back – check: journalctl -u lxc-update-manager", "err");
+    } else {
+      settingsMsg(`Saved (${r.saved.join(", ")}). Restart LUM to apply.`, "ok");
+    }
+  } catch (err) {
+    settingsMsg(err.message, "err");
+  } finally {
+    btn.disabled = false;
+  }
+});
+$("#settings-open").addEventListener("click", openSettings);
+$("#settings-close").addEventListener("click", () => $("#settings-dialog").close());
+$("#settings-cancel").addEventListener("click", () => $("#settings-dialog").close());
 
 $("#pw-open").addEventListener("click", () => {
   setMenu(false);

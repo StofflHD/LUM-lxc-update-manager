@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import math
+import os
 import re
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -12,7 +13,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTex
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ValidationError
 
-from . import REQUIRED_WRAPPER_VERSION, __version__
+from . import REQUIRED_WRAPPER_VERSION, __version__, settings_edit
 from .apps import AppCatalog
 from .auth import COOKIE, Auth, write_credentials
 from .config import get_settings
@@ -376,6 +377,50 @@ async def job_stream(ws: WebSocket, job_id: int):
         pass
     finally:
         j.unsubscribe(q)
+
+
+# --- settings (.env) ----------------------------------------------------------------
+
+def _under_systemd() -> bool:
+    return bool(os.environ.get("INVOCATION_ID"))  # set by systemd for its services
+
+
+async def _restart_soon() -> None:
+    await asyncio.sleep(1)  # let the response reach the browser first
+    # a transient unit of its own: a child of this service would die with the restart
+    await asyncio.create_subprocess_exec(
+        "systemd-run", "--no-block", "--quiet", "systemctl", "restart", "lxc-update-manager"
+    )
+
+
+class SettingsBody(BaseModel):
+    values: dict
+
+
+@app.get("/api/settings")
+async def settings_get():
+    return {"fields": settings_edit.current(get_settings()), "restart_supported": _under_systemd()}
+
+
+@app.post("/api/settings")
+async def settings_save(body: SettingsBody):
+    s = svc()
+    try:
+        values = settings_edit.validate(body.values)
+    except ValueError as err:
+        raise HTTPException(400, str(err))
+    env = settings_edit.read_env()
+    changes = {k: v for k, v in values.items() if env.get(k) != v}
+    if not changes:
+        return {"saved": [], "restart": False}
+    if s._busy or s.refreshing:
+        raise HTTPException(409, "An update or check is running - save again when it has finished.")
+    settings_edit.write(changes)
+    log.info("settings changed in the web UI: %s", ", ".join(sorted(changes)))
+    restart = _under_systemd()
+    if restart:
+        asyncio.create_task(_restart_soon())
+    return {"saved": sorted(changes), "restart": restart}
 
 
 @app.get("/api/history")

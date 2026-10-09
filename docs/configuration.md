@@ -3,8 +3,30 @@
 [← Back to the README](../README.md)
 
 Settings live in `/opt/lxc-update-manager/.env` inside the LUM container (written by the
-installer, all options with comments in [.env.example](../.env.example)). After a change:
-`systemctl restart lxc-update-manager`.
+installer, all options with comments in [.env.example](../.env.example)).
+
+## In the web UI
+
+Menu **☰** → **Settings** edits the most common options: check interval, parallel checks,
+GitHub token, all backup options, session lifetime, Secure cookie and the reverse proxy
+IP(s). LUM validates the input, writes `.env` (comments and other lines are kept) and
+restarts itself; the page reloads when LUM is back. Saving is refused while an update is
+running.
+
+- The connection to the Proxmox host (IP, port, user) is shown but **not** editable there:
+  a wrong value would lock LUM out, and the SSH host key is pinned to the IP. Use the
+  installer with `--update` or edit `.env`.
+- Paths, `LUM_AUTH_DISABLED` and `LUM_DEMO` are not shown – turning off the login with
+  a click would be too easy. Edit `.env` for those.
+- The GitHub token is never sent back to the browser: leave the field empty to keep it,
+  enter `-` to remove it.
+
+## By hand
+
+`pct exec <CTID> -- nano /opt/lxc-update-manager/.env`, then
+`pct exec <CTID> -- systemctl restart lxc-update-manager`.
+
+## All options
 
 | Option | Default | Meaning |
 |---|---|---|

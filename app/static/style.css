@@ -123,6 +123,23 @@ dialog::backdrop { background: rgb(0 0 0 / .5); }
   table.responsive button.placeholder { display: none; }
 }
 
+/* settings dialog */
+#settings-dialog { width: min(620px, 95vw); }
+#settings-dialog form { padding: 4px 16px 16px; max-height: 75vh; overflow-y: auto; }
+#settings-fields fieldset { border: 1px solid var(--border); border-radius: 8px; margin: 12px 0 0; padding: 4px 12px 12px; }
+#settings-fields legend { font-size: 12px; color: var(--muted); padding: 0 6px; }
+#settings-fields label { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 12px; margin: 10px 0 0; font-size: 13px; color: var(--text); }
+#settings-fields input, #settings-fields select { margin: 0; width: 100%; }
+#settings-fields select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; }
+#settings-fields input[type="checkbox"] { width: auto; justify-self: start; accent-color: var(--accent); }
+#settings-fields .readonly { color: var(--muted); }
+.settings-note { font-size: 12px; margin: 12px 0 0; }
+#settings-msg.err { color: var(--err); }
+#settings-msg.ok { color: var(--ok); }
+@media (max-width: 520px) {
+  #settings-fields label { grid-template-columns: 1fr; gap: 4px; }
+}
+
 /* logo */
 h1.brand { display: flex; align-items: center; gap: 12px; }
 h1.brand img { flex: none; }

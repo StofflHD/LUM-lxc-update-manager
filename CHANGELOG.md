@@ -2,22 +2,34 @@
 
 All notable changes to LUM are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
-[Semantic Versioning](https://semver.org/).
+[Semantic Versioning](https://semver.org/). While the version starts with 0, LUM is in active
+development: anything may still change between versions. Versions stay below 1.0 until the
+first final release, which will be 1.0.0.
 
 Update an installation with `update` inside the LUM container. When an entry says
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
-## [1.5.1] – 2026-10-09
+## [0.7.0] – 2026-10-09
+
+### Added
+- **Settings** in the menu: edit check interval, parallel checks, GitHub token, backup
+  options, session lifetime, Secure cookie and reverse proxy IP(s) in the web UI. LUM
+  validates the input, writes `.env` (keeping comments and other lines) and restarts
+  itself. Not possible while an update is running.
+- The Proxmox connection is shown read-only; paths, `LUM_AUTH_DISABLED` and the demo
+  mode are not exposed. The GitHub token is never sent back to the browser.
+
+## [0.6.1] – 2026-10-09
 
 ### Fixed
 - After an update a browser or reverse proxy cache (e.g. *Cache Assets* in Nginx Proxy
   Manager) could serve the old `style.css` with the new page – the logo then stuck to the
-  title. CSS, JS and icon links now carry the version (`?v=1.5.1`), so every update uses
+  title. CSS, JS and icon links now carry the version (`?v=0.6.1`), so every update uses
   new URLs.
 - A bit more space between logo and title.
 
-## [1.5.0] – 2026-10-09
+## [0.6.0] – 2026-10-09
 
 ### Added
 - Logo (container cube with an update arrow on a blue tile) in the header, on the login
@@ -25,7 +37,7 @@ Update an installation with `update` inside the LUM container. When an entry say
 - Favicon (SVG, PNG fallback and `/favicon.ico`) and an Apple touch icon for home-screen
   shortcuts.
 
-## [1.4.2] – 2026-10-09
+## [0.5.2] – 2026-10-09
 
 ### Changed
 - The README is short now, with screenshots; the details moved to [docs/](docs/)
@@ -37,7 +49,7 @@ Update an installation with `update` inside the LUM container. When an entry say
 ### Fixed
 - With the login turned off, an empty user name left a gap before the header buttons.
 
-## [1.4.1] – 2026-10-08
+## [0.5.1] – 2026-10-08
 
 ### Fixed
 - Behind a reverse proxy the login lockout counted the proxy's IP, so 5 wrong passwords
@@ -51,7 +63,7 @@ Update an installation with `update` inside the LUM container. When an entry say
 - README: using the web UI, reverse proxy guide (Nginx Proxy Manager, nginx, Caddy,
   Traefik), all configuration options, troubleshooting, complete API list.
 
-## [1.4.0] – 2026-10-08
+## [0.5.0] – 2026-10-08
 
 ### Added
 - **Refresh list** button: re-reads only the list of containers and VMs from the host, so
@@ -66,7 +78,7 @@ Update an installation with `update` inside the LUM container. When an entry say
 ### Changed
 - **Change password** moved into the menu.
 
-## [1.3.0] – 2026-10-08
+## [0.4.0] – 2026-10-08
 
 ### Added
 - **VM support:** QEMU VMs appear next to the containers (marked `VM`, templates are left
@@ -85,7 +97,7 @@ Update an installation with `update` inside the LUM container. When an entry say
   options. The agent returns output only at the end, so VM update logs appear when the
   update has finished.
 
-## [1.2.0] – 2026-10-08
+## [0.3.0] – 2026-10-08
 
 ### Changed
 - The web UI scales with the window instead of using a fixed maximum width
@@ -94,7 +106,7 @@ Update an installation with `update` inside the LUM container. When an entry say
   cell, and below 1100 px (small laptops, tablets, phones) every table row turns into a card with the
   column names above the values.
 
-## [1.1.6] – 2026-10-08
+## [0.2.6] – 2026-10-08
 
 ### Changed
 - The page is wider (up to 1600 px instead of 1200 px), so the tables fit without a
@@ -102,7 +114,7 @@ Update an installation with `update` inside the LUM container. When an entry say
 - Long `owner/repo` names in the App column are shortened with `…`; the full name is
   shown as a tooltip.
 
-## [1.1.5] – 2026-10-08
+## [0.2.5] – 2026-10-08
 
 ### Added
 - The history can be cleaned up in the web UI: **Remove** on a single entry, or
@@ -117,7 +129,7 @@ Update an installation with `update` inside the LUM container. When an entry say
 - The action buttons column was laid out as a flex box instead of a table cell, so its
   row lines didn't match the rest of the table.
 
-## [1.1.4] – 2026-10-08
+## [0.2.4] – 2026-10-08
 
 ### Fixed
 - Cleaner update logs: progress output that rewrites a single line (dpkg's
@@ -126,7 +138,7 @@ Update an installation with `update` inside the LUM container. When an entry say
   commands in the containers run with `C.UTF-8` instead of the host's language. **Host script**
 - OS updates no longer let `apt-listchanges` read package changelogs. **Host script**
 
-## [1.1.3] – 2026-10-08
+## [0.2.3] – 2026-10-08
 
 ### Added
 - **Delete** button next to **Rollback** in the history, so snapshots can be deleted
@@ -136,7 +148,7 @@ Update an installation with `update` inside the LUM container. When an entry say
 ### Changed
 - The ⟲ button of a container is now labelled **Snapshots**.
 
-## [1.1.2] – 2026-10-08
+## [0.2.2] – 2026-10-08
 
 ### Fixed
 - Deleting (and rolling back) snapshots could do nothing at all: the browser's own
@@ -151,7 +163,7 @@ Update an installation with `update` inside the LUM container. When an entry say
 - The version number moved from the status line to a new footer with copyright,
   license, GitHub and changelog links.
 
-## [1.1.1] – 2026-10-08
+## [0.2.1] – 2026-10-08
 
 ### Fixed
 - After an update the browser could keep running the old web UI (for example without
@@ -163,7 +175,7 @@ Update an installation with `update` inside the LUM container. When an entry say
 ### Added
 - This changelog.
 
-## [1.1.0] – 2026-10-08
+## [0.2.0] – 2026-10-08
 
 ### Added
 - `update` command inside the LUM container: updates LUM from GitHub, keeps settings,
@@ -182,7 +194,7 @@ Update an installation with `update` inside the LUM container. When an entry say
 - The update confirmation is a dialog instead of a browser prompt.
 - The LUM container itself is no longer listed as a community-script app.
 
-## [1.0.0] – 2026-10-08
+## [0.1.0] – 2026-10-08
 
 First release.
 
@@ -195,18 +207,19 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[1.5.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/1582070...main
-[1.5.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8cb5636...1582070
-[1.4.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/4434b73...8cb5636
-[1.4.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/f6db5c7...4434b73
-[1.4.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/0b1859e...f6db5c7
-[1.3.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/942b4bf...0b1859e
-[1.2.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/5ec7124...942b4bf
-[1.1.6]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/30069ba...5ec7124
-[1.1.5]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8df17f1...30069ba
-[1.1.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8f8c7b6...8df17f1
-[1.1.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/c1a6caa...deb7d69
-[1.1.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/321a53e...c1a6caa
-[1.1.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/5745b96...321a53e
-[1.1.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8a43c04...5745b96
-[1.0.0]: https://github.com/StofflHD/LUM-lxc-update-manager/commit/8a43c04
+[0.7.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ddbc9a0...main
+[0.6.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/4a80557...ddbc9a0
+[0.6.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/d1d6bed...4a80557
+[0.5.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/d79944e...d1d6bed
+[0.5.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/1c46a1b...d79944e
+[0.5.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/cbd7e1c...1c46a1b
+[0.4.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/5218f8d...cbd7e1c
+[0.3.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/fabab02...5218f8d
+[0.2.6]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/18e24ac...fabab02
+[0.2.5]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/2b11b8d...18e24ac
+[0.2.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/4970284...2b11b8d
+[0.2.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/757bac4...87d494d
+[0.2.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/969f81f...757bac4
+[0.2.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/93b2423...969f81f
+[0.2.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/8a43c04...93b2423
+[0.1.0]: https://github.com/StofflHD/LUM-lxc-update-manager/commit/8a43c04

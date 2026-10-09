@@ -8,7 +8,7 @@
 |---|---|---|
 | Top right | **Refresh list** | Re-reads only the list of containers/VMs (fast). New running guests are checked right away; the result is shown below the status line. |
 | | **Check all** | Re-reads the list and checks every running guest for OS and app updates. Also runs automatically every `LUM_CHECK_INTERVAL_MINUTES`. |
-| | **☰** menu | **Theme** (System / Light / Dark, stored in the browser) and **Change password**. |
+| | **☰** menu | **Theme** (System / Light / Dark, stored in the browser), **Settings** (see [Configuration](configuration.md#in-the-web-ui)) and **Change password**. |
 | Each row | **Check** | Checks this one guest. |
 | | **OS update** | Opens the update dialog (with the backup checkbox), then runs apt/apk with a live log. |
 | | **App update** | Community-script app update (containers only; not shown for VMs). Highlighted when a newer app version exists. |

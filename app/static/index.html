@@ -30,7 +30,8 @@
           <button role="menuitemradio" data-theme-choice="system" aria-checked="true">System</button>
           <button role="menuitemradio" data-theme-choice="light" aria-checked="false">Light</button>
           <button role="menuitemradio" data-theme-choice="dark" aria-checked="false">Dark</button>
-          <hr id="menu-account-sep" hidden>
+          <hr>
+          <button id="settings-open" role="menuitem">Settings</button>
           <button id="pw-open" role="menuitem" hidden>Change password</button>
         </div>
       </div>
@@ -122,6 +123,23 @@
       <div class="dialog-actions">
         <button type="button" id="upd-cancel">Cancel</button>
         <button class="primary" type="submit">Start update</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settings-dialog">
+    <div class="dialog-head">
+      <h3>Settings</h3>
+      <button id="settings-close" type="button" aria-label="Close">✕</button>
+    </div>
+    <form id="settings-form">
+      <div id="settings-fields"></div>
+      <p class="muted settings-note">Saved to <code>/opt/lxc-update-manager/.env</code>. LUM restarts to apply the
+        changes (a few seconds). Not possible while an update is running.</p>
+      <p id="settings-msg" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" id="settings-cancel">Cancel</button>
+        <button class="primary" type="submit">Save</button>
       </div>
     </form>
   </dialog>

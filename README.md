@@ -21,7 +21,7 @@ web UI. With a snapshot before every update and rollback with one click.
 - **History** with stored logs, snapshots can be rolled back or deleted from there
 - **Secure by design** – the host only allows a fixed set of commands, LUM touches only
   its own snapshots and backups; login with lockout and CSRF protection
-- **Responsive** web UI with light and dark theme, works behind a reverse proxy
+- **Responsive** web UI with light and dark theme and a settings page, works behind a reverse proxy
 - **Easy installer** for the Proxmox host and an `update` command inside the container
 
 <p>
