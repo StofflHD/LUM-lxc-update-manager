@@ -17,6 +17,11 @@ Update an installation with `update` inside the LUM container. When an entry say
   title). The name is stored with each entry, so it stays visible after the guest was
   removed; existing entries get the name of guests that still exist.
 
+### Documentation
+- New screenshots (Backups button, name column in the history) and one of the Backups
+  dialog; usage: history name column, delete progress; configuration: `LUM_SECRET_FILE`;
+  development: what the demo simulates for backups and how to try vzdump.
+
 ## [0.10.2] – 2026-10-09
 
 ### Changed

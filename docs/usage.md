@@ -17,7 +17,8 @@
 | | **OS update** | Opens the update dialog (with the backup checkbox), then runs apt/apk with a live log. |
 | | **App update** | Community-script app update (containers only; not shown for VMs). Highlighted when a newer app version exists. |
 | | **Backups** | The guest's LUM snapshots (**Rollback**, **Delete**) and vzdump backups (**Restore**, **Delete**) – see [Backup, cleanup and rollback](#backup-cleanup-and-rollback). |
-| History | **Rollback** · **Delete** | Roll back to / delete the snapshot made before that update. With vzdump: **Delete** removes the backup made before that update (not protected ones). |
+| History | `ID` · Name | Guest of the entry; the name stays visible after the guest was removed. |
+| | **Rollback** · **Delete** | Roll back to / delete the snapshot made before that update. With vzdump: **Delete** removes the backup made before that update (not protected ones). |
 | | **Log** · **Remove** | Show the stored log / remove the entry (the snapshot or backup is kept). |
 | | **Clear history** | Removes all finished entries (running updates stay; snapshots and backups are kept). |
 
@@ -132,11 +133,13 @@ has finished, so the log of a VM update appears at the end. App updates are LXC 
   VM disks go back to their original storages. Everything since the backup is lost and
   Proxmox deletes the guest's snapshots – the history marks them as removed. The restore
   runs as a job with a live log and shows up in the history as **Restore**.
-- Deleting a snapshot or backup can take a while; the button and a panel bottom right show
-  it with the elapsed time until it is done.
 - **Delete** (vzdump) removes the backup from the storage. Backups **protected** in
   Proxmox are shown but can't be deleted; remove the protection in Proxmox first.
 - Backups made by your own backup jobs never appear and can't be restored or deleted by LUM.
+- Deleting a snapshot or backup can take a while. Proxmox reports no percentage, so the
+  button and a panel bottom right show the elapsed time until it is done.
+
+<img alt="Backups dialog with LUM snapshots and vzdump backups" src="images/backups.png" width="70%">
 
 ## Login
 

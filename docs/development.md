@@ -23,5 +23,7 @@ internet access. The simulated guests cover the main cases:
 | 108 | backup-server | tagged `no-lum` – hidden |
 | 200 / 201 | debian-vm / windows-vm | VM with guest agent / without (*no guest agent*) |
 
-Updates, snapshots, rollback and cleanup are simulated in memory (reset on restart), the
-database is real (`LUM_DB_PATH`).
+Updates, snapshots, vzdump backups (103 and 200 start with some, one of them protected),
+rollback, restore and cleanup are simulated in memory (reset on restart); deletes take a
+few seconds like on a real host. The database is real (`LUM_DB_PATH`). For vzdump instead
+of snapshots set `LUM_BACKUP_MODE=vzdump` and `LUM_BACKUP_STORAGE=pbs`.

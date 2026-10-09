@@ -43,6 +43,7 @@ running.
 | `LUM_BACKUP_VZDUMP_MODE` | `snapshot` | vzdump mode: `snapshot`, `suspend` or `stop` |
 | `LUM_BACKUP_KEEP` | `2` | LUM vzdump backups kept per guest |
 | `LUM_AUTH_FILE` | `data/auth.json` | Login (set with `python -m app.passwd`) |
+| `LUM_SECRET_FILE` | `data/secret.key` | Key that signs the session cookies (created automatically) |
 | `LUM_SESSION_HOURS` | `12` | Session lifetime |
 | `LUM_AUTH_DISABLED` | `false` | Turn off the login (only behind an authenticating proxy) |
 | `LUM_COOKIE_SECURE` | `false` | Force the `Secure` cookie flag (automatic behind a trusted HTTPS proxy) |
