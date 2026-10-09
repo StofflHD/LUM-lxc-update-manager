@@ -71,6 +71,17 @@ class DemoHostClient:
         self._pending = {c[0]: random.sample(_PACKAGES, random.randint(0, 12)) for c in _CONTAINERS}
         self._versions = {c[0]: c[6] for c in _CONTAINERS}
         self._snapshots: dict[int, list[dict]] = {c[0]: [] for c in _CONTAINERS}  # newest first
+        # a few vzdump backups made by LUM, newest first
+        now = int(time.time())
+        self._backups: dict[int, list[dict]] = {c[0]: [] for c in _CONTAINERS}
+        for vmid, days, storage, size, protected in [(103, 2, "pbs", 1_843_000_000, 0),
+                                                     (103, 9, "pbs", 1_790_000_000, 1),
+                                                     (200, 4, "local", 6_200_000_000, 0)]:
+            ctime = now - days * 86400
+            kind = "qemu" if vmid >= 200 else "lxc"
+            self._backups[vmid].append({"id": ctime, "ctime": ctime, "storage": storage, "size": size,
+                                        "protected": protected,
+                                        "volid": f"{storage}:backup/vzdump-{kind}-{vmid}-{ctime}.tar.zst"})
 
     async def wrapper_version(self) -> int:
         from . import REQUIRED_WRAPPER_VERSION
@@ -177,6 +188,30 @@ class DemoHostClient:
             raise HostCommandError("delete-snapshot", 2, f"snapshot {name} does not exist (anymore)")
         self._snapshots[vmid] = [x for x in self._snapshots[vmid] if x["name"] != name]
 
+    async def backups(self, vmid: int) -> list[dict]:
+        return list(self._backups[vmid])
+
+    async def delete_backup(self, vmid: int, backup_id: int) -> None:
+        await asyncio.sleep(0.5)
+        match = [b for b in self._backups[vmid] if b["id"] == backup_id]
+        if len(match) != 1:
+            raise HostCommandError("delete-backup", 2, f"no single LUM backup with id {backup_id}")
+        if match[0]["protected"]:
+            raise HostCommandError("delete-backup", 2, f"backup {match[0]['volid']} is protected")
+        self._backups[vmid].remove(match[0])
+
+    def restore_backup(self, vmid: int, backup_id: int) -> AsyncIterator[str]:
+        match = [b for b in self._backups[vmid] if b["id"] == backup_id]
+        if len(match) != 1:
+            return self._fake_stream([f"error: no single LUM backup with id {backup_id}"], 2)
+        self._snapshots[vmid] = []  # Proxmox drops the snapshots on a restore
+        label = "VM" if _ct(vmid)[7] == "qemu" else "container"
+        return self._fake_stream([
+            f"shutting down {label} {vmid}", f"restoring {label} {vmid} from {match[0]['volid']}",
+            "extracting archive …", "Total bytes read: 1843000000 (1.8GiB)",
+            f"starting {label} {vmid}", "restore done",
+        ])
+
     def rollback(self, vmid: int, name: str) -> AsyncIterator[str]:
         if not any(x["name"] == name for x in self._snapshots[vmid]):
             return self._fake_stream([f"error: snapshot {name} does not exist (anymore)"], 2)
@@ -188,6 +223,9 @@ class DemoHostClient:
         ])
 
     def backup(self, vmid: int, storage: str, mode: str) -> AsyncIterator[str]:
+        ctime = int(time.time())
+        self._backups[vmid].insert(0, {"id": ctime, "ctime": ctime, "storage": storage, "size": 1_500_000_000,
+                                       "protected": 0, "volid": f"{storage}:backup/vzdump-{vmid}-{ctime}.tar.zst"})
         return self._fake_stream([
             f"INFO: starting new backup job: vzdump {vmid} --storage {storage} --mode {mode}",
             f"INFO: creating vzdump archive 'vzdump-lxc-{vmid}-{time.strftime('%Y_%m_%d-%H_%M_%S')}.tar.zst'",

@@ -151,6 +151,23 @@ class Database:
                 (vmid, *names),
             )
 
+    def mark_backup_removed(self, vmid: int, ctime: int) -> None:
+        """A vzdump backup was deleted: mark the update that made it (its ctime falls
+        into the job's runtime)."""
+        with self._conn:
+            self._conn.execute(
+                """UPDATE history SET backup_removed=1 WHERE vmid=? AND backup_kind='vzdump'
+                   AND started <= ? + 60 AND COALESCE(finished, started) + 60 >= ?""",
+                (vmid, ctime, ctime),
+            )
+
+    def mark_all_snapshots_removed(self, vmid: int) -> None:
+        """A restore from a vzdump backup deletes all snapshots of the guest."""
+        with self._conn:
+            self._conn.execute(
+                "UPDATE history SET backup_removed=1 WHERE vmid=? AND backup_kind='snapshot'", (vmid,)
+            )
+
     def mark_vzdump_pruned(self, vmid: int, storage: str, keep: int) -> None:
         """The host deletes all but the newest <keep> marked backups; mirror that here."""
         with self._conn:

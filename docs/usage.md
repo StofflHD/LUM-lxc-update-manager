@@ -16,7 +16,7 @@
 | | **Check** | Checks this one guest. |
 | | **OS update** | Opens the update dialog (with the backup checkbox), then runs apt/apk with a live log. |
 | | **App update** | Community-script app update (containers only; not shown for VMs). Highlighted when a newer app version exists. |
-| | **Snapshots** | The guest's LUM snapshots with **Rollback** and **Delete**. |
+| | **Backups** | The guest's LUM snapshots (**Rollback**, **Delete**) and vzdump backups (**Restore**, **Delete**) – see [Backup, cleanup and rollback](#backup-cleanup-and-rollback). |
 | History | **Rollback** · **Delete** | Roll back to / delete the snapshot made before that update. |
 | | **Log** · **Remove** | Show the stored log / remove the entry (the snapshot is kept). |
 | | **Clear history** | Removes all finished entries (running updates and snapshots stay). |
@@ -125,7 +125,16 @@ has finished, so the log of a VM update appears at the end. App updates are LXC 
 - **Rollback** shuts the guest down, rolls it back and starts it again if it was running.
   On **ZFS** this only works for the newest snapshot: Proxmox refuses the rollback while
   newer snapshots exist.
-- A vzdump backup is restored in the Proxmox UI (guest → Backup → Restore), not in LUM.
+- The **Backups** button of a guest lists its LUM snapshots and its LUM vzdump backups on
+  all active backup storages (dir, NFS, CIFS, PBS), newest first.
+- **Restore** (vzdump) shuts the guest down, restores it from the backup and starts it
+  again if it was running. Containers keep their root disk storage and privilege level,
+  VM disks go back to their original storages. Everything since the backup is lost and
+  Proxmox deletes the guest's snapshots – the history marks them as removed. The restore
+  runs as a job with a live log and shows up in the history as **Restore**.
+- **Delete** (vzdump) removes the backup from the storage. Backups **protected** in
+  Proxmox are shown but can't be deleted; remove the protection in Proxmox first.
+- Backups made by your own backup jobs never appear and can't be restored or deleted by LUM.
 
 ## Login
 

@@ -320,6 +320,43 @@ async def snapshots(vmid: int):
         raise HTTPException(502, f"cannot list snapshots: {err}")
 
 
+@app.get("/api/containers/{vmid}/backups")
+async def backups(vmid: int):
+    s = svc()
+    if not s.db.container(vmid):
+        raise HTTPException(404, "unknown container")
+    try:
+        return await s.host.backups(vmid)
+    except Exception as err:
+        raise HTTPException(502, f"cannot list backups: {err}")
+
+
+@app.delete("/api/containers/{vmid}/backups/{backup_id}")
+async def delete_backup(vmid: int, backup_id: int):
+    s = svc()
+    if not s.db.container(vmid):
+        raise HTTPException(404, "unknown container")
+    try:
+        await s.delete_backup(vmid, backup_id)
+    except RuntimeError as err:
+        raise HTTPException(409, str(err))
+    except Exception as err:
+        log.warning("deleting backup %s of %s failed: %s", backup_id, vmid, err)
+        raise HTTPException(502, f"cannot delete backup: {err}")
+    return {"deleted": backup_id}
+
+
+@app.post("/api/containers/{vmid}/restore", status_code=202)
+async def restore(vmid: int, backup: int):
+    s = svc()
+    if not s.db.container(vmid):
+        raise HTTPException(404, "unknown container")
+    try:
+        return s.start_job(vmid, "restore", str(backup)).as_dict()
+    except RuntimeError as err:
+        raise HTTPException(409, str(err))
+
+
 @app.delete("/api/containers/{vmid}/snapshots/{name}")
 async def delete_snapshot(vmid: int, name: str):
     s = svc()

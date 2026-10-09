@@ -132,6 +132,16 @@ class HostClient:
     async def delete_snapshot(self, vmid: int, name: str) -> None:
         await self._run("delete-snapshot", vmid, name)
 
+    async def backups(self, vmid: int) -> list[dict]:
+        """vzdump backups made by LUM, newest first: [{"id", "volid", "storage", "ctime", "size", "protected"}]"""
+        return json.loads(await self._run("backups", vmid, timeout=120))
+
+    async def delete_backup(self, vmid: int, backup_id: int) -> None:
+        await self._run("delete-backup", vmid, backup_id, timeout=300)
+
+    def restore_backup(self, vmid: int, backup_id: int) -> AsyncIterator[str]:
+        return self._stream("restore-backup", vmid, backup_id)
+
     def rollback(self, vmid: int, name: str) -> AsyncIterator[str]:
         return self._stream("rollback", vmid, name)
 

@@ -92,7 +92,8 @@ dialog::backdrop { background: rgb(0 0 0 / .5); }
 .dialog-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--border); }
 .dialog-head h3 { margin: 0; font-size: 15px; }
 .dialog-note { padding: 10px 16px 0; }
-#snap-dialog table { margin: 8px 0 12px; }
+#snap-dialog table { margin: 4px 0 8px; }
+.dialog-section { margin: 14px 16px 0; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 #log { margin: 0; padding: 12px 16px; height: 60vh; overflow: auto; background: var(--code-bg); color: var(--code-text); font-size: 12px; white-space: pre-wrap; }
 
 @media (max-width: 640px) {

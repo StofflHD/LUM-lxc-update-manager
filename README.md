@@ -19,7 +19,8 @@ web UI. With a snapshot before every update and rollback with one click.
 - **OS updates** (apt / apk) with one click and a live log
 - **App updates** for community-script containers, with installed vs. latest version from
   GitHub, Codeberg, GitLab, PyPI or npm
-- **Safety first** – snapshot or vzdump backup before every update, cleanup, rollback
+- **Safety first** – snapshot or vzdump backup before every update, cleanup, rollback;
+  restore or delete LUM's vzdump backups from the web UI
 - **History** with stored logs, snapshots can be rolled back or deleted from there
 - **Secure by design** – the host only allows a fixed set of commands, LUM touches only
   its own snapshots and backups; login with lockout and CSRF protection
@@ -81,7 +82,7 @@ LUM runs in its own container and reaches the Proxmox host over SSH with a key t
 only call the host script (`lxc-update-wrapper`). The script accepts a fixed set of verbs
 (`version`, `list`, `info`, `check`, `upgrade`, `app-version`, `pkg-version`, `app-update`,
 `snapshot`, `snapshots`, `prune-snapshots`, `delete-snapshot`, `rollback`, `backup`,
-`prune-backups`), validates every argument, refuses containers and VMs tagged `no-lum`
+`prune-backups`, `backups`, `delete-backup`, `restore-backup`), validates every argument, refuses containers and VMs tagged `no-lum`
 and only ever touches snapshots named `lum_*` and backups with the note
 `lxc-update-manager`. LUM never gets a shell on the host.
 
@@ -92,9 +93,9 @@ and only ever touches snapshots named `lum_*` and backups with the note
 - [x] VM support via the QEMU guest agent
 - [x] Snapshot / vzdump before updates, cleanup, rollback
 - [x] Login / authentication for the web UI
+- [x] Restore and delete vzdump backups from the web UI
 - [ ] Schedules / maintenance windows, auto-update per container
 - [ ] Notifications (ntfy, Gotify, Telegram)
-- [ ] Restore a vzdump backup from the web UI
 - [ ] Multiple nodes / cluster
 
 ## License

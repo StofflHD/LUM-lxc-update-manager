@@ -29,6 +29,9 @@
 #   rollback  <vmid> <name>            roll back to a lum_ snapshot (stops/starts the guest)
 #   backup    <vmid> <storage> <mode>  vzdump with marker note, mode snapshot|suspend|stop
 #   prune-backups <vmid> <storage> <keep>  delete all but the <keep> newest marked backups
+#   backups   <vmid>                   JSON list of the guest's marked backups on all storages
+#   delete-backup  <vmid> <id>         delete one marked backup (id = its ctime)
+#   restore-backup <vmid> <id>         restore the guest from a marked backup (stops/starts it)
 #
 # The manager can only ever touch snapshots named lum_* and backups whose note
 # is exactly "lxc-update-manager" - never your own snapshots or backup jobs.
@@ -37,7 +40,7 @@
 set -euo pipefail
 
 # bump when verbs are added or changed; LUM checks it and asks for a host update
-WRAPPER_VERSION=5
+WRAPPER_VERSION=6
 # guests with this Proxmox tag are off limits for LUM (every verb except list/version)
 EXCLUDE_TAG="no-lum"
 MARKER="lxc-update-manager"
@@ -91,6 +94,40 @@ require_keep() {
 require_storage() {
   [[ "$1" =~ ^[A-Za-z][A-Za-z0-9_.-]{0,40}$ ]] || die "invalid storage name"
   pvesm status --storage "$1" >/dev/null 2>&1 || die "unknown storage $1"
+}
+
+# vzdump backups of $VMID made by LUM (note = marker) on every active backup
+# storage, newest first: [{"id": ctime, "volid", "storage", "ctime", "size", "protected"}]
+lum_backups_json() {
+  local s
+  for s in $(pvesm status --content backup 2>/dev/null | awk 'NR>1 && $3=="active" {print $1}'); do
+    pvesh get "/nodes/$NODE/storage/$s/content" --content backup --vmid "$VMID" --output-format json 2>/dev/null || true
+  done | perl -MJSON::PP -e '
+    my $marker = shift;
+    my $json = JSON::PP->new;
+    local $/; $json->incr_parse(<STDIN> // "");
+    my @out;
+    while (my $list = eval { $json->incr_parse }) {
+      for my $x (@$list) {
+        next unless ($x->{notes} // "") =~ /^\Q$marker\E\s*$/;
+        my ($storage) = $x->{volid} =~ /^([^:]+):/;
+        push @out, { id => $x->{ctime}, volid => $x->{volid}, storage => $storage,
+                     ctime => $x->{ctime}, size => $x->{size}, protected => ($x->{protected} ? 1 : 0) };
+      }
+    }
+    print JSON::PP->new->canonical->encode([ sort { $b->{ctime} <=> $a->{ctime} } @out ]);
+  ' "$MARKER"
+}
+
+# volid (and protected flag) of the marked backup with ctime $1; exactly one must match
+lum_backup_by_id() {
+  [[ "$1" =~ ^[0-9]{9,11}$ ]] || die "invalid backup id"
+  lum_backups_json | perl -MJSON::PP -e '
+    my $id = shift; local $/;
+    my @m = grep { $_->{ctime} == $id } @{ decode_json(<STDIN>) };
+    exit 3 unless @m == 1;
+    print "$m[0]{volid} $m[0]{protected}\n";
+  ' "$1" || die "no single LUM backup with id $1 for $VMID"
 }
 
 # lum_ snapshots of $VMID as JSON, newest first
@@ -292,6 +329,47 @@ case "$VERB" in
     TYPE=$(pvesh get "/storage/$STORAGE" --output-format json | perl -MJSON::PP -0 -e 'print decode_json(<STDIN>)->{type}')
     [[ "$TYPE" == "pbs" ]] || OPTS+=(--compress zstd)
     vzdump "$VMID" "${OPTS[@]}" 2>&1
+    ;;
+
+  backups)
+    require_vmid
+    lum_backups_json
+    ;;
+
+  delete-backup)
+    require_vmid
+    read -r VOLID PROTECTED < <(lum_backup_by_id "${ARGS[2]:-}")
+    [[ $PROTECTED == 1 ]] && die "backup $VOLID is protected - remove the protection in Proxmox first"
+    pvesm free "$VOLID" 2>&1
+    echo "deleted backup $VOLID"
+    ;;
+
+  restore-backup)
+    require_vmid
+    read -r VOLID _ < <(lum_backup_by_id "${ARGS[2]:-}")
+    WAS_RUNNING=0
+    if is_running; then
+      WAS_RUNNING=1
+      echo "shutting down $GUEST $VMID"
+      "$TOOL" shutdown "$VMID" --timeout 120 2>&1 || "$TOOL" stop "$VMID" 2>&1
+    fi
+    echo "restoring $GUEST $VMID from $VOLID"
+    if [[ $TOOL == pct ]]; then
+      # keep today's storage and privilege level: pct restore would default to
+      # storage "local" and a privileged container
+      CONF=$(pct config "$VMID")
+      ROOT_STORAGE=$(sed -n 's/^rootfs: \([^:,]*\):.*/\1/p' <<<"$CONF")
+      UNPRIV=$(sed -n 's/^unprivileged: //p' <<<"$CONF")
+      pct restore "$VMID" "$VOLID" --force 1 --storage "${ROOT_STORAGE:-local-lvm}" --unprivileged "${UNPRIV:-0}" 2>&1
+    else
+      # VM disks go back to their original storages
+      qmrestore "$VOLID" "$VMID" --force 1 2>&1
+    fi
+    if [[ $WAS_RUNNING == 1 ]]; then
+      echo "starting $GUEST $VMID"
+      "$TOOL" start "$VMID" 2>&1
+    fi
+    echo "restore done"
     ;;
 
   prune-backups)

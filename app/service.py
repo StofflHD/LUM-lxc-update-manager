@@ -29,8 +29,8 @@ APP_UPDATE_SKIPPED = {
 class Job:
     id: int
     vmid: int
-    kind: str  # "os" | "app" | "rollback"
-    target: str | None = None  # rollback: snapshot name
+    kind: str  # "os" | "app" | "rollback" | "restore"
+    target: str | None = None  # rollback: snapshot name, restore: backup id (ctime)
     backup: bool = True  # update: make a snapshot/vzdump first (LUM_BACKUP_MODE)
     lines: list[str] = field(default_factory=list)
     done: bool = False
@@ -172,7 +172,7 @@ class UpdateService:
         job = Job(id=next(self._job_ids), vmid=vmid, kind=kind, target=target, backup=backup)
         self.jobs[job.id] = job
         self._busy.add(vmid)
-        run = self._run_rollback if kind == "rollback" else self._run_update
+        run = {"rollback": self._run_rollback, "restore": self._run_restore}.get(kind, self._run_update)
         asyncio.create_task(self._guarded(job, run))
         return job
 
@@ -266,6 +266,26 @@ class UpdateService:
             self.db.mark_snapshots_removed(vmid, [name])
         finally:
             self._busy.discard(vmid)
+
+    async def delete_backup(self, vmid: int, backup_id: int) -> None:
+        """Delete one vzdump backup made by LUM; blocks the guest like a job meanwhile."""
+        if vmid in self._busy:
+            raise RuntimeError(f"container {vmid} has a running job")
+        self._busy.add(vmid)
+        try:
+            await self.host.delete_backup(vmid, backup_id)
+            self.db.mark_backup_removed(vmid, backup_id)
+        finally:
+            self._busy.discard(vmid)
+
+    async def _run_restore(self, job: Job, history_id: int) -> bool:
+        when = time.strftime("%Y-%m-%d %H:%M", time.localtime(int(job.target)))
+        job.emit(f"### Restore from the vzdump backup of {when}")
+        async for line in self.host.restore_backup(job.vmid, int(job.target)):
+            job.emit(line)
+        self.db.mark_all_snapshots_removed(job.vmid)  # a restore drops all snapshots
+        job.emit("### Done")
+        return True
 
     async def _run_rollback(self, job: Job, history_id: int) -> bool:
         job.emit(f"### Rollback to snapshot {job.target}")

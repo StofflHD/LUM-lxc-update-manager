@@ -10,6 +10,26 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.10.0] – 2026-10-09
+
+**Host script** (version 6) – run the installer with `--update` on the Proxmox host.
+
+### Added
+- **Restore** a guest from one of LUM's vzdump backups in the web UI. The guest is shut
+  down, restored and started again if it was running; containers keep their root disk
+  storage and privilege level. Runs as a job with a live log and a **Restore** entry in
+  the history; the snapshots Proxmox drops on a restore are marked as removed.
+- **Delete** LUM's vzdump backups in the web UI. Backups protected in Proxmox are shown
+  but never deleted.
+- Host script verbs `backups`, `delete-backup` and `restore-backup` – again limited to
+  backups with the note `lxc-update-manager` and refused for guests tagged `no-lum`.
+- API: `GET`/`DELETE /api/containers/{id}/backups[/{backup_id}]`,
+  `POST /api/containers/{id}/restore?backup=…`.
+
+### Changed
+- The **Snapshots** button of a guest is now **Backups** and lists snapshots and vzdump
+  backups.
+
 ## [0.9.1] – 2026-10-09
 
 ### Fixed
@@ -249,7 +269,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.9.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/e347e7a...main
+[0.10.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/6e2f468...main
+[0.9.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/e347e7a...6e2f468
 [0.9.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/58559b4...e347e7a
 [0.8.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/777d354...58559b4
 [0.7.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ddbc9a0...777d354

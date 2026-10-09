@@ -22,5 +22,8 @@ the header `X-Requested-With: lum`.
 | GET | `/api/containers/{id}/snapshots` | The guest's LUM snapshots (`lum_*`) |
 | DELETE | `/api/containers/{id}/snapshots/{name}` | Delete one LUM snapshot |
 | POST | `/api/containers/{id}/rollback?snapshot=lum_…` | Start a rollback → job |
+| GET | `/api/containers/{id}/backups` | The guest's LUM vzdump backups: `id` (= ctime), `volid`, `storage`, `ctime`, `size`, `protected` |
+| DELETE | `/api/containers/{id}/backups/{backup_id}` | Delete one LUM vzdump backup (not protected ones) |
+| POST | `/api/containers/{id}/restore?backup={backup_id}` | Restore the guest from a LUM vzdump backup → job |
 | GET | `/api/history` · `/api/history/{id}/log` | History / stored log |
 | DELETE | `/api/history/{id}` · `/api/history` | Remove one / all finished entries (snapshots are kept) |

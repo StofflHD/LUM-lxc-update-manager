@@ -103,20 +103,23 @@ function renderContainers(list) {
           ? '<button class="placeholder" tabindex="-1" aria-hidden="true" disabled>App update</button>'
           : `<button data-act="app" data-id="${c.vmid}" ${!running || c.busy || !c.community_script ? "disabled" : ""}
           class="${c.app_update ? "primary" : ""}">App update</button>`}
-        <button data-act="snapshots" data-id="${c.vmid}" ${c.busy ? "disabled" : ""} title="Roll back or delete snapshots">Snapshots</button>
+        <button data-act="backups" data-id="${c.vmid}" ${c.busy ? "disabled" : ""} title="Snapshots and vzdump backups: roll back, restore, delete">Backups</button>
       </td>
     </tr>`;
   }).join("") || `<tr><td colspan="8" class="muted">No containers or VMs found.</td></tr>`;
 }
 
-const KIND = { os: "OS update", app: "App update", rollback: "Rollback" };
+const KIND = { os: "OS update", app: "App update", rollback: "Rollback", restore: "Restore" };
+
+const fmtSize = (bytes) => (bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.round((bytes || 0) / 1e6)} MB`);
 
 function backupCell(h) {
   if (h.kind === "rollback") return `<span class="muted">→ ${esc(h.detail)}</span>`;
+  if (h.kind === "restore") return `<span class="muted">← vzdump ${fmtTime(Number(h.detail))}</span>`;
   if (!h.backup_kind) return `<span class="muted">–</span>`;
   const label = h.backup_kind === "snapshot" ? `Snapshot ${esc(h.backup_ref)}` : `vzdump → ${esc(h.backup_ref)}`;
   return h.backup_removed
-    ? `<s class="muted" title="removed by cleanup">${label}</s>`
+    ? `<s class="muted" title="deleted (cleanup, Delete or a restore)">${label}</s>`
     : label;
 }
 
@@ -176,9 +179,10 @@ function snapMsg(text, cls = "muted") {
   $("#snap-msg").hidden = !text;
 }
 
-async function showSnapshots(vmid) {
-  $("#snap-title").textContent = `Snapshots of ${guestLabel(vmid)}`;
+async function showBackups(vmid) {
+  $("#snap-title").textContent = `Backups of ${guestLabel(vmid)}`;
   $("#snap-list").innerHTML = `<tr><td class="muted">Loading …</td></tr>`;
+  $("#vz-list").innerHTML = `<tr><td class="muted">Loading …</td></tr>`;
   if (!$("#snap-dialog").open) {
     snapMsg("");
     $("#snap-dialog").showModal();
@@ -194,6 +198,20 @@ async function showSnapshots(vmid) {
       </tr>`).join("") || `<tr><td class="muted">No snapshots made by the update manager.</td></tr>`;
   } catch (err) {
     $("#snap-list").innerHTML = `<tr><td class="err">${esc(err.message)}</td></tr>`;
+  }
+  try {
+    const backups = await api(`/api/containers/${vmid}/backups`);
+    $("#vz-list").innerHTML = backups.map((b) => `<tr>
+        <td>${fmtTime(b.ctime)}</td><td class="muted">${esc(b.storage)} · ${fmtSize(b.size)}</td>
+        <td class="actions">
+          <button data-act="restore" data-id="${vmid}" data-backup="${b.id}">Restore</button>
+          ${b.protected
+            ? '<span class="tag" title="Protected in Proxmox – remove the protection there to delete it">protected</span>'
+            : `<button data-act="delbackup" data-id="${vmid}" data-backup="${b.id}" class="danger">Delete</button>`}
+        </td>
+      </tr>`).join("") || `<tr><td class="muted">No vzdump backups made by the update manager.</td></tr>`;
+  } catch (err) {
+    $("#vz-list").innerHTML = `<tr><td class="err">${esc(err.message)}</td></tr>`;
   }
 }
 
@@ -257,7 +275,7 @@ function askUpdate(vmid, kind) {
         el.className = "warn-text";
       } else {
         el.textContent = mode === "snapshot"
-          ? "You can roll back to it from the history or the Snapshots button."
+          ? "You can roll back to it from the history or the Backups button."
           : "Restore it in the Proxmox UI if needed.";
         el.className = "muted";
       }
@@ -345,12 +363,47 @@ document.addEventListener("click", async (ev) => {
           if (inDialog) snapMsg(`Could not delete ${snap}: ${err.message}`, "err");
           else await showError(`Could not delete ${snap}: ${err.message}`);
         }
-        if (inDialog) await showSnapshots(id);
+        if (inDialog) await showBackups(id);
         break;
       }
-      case "snapshots":
-        await showSnapshots(id);
+      case "backups":
+        await showBackups(id);
         break;
+      case "delbackup": {
+        const when = fmtTime(Number(btn.dataset.backup));
+        const yes = await ask({
+          title: `Delete vzdump backup of ${guestLabel(id)}?`,
+          text: `Backup of ${when}\n\nIt is removed from the backup storage and can't be restored any more.`,
+          ok: "Delete",
+          danger: true,
+        });
+        if (!yes) return;
+        btn.disabled = true;
+        btn.textContent = "…";
+        snapMsg(`Deleting the backup of ${when} …`);
+        try {
+          await api(`/api/containers/${id}/backups/${btn.dataset.backup}`, { method: "DELETE" });
+          snapMsg(`Deleted the backup of ${when}.`, "ok");
+        } catch (err) {
+          snapMsg(`Could not delete the backup of ${when}: ${err.message}`, "err");
+        }
+        await showBackups(id);
+        break;
+      }
+      case "restore": {
+        const when = fmtTime(Number(btn.dataset.backup));
+        const yes = await ask({
+          title: `Restore ${guestLabel(id)}?`,
+          text: `Backup of ${when}\n\nThe guest is shut down, replaced by the backup and started again if it `
+            + "was running. All changes since the backup are lost, and Proxmox deletes the guest's snapshots.",
+          ok: "Restore",
+          danger: true,
+        });
+        if (!yes) return;
+        $("#snap-dialog").close();
+        followJob(await api(`/api/containers/${id}/restore?backup=${btn.dataset.backup}`, { method: "POST" }));
+        break;
+      }
       case "rollback": {
         const snap = btn.dataset.snap;
         const yes = await ask({
@@ -370,7 +423,7 @@ document.addEventListener("click", async (ev) => {
           title: "Remove history entry?",
           text: "The entry and its log are removed from the history.\n\n"
             + "A snapshot made for this update is not deleted – it stays available "
-            + "(and can be rolled back) under the Snapshots button of the container or VM.",
+            + "(and can be rolled back) under the Backups button of the container or VM.",
           ok: "Remove",
           danger: true,
         });
@@ -395,7 +448,7 @@ $("#clear-history").addEventListener("click", async () => {
     title: "Clear the whole history?",
     text: "All finished entries and their logs are removed. Running updates stay.\n\n"
       + "Snapshots and backups are not deleted – they stay available under each "
-      + "container's or VM's Snapshots button.",
+      + "container's or VM's Backups button.",
     ok: "Clear history",
     danger: true,
   });

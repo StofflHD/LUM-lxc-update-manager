@@ -87,12 +87,16 @@
 
   <dialog id="snap-dialog">
     <div class="dialog-head">
-      <h3 id="snap-title">Snapshots</h3>
+      <h3 id="snap-title">Backups</h3>
       <button id="snap-close" aria-label="Close">✕</button>
     </div>
-    <p class="muted dialog-note">Only snapshots created by the update manager (lum_*). Your own snapshots are not shown and never touched.</p>
+    <p class="muted dialog-note">Only snapshots (lum_*) and vzdump backups (note "lxc-update-manager") made by
+      LUM. Your own snapshots and backup jobs are not shown and never touched.</p>
     <p id="snap-msg" class="dialog-note" role="status" hidden></p>
+    <h4 class="dialog-section">Snapshots</h4>
     <table><tbody id="snap-list"></tbody></table>
+    <h4 class="dialog-section">vzdump backups</h4>
+    <table><tbody id="vz-list"></tbody></table>
   </dialog>
 
   <!-- own confirm / message dialog: browsers can silently suppress confirm() and alert() -->
