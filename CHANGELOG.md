@@ -10,6 +10,17 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.12.0] – 2026-10-09
+
+### Added
+- **Security updates** are highlighted: a red `N security` badge next to the pending
+  packages, the packages are marked in the list, and a new tile **Security updates**
+  counts them over all running guests. A package is a security update when apt lists it
+  from a `*-security` suite (Debian and Ubuntu); apk has no such channel.
+- **Filter** above the list: **All**, **With updates**, **Security** (remembered in the
+  browser). Bulk selections ("select all") only take the visible guests.
+- API: `/api/containers` lists the security updates per guest (`security`).
+
 ## [0.11.0] – 2026-10-09
 
 ### Added
@@ -314,7 +325,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.11.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/7fd71e4...main
+[0.12.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/dd5e36c...main
+[0.11.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/7fd71e4...dd5e36c
 [0.10.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ef91f34...7fd71e4
 [0.10.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/9a0f48d...ef91f34
 [0.10.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/47427f2...9a0f48d

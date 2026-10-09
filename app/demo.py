@@ -54,6 +54,10 @@ _PACKAGES = [
     ("gzip", "1.13-1", "1.13-1+deb13u1"),
     ("ca-certificates", "20250419", "20250419+deb13u1"),
 ]
+# packages fixed by a Debian security advisory come from <suite>-security,
+# the others from a point release
+_SECURITY = {"libc6", "libc-bin", "openssl", "libssl3t64", "curl", "libcurl4t64", "openssh-client",
+             "libexpat1", "xz-utils", "liblzma5"}
 AGENT_ERROR = (
     "error: QEMU guest agent not reachable in VM {} - install qemu-guest-agent in the VM "
     "and enable 'QEMU Guest Agent' in its Proxmox options"
@@ -102,7 +106,8 @@ class DemoHostClient:
         await asyncio.sleep(random.uniform(0.3, 1.0))
         if _ct(vmid)[4] == "apk":
             return [f"{name}-{old} < {new}" for name, old, new in self._pending[vmid]]
-        return [f"{name}/stable-security {new} amd64 [upgradable from: {old}]" for name, old, new in self._pending[vmid]]
+        return [f"{name}/{'stable-security' if name in _SECURITY else 'stable'} {new} amd64 [upgradable from: {old}]"
+                for name, old, new in self._pending[vmid]]
 
     async def app_version(self, vmid: int, app: str) -> str:
         if vmid in self._updated:  # after a demo app update report the real latest version

@@ -43,6 +43,11 @@
 
     <section>
       <div class="toolbar" id="bulk">
+        <div class="seg" role="group" aria-label="Show">
+          <button type="button" data-filter="all" aria-pressed="true">All</button>
+          <button type="button" data-filter="updates" aria-pressed="false" title="Only guests with OS or app updates">With updates</button>
+          <button type="button" data-filter="security" aria-pressed="false" title="Only guests with security updates">Security</button>
+        </div>
         <span id="bulk-count" class="muted">Select containers and VMs to update several at once</span>
         <button id="sel-updates" type="button" title="Select all running guests with OS or app updates">Select all with updates</button>
         <button id="sel-none" type="button" hidden>Clear selection</button>

@@ -1,4 +1,5 @@
 import json
+import re
 import sqlite3
 import time
 from pathlib import Path
@@ -41,6 +42,17 @@ CREATE TABLE IF NOT EXISTS history (
 # job ran if the guest no longer exists
 HISTORY_COLS = ("h.id, h.vmid, h.kind, h.started, h.finished, h.success, h.backup_kind, h.backup_ref, "
                 "h.backup_removed, h.detail, COALESCE(c.name, h.name) AS name")
+
+
+# "apt list --upgradable" line: "openssl/stable-security 3.5.7-1~deb13u3 amd64 [...]";
+# Ubuntu lists several suites: "libssl3t64/noble-updates,noble-security ...".
+# apk has no security channel, so Alpine guests never show security updates.
+_APT_SUITES = re.compile(r"^[^/\s]+/(\S+)\s")
+
+
+def is_security(line: str) -> bool:
+    m = _APT_SUITES.match(line)
+    return bool(m) and any(s.endswith("-security") for s in m.group(1).split(","))
 
 
 class Database:
@@ -128,6 +140,7 @@ class Database:
         for r in rows:
             d = dict(r)
             d["upgradable"] = json.loads(d["upgradable"])
+            d["security"] = [p for p in d["upgradable"] if is_security(p)]
             d["community_script"] = bool(d["community_script"])
             d["tags"] = [t for t in d["tags"].split(";") if t]
             d["app_update"] = is_update(d["app_installed"], d["app_latest"])

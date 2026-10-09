@@ -25,6 +25,7 @@ function renderSummary(list) {
   const running = list.filter((c) => c.status === "running");
   const withUpdates = running.filter((c) => c.upgradable.length > 0);
   const packages = running.reduce((n, c) => n + c.upgradable.length, 0);
+  const security = running.reduce((n, c) => n + c.security.length, 0);
   const appUpdates = running.filter((c) => c.app_update).length;
   const errors = list.filter((c) => c.last_error).length;
   const vms = list.filter((c) => c.type === "qemu").length;
@@ -32,9 +33,10 @@ function renderSummary(list) {
     [`${list.length - vms} / ${vms}`, "Containers / VMs"],
     [withUpdates.length, "With updates"],
     [packages, "Pending packages"],
+    [security, "Security updates", security ? "err" : ""],
     [appUpdates, "App updates"],
     [errors, "Errors"],
-  ].map(([v, l]) => `<div class="tile"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+  ].map(([v, l, cls = ""]) => `<div class="tile"><div class="v ${cls}">${v}</div><div class="l">${l}</div></div>`).join("");
 }
 
 // keep expanded package lists open across the periodic re-render
@@ -52,8 +54,12 @@ function updatesCell(c) {
   if (c.last_error) return `<span class="badge err" title="${esc(c.last_error)}">Error</span>`;
   if (!c.last_check) return `<span class="muted">not checked</span>`;
   if (!c.upgradable.length) return `<span class="badge ok">up to date</span>`;
-  return `<details data-vmid="${c.vmid}" ${openDetails.has(String(c.vmid)) ? "open" : ""}><summary><span class="badge warn">${c.upgradable.length} package${c.upgradable.length === 1 ? "" : "s"}</span></summary>
-    <ul>${c.upgradable.map((p) => `<li>${esc(p)}</li>`).join("")}</ul></details>`;
+  const sec = new Set(c.security);
+  const secBadge = sec.size
+    ? ` <span class="badge err" title="${sec.size} of them from a security repository (*-security)">${sec.size} security</span>`
+    : "";
+  return `<details data-vmid="${c.vmid}" ${openDetails.has(String(c.vmid)) ? "open" : ""}><summary><span class="badge warn">${c.upgradable.length} package${c.upgradable.length === 1 ? "" : "s"}</span>${secBadge}</summary>
+    <ul>${c.upgradable.map((p) => `<li${sec.has(p) ? ' class="sec"' : ""}>${esc(p)}</li>`).join("")}</ul></details>`;
 }
 
 // where the app version comes from (app_kind) when there is no version to compare
@@ -84,13 +90,24 @@ function appCell(c) {
   return `${name} ${badge}${held}${ahead}<br>${repo}`;
 }
 
+// list filter: all | updates | security (stored per browser)
+let listFilter = "all";
+try { listFilter = localStorage.getItem("lum-filter") || "all"; } catch { /* blocked */ }
+
+const hasUpdates = (c) => c.status === "running" && !c.last_error && (c.upgradable.length > 0 || c.app_update);
+const visibleGuests = (list) => list.filter((c) => listFilter === "all"
+  || (listFilter === "updates" && hasUpdates(c))
+  || (listFilter === "security" && c.status === "running" && c.security.length > 0));
+
 // guests ticked for a bulk update (vmid strings), kept across the periodic re-render
 const selected = new Set();
 let lastContainers = [];
 let lastQueue = [];
 
-function renderContainers(list) {
+function renderContainers(all) {
   const queued = new Set(lastQueue.filter((i) => i.state === "waiting").map((i) => i.vmid));
+  const list = visibleGuests(all);
+  document.querySelectorAll("[data-filter]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.filter === listFilter)));
   $("#containers").innerHTML = list.map((c) => {
     const running = c.status === "running";
     return `<tr>
@@ -113,7 +130,9 @@ function renderContainers(list) {
         <button data-act="backups" data-id="${c.vmid}" ${c.busy ? "disabled" : ""} title="Snapshots and vzdump backups: roll back, restore, delete">Backups</button>
       </td>
     </tr>`;
-  }).join("") || `<tr><td colspan="8" class="muted">No containers or VMs found.</td></tr>`;
+  }).join("") || `<tr><td colspan="8" class="muted">${all.length
+    ? (listFilter === "security" ? "No container or VM has security updates." : "No container or VM has updates.")
+    : "No containers or VMs found."}</td></tr>`;
 }
 
 const KIND = { os: "OS update", app: "App update", rollback: "Rollback", restore: "Restore" };
@@ -306,7 +325,7 @@ async function load() {
     lastContainers = containers;
     lastQueue = status.queue;
     // drop guests that were removed or stopped from the selection
-    const selectable = new Set(containers.filter((c) => c.status === "running").map((c) => String(c.vmid)));
+    const selectable = new Set(visibleGuests(containers).filter((c) => c.status === "running").map((c) => String(c.vmid)));
     [...selected].forEach((v) => { if (!selectable.has(v)) selected.delete(v); });
     renderSummary(containers);
     renderContainers(containers);
@@ -569,7 +588,7 @@ function renderBulk() {
   $("#bulk-os").disabled = !n;
   $("#bulk-app").disabled = ![...selected].some((v) => guestTypes[v] !== "qemu");
   $("#sel-none").hidden = !n;
-  const running = lastContainers.filter((c) => c.status === "running");
+  const running = visibleGuests(lastContainers).filter((c) => c.status === "running");
   const all = running.length > 0 && running.every((c) => selected.has(String(c.vmid)));
   $("#sel-all").checked = all;
   $("#sel-all").indeterminate = n > 0 && !all;
@@ -590,17 +609,23 @@ document.addEventListener("change", (ev) => {
 });
 
 $("#sel-all").addEventListener("change", (ev) => {
-  setSelection(ev.target.checked ? lastContainers.filter((c) => c.status === "running").map((c) => c.vmid) : []);
+  setSelection(ev.target.checked ? visibleGuests(lastContainers).filter((c) => c.status === "running").map((c) => c.vmid) : []);
 });
 
 $("#sel-updates").addEventListener("click", () => {
-  setSelection(lastContainers
-    .filter((c) => c.status === "running" && !c.last_error && (c.upgradable.length || c.app_update))
-    .map((c) => c.vmid));
+  setSelection(visibleGuests(lastContainers).filter(hasUpdates).map((c) => c.vmid));
   if (!selected.size) notice("No container or VM has updates right now.");
 });
 
 $("#sel-none").addEventListener("click", () => setSelection([]));
+
+document.querySelectorAll("[data-filter]").forEach((b) => b.addEventListener("click", () => {
+  listFilter = b.dataset.filter;
+  try { localStorage.setItem("lum-filter", listFilter); } catch { /* blocked */ }
+  // keep only selected guests that are still visible
+  const visible = new Set(visibleGuests(lastContainers).map((c) => String(c.vmid)));
+  setSelection([...selected].filter((v) => visible.has(v)));
+}));
 
 async function bulkUpdate(kind) {
   const vmids = [...selected].map(Number).filter((v) => kind === "os" || guestTypes[v] !== "qemu");

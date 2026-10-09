@@ -10,9 +10,10 @@
 | | **Check all** | Re-reads the list and checks every running guest for OS and app updates. Also runs automatically every `LUM_CHECK_INTERVAL_MINUTES`. |
 | | **☰** menu | **Theme** (System / Light / Dark, stored in the browser), **Settings** (see [Configuration](configuration.md#in-the-web-ui)) and **Change password**. |
 | Status line | | Last check, backup mode, guests hidden by the `no-lum` tag (hover for their IDs), result of **Refresh list**, and a yellow note when the host script is outdated. |
-| Above the list | **Select all with updates** · **OS update** · **App update** | Update several guests in one go – see [Updating several guests](#updating-several-guests). |
+| Above the list | **All** · **With updates** · **Security** | Filter the list: every guest, only guests with OS or app updates, only guests with security updates (stored in the browser). Bulk selections only include visible guests. |
+| | **Select all with updates** · **OS update** · **App update** | Update several guests in one go – see [Updating several guests](#updating-several-guests). |
 | Each row | ☐ `ID` · `LXC`/`VM` | Checkbox for a bulk update (the one in the header selects all running guests). Container or VM. VMs need the QEMU guest agent, otherwise **no guest agent** is shown. |
-| | `▸ N packages` | Pending OS updates – click to list them. |
+| | `▸ N packages` · `N security` | Pending OS updates – click to list them. **security**: how many come from a security repository (see [Security updates](#security-updates)); they are marked in the list. |
 | | App column | Installed app version (green) or `installed → latest` (orange) with a link to the release page, PyPI or npm. **held back**: the community script pins this version; **pre-release**: the installed version is newer than the latest stable one. Without a version source: *updated with the OS packages*, *no version check (Docker)* or *Version unknown* – see [App updates](#app-updates). |
 | | **Check** | Checks this one guest. |
 | | **OS update** | Opens the update dialog (with the backup checkbox), then runs apt/apk with a live log. |
@@ -27,6 +28,17 @@
 Below 1100 px window width every row turns into a card. The footer shows the version.
 If the host script on the Proxmox host is older than this LUM version needs, a yellow
 note below the status line says so and shows the command to update it.
+
+## Security updates
+
+A package counts as a security update when apt lists it from a `*-security` suite
+(Debian `trixie-security`, Ubuntu `noble-security`, also when Ubuntu lists it as
+`noble-updates,noble-security`). The tile **Security updates** sums them up over all
+running guests, the filter **Security** shows only the guests that have some.
+
+- An OS update always installs *all* pending packages, security ones included.
+- Alpine (apk) has no separate security channel, so Alpine guests never show security
+  updates – their updates may still contain security fixes.
 
 ## Updating several guests
 
