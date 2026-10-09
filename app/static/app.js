@@ -123,6 +123,10 @@ function diskBadge(c) {
     + "an update needs more (LUM_MIN_FREE_MB). Free up space or enlarge the disk.")}">low disk</span>`;
 }
 
+// no App update button: VMs, containers tagged self-created, and apps that only come
+// with the OS packages (their app update does what the OS update does)
+const noAppUpdate = (c) => c.type === "qemu" || c.self_created || c.app_kind === "os";
+
 function renderContainers(all) {
   const queued = new Set(lastQueue.filter((i) => i.state === "waiting").map((i) => i.vmid));
   const list = visibleGuests(all);
@@ -141,8 +145,8 @@ function renderContainers(all) {
       <td class="actions">
         <button data-act="check" data-id="${c.vmid}" ${!running || c.busy ? "disabled" : ""}>Check</button>
         <button data-act="os" data-id="${c.vmid}" ${!running || c.busy || !c.upgradable.length ? "disabled" : ""}>OS update</button>
-        ${c.type === "qemu" || c.self_created
-          // no app updates for VMs and self-created containers: invisible stand-in keeps the buttons aligned
+        ${noAppUpdate(c)
+          // invisible stand-in keeps the buttons aligned in the table
           ? '<button class="placeholder" tabindex="-1" aria-hidden="true" disabled>App update</button>'
           : `<button data-act="app" data-id="${c.vmid}" ${!running || c.busy || !c.community_script ? "disabled" : ""}
           class="${c.app_update ? "primary" : ""}">App update</button>`}
@@ -684,7 +688,7 @@ function renderBulk() {
     ? `${n} selected`
     : "Select containers and VMs to update several at once";
   $("#bulk-os").disabled = !n;
-  const appCapable = new Set(lastContainers.filter((c) => c.type !== "qemu" && !c.self_created).map((c) => String(c.vmid)));
+  const appCapable = new Set(lastContainers.filter((c) => !noAppUpdate(c)).map((c) => String(c.vmid)));
   $("#bulk-app").disabled = ![...selected].some((v) => appCapable.has(v));
   $("#sel-none").hidden = !n;
   const running = visibleGuests(lastContainers).filter((c) => c.status === "running");
@@ -727,7 +731,7 @@ document.querySelectorAll("[data-filter]").forEach((b) => b.addEventListener("cl
 }));
 
 async function bulkUpdate(kind) {
-  const appCapable = new Set(lastContainers.filter((c) => c.type !== "qemu" && !c.self_created).map((c) => c.vmid));
+  const appCapable = new Set(lastContainers.filter((c) => !noAppUpdate(c)).map((c) => c.vmid));
   const vmids = [...selected].map(Number).filter((v) => kind === "os" || appCapable.has(v));
   const what = kind === "os" ? "OS updates" : "an app update";
   const extra = `They run one after the other, each with its own log in the history. Guests without ${what}`

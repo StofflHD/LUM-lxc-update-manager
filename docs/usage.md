@@ -17,7 +17,7 @@
 | | App column | Installed app version (green) or `installed → latest` (orange) with a link to the release page, PyPI or npm. **held back**: the community script pins this version; **pre-release**: the installed version is newer than the latest stable one. Without a version source: *updated with the OS packages*, *no version check (Docker)* or *Version unknown* – see [App updates](#app-updates). |
 | | **Check** | Checks this one guest. |
 | | **OS update** | Opens the update dialog (backup and cleanup checkboxes), then runs apt/apk with a live log. |
-| | **App update** | Community-script app update (containers only; not shown for VMs). Highlighted when a newer app version exists. |
+| | **App update** | Community-script app update. Highlighted when a newer app version exists. Not shown for VMs, containers tagged `self-created` and apps *updated with the OS packages*. |
 | | `low disk: … free` | Less free space in `/` than an update needs – see [Free space](#free-space-before-an-update). |
 | | `restart required` · **Restart** | After updates the guest should be restarted – hover the badge for the reason, see [Restart after updates](#restart-after-updates). |
 | | **Backups** | The guest's LUM snapshots (**Rollback**, **Delete**) and vzdump backups (**Restore**, **Delete**) – see [Backup, cleanup and rollback](#backup-cleanup-and-rollback). |
@@ -94,8 +94,9 @@ vs. `0.44.0`) is not an update – LUM shows it green with a **pre-release** hin
 
 Apps without a usable source show a hint instead of a version, and can still be updated:
 
-- **updated with the OS packages** – the app comes from apt/apk (e.g. AdGuard, Zammad);
-  its updates show up as OS updates.
+- **updated with the OS packages** – the app comes from apt/apk (e.g. Zammad); its
+  updates show up as OS updates. The **App update** button is hidden for these: the
+  community script's update would only run the OS update as well.
 - **no version check (Docker)** – e.g. Home Assistant.
 - **Version unknown** – e.g. apps downloaded directly from the vendor.
 
