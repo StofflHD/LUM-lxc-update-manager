@@ -104,6 +104,17 @@ const selected = new Set();
 let lastContainers = [];
 let lastQueue = [];
 
+function restartBadge(c) {
+  if (c.status !== "running" || !c.restart_required) return "";
+  const why = [
+    c.restart_reboot ? (c.type === "qemu" ? "A newer kernel is installed or the system asks for a reboot."
+      : "The system asks for a reboot.") : "",
+    c.restart_services.length ? `Still running the old code of updated libraries: ${
+      c.restart_services.map((s) => s.replace(/\.service$/, "")).join(", ")}` : "",
+  ].filter(Boolean).join("\n");
+  return `<br><span class="badge warn" title="${esc(why)}">restart required</span>`;
+}
+
 function renderContainers(all) {
   const queued = new Set(lastQueue.filter((i) => i.state === "waiting").map((i) => i.vmid));
   const list = visibleGuests(all);
@@ -114,7 +125,7 @@ function renderContainers(all) {
       <td data-label="ID"><label class="sel"><input type="checkbox" data-sel="${c.vmid}" aria-label="Select ${c.vmid}"
         ${selected.has(String(c.vmid)) ? "checked" : ""} ${running ? "" : "disabled"}>${c.vmid}</label><br><span class="tag">${c.type === "qemu" ? "VM" : "LXC"}</span></td>
       <td data-label="Name"><strong>${esc(c.name)}</strong><br>${c.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("")}</td>
-      <td data-label="Status"><span class="badge ${running ? "ok" : "muted"}">${esc(c.status)}</span>${queued.has(c.vmid) ? '<br><span class="tag">queued</span>' : ""}</td>
+      <td data-label="Status"><span class="badge ${running ? "ok" : "muted"}">${esc(c.status)}</span>${restartBadge(c)}${queued.has(c.vmid) ? '<br><span class="tag">queued</span>' : ""}</td>
       <td data-label="Package manager">${esc(c.pkg_manager || "–")}${c.community_script ? '<br><span class="tag">community-script</span>' : ""}</td>
       <td data-label="OS updates">${updatesCell(c)}</td>
       <td data-label="App">${appCell(c)}</td>
@@ -127,6 +138,8 @@ function renderContainers(all) {
           ? '<button class="placeholder" tabindex="-1" aria-hidden="true" disabled>App update</button>'
           : `<button data-act="app" data-id="${c.vmid}" ${!running || c.busy || !c.community_script ? "disabled" : ""}
           class="${c.app_update ? "primary" : ""}">App update</button>`}
+        ${running && c.restart_required ? `<button data-act="restart" data-id="${c.vmid}" ${c.busy ? "disabled" : ""}
+          title="Reboot the ${c.type === "qemu" ? "VM" : "container"} so it runs the updated code">Restart</button>` : ""}
         <button data-act="backups" data-id="${c.vmid}" ${c.busy ? "disabled" : ""} title="Snapshots and vzdump backups: roll back, restore, delete">Backups</button>
       </td>
     </tr>`;
@@ -135,7 +148,7 @@ function renderContainers(all) {
     : "No containers or VMs found."}</td></tr>`;
 }
 
-const KIND = { os: "OS update", app: "App update", rollback: "Rollback", restore: "Restore" };
+const KIND = { os: "OS update", app: "App update", rollback: "Rollback", restore: "Restore", restart: "Restart" };
 
 const fmtSize = (bytes) => (bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.round((bytes || 0) / 1e6)} MB`);
 
@@ -491,6 +504,17 @@ document.addEventListener("click", async (ev) => {
         if (!yes) return;
         $("#snap-dialog").close();
         followJob(await api(`/api/containers/${id}/restore?backup=${btn.dataset.backup}`, { method: "POST" }));
+        break;
+      }
+      case "restart": {
+        const yes = await ask({
+          title: `Restart ${guestLabel(id)}?`,
+          text: "It is shut down and started again, so its services use the updated libraries "
+            + "(and a VM the new kernel). It is unavailable for a moment.",
+          ok: "Restart",
+        });
+        if (!yes) return;
+        followJob(await api(`/api/containers/${id}/restart`, { method: "POST" }));
         break;
       }
       case "rollback": {

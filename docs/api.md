@@ -12,11 +12,12 @@ the header `X-Requested-With: lum`.
 | POST | `/api/password` | Change password |
 | GET · POST | `/api/settings` | Editable settings / save them (LUM restarts) |
 | GET | `/api/status` | Version, last check, backup mode, host script version, hidden (`no-lum`) guests, `queue` |
-| GET | `/api/containers` | All containers/VMs with update status (`upgradable`, `security` = the security updates among them) |
+| GET | `/api/containers` | All containers/VMs with update status (`upgradable`, `security` = the security updates among them, `restart_required`, `restart_reboot`, `restart_services`) |
 | POST | `/api/sync` | Re-read the list of containers/VMs only (no package checks) |
 | POST | `/api/refresh` | Check all (async) |
 | POST | `/api/containers/{id}/check` | Check one guest |
 | POST | `/api/containers/{id}/update?kind=os\|app&backup=true\|false` | Start an update → job |
+| POST | `/api/containers/{id}/restart` | Reboot the guest → job |
 | GET | `/api/jobs/{id}` | Job status + log |
 | GET | `/api/queue` | Bulk update queue: `vmid`, `kind`, `backup`, `state` (`waiting`, `running`, `ok`, `failed`, `skipped`, `cancelled`), `job_id`, `note` |
 | POST | `/api/queue` | Body `{"vmids": [101, 102], "kind": "os"\|"app", "backup": true}` – update them one after the other |

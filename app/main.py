@@ -342,6 +342,21 @@ async def queue_cancel():
     return {"queue": [i.as_dict() for i in s.queue]}
 
 
+@app.post("/api/containers/{vmid}/restart", status_code=202)
+async def restart(vmid: int):
+    """Reboot the guest (e.g. after updates that replaced libraries or the kernel) → job"""
+    s = svc()
+    c = s.db.container(vmid)
+    if not c:
+        raise HTTPException(404, "unknown container")
+    if c["status"] != "running":
+        raise HTTPException(409, "container is not running")
+    try:
+        return s.start_job(vmid, "restart").as_dict()
+    except RuntimeError as err:
+        raise HTTPException(409, str(err))
+
+
 @app.get("/api/containers/{vmid}/snapshots")
 async def snapshots(vmid: int):
     s = svc()

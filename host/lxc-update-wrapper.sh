@@ -21,6 +21,9 @@
 #   app-update <vmid>         community-scripts "update" in silent mode (PHS_SILENT=1), LXC only
 #                             exit 75 = needs interactive mode, 113 = under-provisioned,
 #                             114 = /boot storage low
+#   restart-needed <vmid>     reboot=<0|1> (reboot-required flag, VM: newer kernel installed)
+#                             services=<units/processes still using replaced libraries>
+#   restart  <vmid>           reboot the guest and wait until it answers again
 #
 #   snapshot  <vmid> <name>            create snapshot (name must start with lum_)
 #   snapshots <vmid>                   JSON list of the guest's lum_ snapshots
@@ -40,7 +43,7 @@
 set -euo pipefail
 
 # bump when verbs are added or changed; LUM checks it and asks for a host update
-WRAPPER_VERSION=6
+WRAPPER_VERSION=7
 # guests with this Proxmox tag are off limits for LUM (every verb except list/version)
 EXCLUDE_TAG="no-lum"
 MARKER="lxc-update-manager"
@@ -267,6 +270,51 @@ case "$VERB" in
     require_vmid; require_running
     [[ $TOOL == pct ]] || die "app updates are only supported for LXC containers"
     pct exec "$VMID" -- "${guest_env[@]}" sh -c '[ -x /usr/bin/update ] || { echo "no community-scripts update command"; exit 4; }; export PHS_SILENT=1; update' </dev/null 2>&1
+    ;;
+
+  restart-needed)
+    # After an update: does the guest need a restart? Processes that still map a
+    # deleted (= replaced) library or binary keep running the old code until they
+    # are restarted - the same test needrestart/checkrestart make, without needing
+    # them in the guest. A container shares the host kernel, so only VMs are checked
+    # for a newer installed kernel.
+    require_vmid; require_running
+    KERNEL_CHECK=0
+    [[ $TOOL == qm ]] && KERNEL_CHECK=1
+    in_guest 120 "KERNEL_CHECK=$KERNEL_CHECK"'
+      r=0
+      [ -f /var/run/reboot-required ] && r=1
+      if [ "$KERNEL_CHECK" = 1 ]; then
+        new=$(ls -1 /boot/vmlinuz-* 2>/dev/null | sed "s|^/boot/vmlinuz-||" | sort -V | tail -n 1)
+        [ -n "$new" ] && [ "$new" != "$(uname -r)" ] && r=1
+      fi
+      echo "reboot=$r"
+      s=""
+      for p in /proc/[0-9]*; do
+        grep -qE " /(usr/)?(lib|lib32|lib64|libexec|bin|sbin)/[^ ]* \(deleted\)$" "$p/maps" 2>/dev/null || continue
+        u=$(sed -n "s|.*/\([^/]*\.service\)$|\1|p" "$p/cgroup" 2>/dev/null | head -n 1)
+        [ -z "$u" ] && u=$(tr "\0" " " < "$p/cmdline" 2>/dev/null | cut -d " " -f 1 | sed "s|.*/||")
+        [ -n "$u" ] && s="$s $u"
+      done
+      echo "services=$(for x in $s; do echo "$x"; done | sort -u | tr "\n" " ")"
+    '
+    ;;
+
+  restart)
+    require_vmid
+    is_running || die "$GUEST $VMID is not running"
+    echo "restarting $GUEST $VMID"
+    "$TOOL" reboot "$VMID" 2>&1
+    # wait until the guest answers again (VM: through the guest agent)
+    for _ in $(seq 1 60); do
+      if [[ $TOOL == pct ]]; then
+        pct exec "$VMID" -- true >/dev/null 2>&1 && break
+      else
+        qm guest cmd "$VMID" ping >/dev/null 2>&1 && break
+      fi
+      sleep 2
+    done
+    echo "restart done"
     ;;
 
   snapshot)

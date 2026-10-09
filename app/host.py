@@ -113,6 +113,15 @@ class HostClient:
         """Installed version of a pip / npm package ('' if not installed)."""
         return (await self._run("pkg-version", vmid, manager, package)).strip()
 
+    async def restart_needed(self, vmid: int) -> tuple[bool, list[str]]:
+        """(reboot flag / newer kernel, services still using replaced libraries)"""
+        out = await self._run("restart-needed", vmid, timeout=180)
+        values = dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
+        return values.get("reboot") == "1", values.get("services", "").split()
+
+    def restart(self, vmid: int) -> AsyncIterator[str]:
+        return self._stream("restart", vmid)
+
     def upgrade(self, vmid: int) -> AsyncIterator[str]:
         return self._stream("upgrade", vmid)
 

@@ -29,7 +29,7 @@ APP_UPDATE_SKIPPED = {
 class Job:
     id: int
     vmid: int
-    kind: str  # "os" | "app" | "rollback" | "restore"
+    kind: str  # "os" | "app" | "rollback" | "restore" | "restart"
     target: str | None = None  # rollback: snapshot name, restore: backup id (ctime)
     backup: bool = True  # update: make a snapshot/vzdump first (LUM_BACKUP_MODE)
     lines: list[str] = field(default_factory=list)
@@ -160,8 +160,19 @@ class UpdateService:
                     vmid, None, c.get("community_script", False), c.get("upgradable", []), str(err)
                 )
                 return
+            await self._check_restart(vmid)
             if info.script:
                 await self._check_app(vmid, info.script)
+
+    async def _check_restart(self, vmid: int) -> None:
+        """Does the guest need a restart after updates? Unknown with host scripts < 7."""
+        try:
+            reboot, services = await self.host.restart_needed(vmid)
+        except (HostCommandError, OSError, ValueError) as err:
+            log.debug("restart check %s: %s", vmid, err)
+            self.db.set_restart(vmid, None, None)
+            return
+        self.db.set_restart(vmid, reboot, services)
 
     async def _check_app(self, vmid: int, script: str) -> None:
         """Installed vs. latest app version; failures only leave the fields empty."""
@@ -194,7 +205,8 @@ class UpdateService:
         job = Job(id=next(self._job_ids), vmid=vmid, kind=kind, target=target, backup=backup)
         self.jobs[job.id] = job
         self._busy.add(vmid)
-        run = {"rollback": self._run_rollback, "restore": self._run_restore}.get(kind, self._run_update)
+        run = {"rollback": self._run_rollback, "restore": self._run_restore,
+               "restart": self._run_restart}.get(kind, self._run_update)
         asyncio.create_task(self._guarded(job, run))
         return job
 
@@ -326,6 +338,13 @@ class UpdateService:
         async for line in self.host.restore_backup(job.vmid, int(job.target)):
             job.emit(line)
         self.db.mark_all_snapshots_removed(job.vmid)  # a restore drops all snapshots
+        job.emit("### Done")
+        return True
+
+    async def _run_restart(self, job: Job, history_id: int) -> bool:
+        job.emit("### Restart")
+        async for line in self.host.restart(job.vmid):
+            job.emit(line)
         job.emit("### Done")
         return True
 

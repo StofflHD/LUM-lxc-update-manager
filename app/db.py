@@ -73,6 +73,9 @@ class Database:
                 "app_kind": "TEXT",
                 "app_url": "TEXT",
                 "app_note": "TEXT",
+                # after updates: reboot flag / newer kernel, services using replaced libraries
+                "restart_reboot": "INTEGER",
+                "restart_services": "TEXT",
             },
             "history": {
                 "backup_kind": "TEXT",
@@ -123,6 +126,13 @@ class Database:
                 (pkg_manager, int(community), json.dumps(upgradable), time.time(), error, vmid),
             )
 
+    def set_restart(self, vmid: int, reboot: bool | None, services: list[str] | None) -> None:
+        with self._conn:
+            self._conn.execute(
+                "UPDATE containers SET restart_reboot=?, restart_services=? WHERE vmid=?",
+                (None if reboot is None else int(reboot), None if services is None else json.dumps(services), vmid),
+            )
+
     def set_app_result(
         self, vmid: int, script: str | None, repo: str | None, installed: str | None, latest: str | None,
         kind: str | None = None, url: str | None = None, note: str | None = None,
@@ -141,6 +151,9 @@ class Database:
             d = dict(r)
             d["upgradable"] = json.loads(d["upgradable"])
             d["security"] = [p for p in d["upgradable"] if is_security(p)]
+            d["restart_reboot"] = bool(d["restart_reboot"])
+            d["restart_services"] = json.loads(d["restart_services"] or "[]")
+            d["restart_required"] = d["restart_reboot"] or bool(d["restart_services"])
             d["community_script"] = bool(d["community_script"])
             d["tags"] = [t for t in d["tags"].split(";") if t]
             d["app_update"] = is_update(d["app_installed"], d["app_latest"])

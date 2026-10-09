@@ -18,6 +18,8 @@ web UI. With a snapshot before every update and rollback with one click.
   tag a guest `no-lum` to keep LUM away from it
 - **OS updates** (apt / apk) with one click and a live log – or for several guests at
   once, one after the other; security updates are highlighted and can be filtered
+- **Restart required** – shows when services still run replaced libraries or a VM has a
+  newer kernel, with a restart button
 - **App updates** for community-script containers, with installed vs. latest version from
   GitHub, Codeberg, GitLab, PyPI or npm
 - **Safety first** – snapshot or vzdump backup before every update, cleanup, rollback;
@@ -83,9 +85,9 @@ LXC 101, 102 …   VM 200, 201 … (via QEMU guest agent)
 LUM runs in its own container and reaches the Proxmox host over SSH with a key that may
 only call the host script (`lxc-update-wrapper`). The script accepts a fixed set of verbs
 (`version`, `list`, `info`, `check`, `upgrade`, `app-version`, `pkg-version`, `app-update`,
-`snapshot`, `snapshots`, `prune-snapshots`, `delete-snapshot`, `rollback`, `backup`,
-`prune-backups`, `backups`, `delete-backup`, `restore-backup`), validates every argument, refuses containers and VMs tagged `no-lum`
-and only ever touches snapshots named `lum_*` and backups with the note
+`restart-needed`, `restart`, `snapshot`, `snapshots`, `prune-snapshots`, `delete-snapshot`,
+`rollback`, `backup`, `prune-backups`, `backups`, `delete-backup`, `restore-backup`),
+validates every argument, refuses containers and VMs tagged `no-lum` and only ever touches snapshots named `lum_*` and backups with the note
 `lxc-update-manager`. LUM never gets a shell on the host.
 
 ## Roadmap
@@ -98,10 +100,10 @@ and only ever touches snapshots named `lum_*` and backups with the note
 - [x] Restore and delete vzdump backups from the web UI
 - [x] Update several guests in one go (select or "Select all with updates"), run as a queue
 - [x] Highlight security updates (`*-security`) with their own badge and filter
+- [x] "Restart required" after kernel / library updates, with a restart button
 
 Planned – not every item is decided yet:
 
-- [ ] "Restart required" after kernel / library updates (`reboot-required`, `needrestart`) with a restart button
 - [ ] Check free disk space (guest and vzdump storage) before an update
 - [ ] Optional cleanup after an update (`apt autoremove` / `apt clean`)
 - [ ] Health check after an update (guest running, app answers over HTTP), rollback offered if it fails

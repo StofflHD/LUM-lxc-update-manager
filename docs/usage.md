@@ -18,6 +18,7 @@
 | | **Check** | Checks this one guest. |
 | | **OS update** | Opens the update dialog (with the backup checkbox), then runs apt/apk with a live log. |
 | | **App update** | Community-script app update (containers only; not shown for VMs). Highlighted when a newer app version exists. |
+| | `restart required` · **Restart** | After updates the guest should be restarted – hover the badge for the reason, see [Restart after updates](#restart-after-updates). |
 | | **Backups** | The guest's LUM snapshots (**Rollback**, **Delete**) and vzdump backups (**Restore**, **Delete**) – see [Backup, cleanup and rollback](#backup-cleanup-and-rollback). |
 | Queue | **Log** · **Cancel remaining** · **Clear** | Progress of a bulk update, see below. |
 | History | `ID` · Name | Guest of the entry; the name stays visible after the guest was removed. |
@@ -28,6 +29,26 @@
 Below 1100 px window width every row turns into a card. The footer shows the version.
 If the host script on the Proxmox host is older than this LUM version needs, a yellow
 note below the status line says so and shows the command to update it.
+
+## Restart after updates
+
+An update replaces libraries and programs on disk, but running services keep using the
+old version until they are restarted – a fixed OpenSSL only helps once nginx has been
+restarted. After every check LUM looks for:
+
+- **services still using replaced files** – processes that map a deleted (= replaced)
+  library or binary, the same test `needrestart` makes (nothing needs to be installed in
+  the guest);
+- **the reboot flag** `/var/run/reboot-required` that some packages set;
+- **a newer kernel** (VMs only – containers share the host's kernel): the newest
+  `/boot/vmlinuz-*` is not the running one.
+
+Then the guest shows **restart required** (the tooltip lists the reason and the
+services) and a **Restart** button. It reboots the container or VM (`pct reboot` /
+`qm reboot`), waits until it answers again, checks it and shows up in the history as
+**Restart**. Afterwards the badge is gone. A restart is never done automatically.
+
+Needs host script 7 or newer; with an older one nothing is shown.
 
 ## Security updates
 

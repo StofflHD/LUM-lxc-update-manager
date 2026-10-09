@@ -75,6 +75,8 @@ class DemoHostClient:
         self._pending = {c[0]: random.sample(_PACKAGES, random.randint(0, 12)) for c in _CONTAINERS}
         self._versions = {c[0]: c[6] for c in _CONTAINERS}
         self._snapshots: dict[int, list[dict]] = {c[0]: [] for c in _CONTAINERS}  # newest first
+        # restart needed: vmid -> (reboot flag, services using replaced libraries)
+        self._restart: dict[int, tuple[bool, list[str]]] = {107: (False, ["motioneye.service"]), 200: (True, [])}
         # a few vzdump backups made by LUM, newest first
         now = int(time.time())
         self._backups: dict[int, list[dict]] = {c[0]: [] for c in _CONTAINERS}
@@ -109,6 +111,14 @@ class DemoHostClient:
         return [f"{name}/{'stable-security' if name in _SECURITY else 'stable'} {new} amd64 [upgradable from: {old}]"
                 for name, old, new in self._pending[vmid]]
 
+    async def restart_needed(self, vmid: int) -> tuple[bool, list[str]]:
+        return self._restart.get(vmid, (False, []))
+
+    def restart(self, vmid: int) -> AsyncIterator[str]:
+        self._restart.pop(vmid, None)
+        label = "VM" if _ct(vmid)[7] == "qemu" else "container"
+        return self._fake_stream([f"restarting {label} {vmid}", "shutting down …", "starting …", "restart done"])
+
     async def app_version(self, vmid: int, app: str) -> str:
         if vmid in self._updated:  # after a demo app update report the real latest version
             src = await self._catalog.source(_ct(vmid)[5])
@@ -127,6 +137,10 @@ class DemoHostClient:
 
     def upgrade(self, vmid: int) -> AsyncIterator[str]:
         pkgs, self._pending[vmid] = self._pending[vmid], []
+        # replaced libraries: the services using them keep the old code until restarted
+        if {"libc6", "openssl", "libssl3t64", "systemd"} & {n for n, _, _ in pkgs}:
+            reboot, services = self._restart.get(vmid, (False, []))
+            self._restart[vmid] = (reboot, sorted({*services, "cron.service", "ssh.service"}))
         if _ct(vmid)[4] == "apk":
             lines = ["fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/APKINDEX.tar.gz"]
             lines += [f"({i}/{len(pkgs)}) Upgrading {n} ({o} -> {v})" for i, (n, o, v) in enumerate(pkgs, 1)]
