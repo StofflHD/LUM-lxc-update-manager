@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTex
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ValidationError
 
-from . import REQUIRED_WRAPPER_VERSION, __version__, settings_edit
+from . import REQUIRED_WRAPPER_VERSION, __version__, logbuffer, settings_edit
 from .apps import AppCatalog
 from .auth import COOKIE, Auth, write_credentials
 from .config import get_settings
@@ -24,6 +24,7 @@ from .service import UpdateService, maintenance_loop, scheduler, status_poller
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
+logbuffer.install()  # the last lines for "Server log" in the web UI
 STATIC = Path(__file__).parent / "static"
 # reachable without a session
 PUBLIC = {
@@ -672,6 +673,12 @@ async def import_(body: ImportBody):
         if result["restart"]:
             asyncio.create_task(_restart_soon())
     return result
+
+
+@app.get("/api/logs")
+async def server_log(level: Literal["INFO", "WARNING", "ERROR"] = "INFO"):
+    """LUM's log since its start (the last 2000 lines, no access log)."""
+    return {"started": logbuffer.started, "max": logbuffer.MAX_LINES, "lines": logbuffer.lines(level)}
 
 
 @app.get("/api/history")

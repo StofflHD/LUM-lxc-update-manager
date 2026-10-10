@@ -449,6 +449,7 @@ class UpdateService:
 
     async def _guarded(self, job: Job, run) -> None:
         history_id = self.db.start_history(job.vmid, job.kind, job.target, job.auto)
+        log.info("job %s: %s of %s started%s", job.id, job.kind, job.vmid, " (auto)" if job.auto else "")
         success = False
         try:
             success = await run(job, history_id)
@@ -469,6 +470,10 @@ class UpdateService:
             self.db.finish_history(history_id, success, "\n".join(job.lines))
             self._busy.discard(job.vmid)
             job.finish(success)
+            state, reason = self._outcome(job)
+            (log.info if state != "failed" else log.warning)(
+                "job %s: %s of %s %s%s", job.id, job.kind, job.vmid,
+                {"ok": "succeeded", "failed": "failed", "skipped": "skipped"}[state], f" - {reason}" if reason else "")
         if not job.queued:
             asyncio.create_task(self._notify_job(job))
         await self.check(job.vmid)

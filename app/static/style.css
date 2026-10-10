@@ -107,6 +107,15 @@ button .spinner { display: inline-block; width: 10px; height: 10px; margin-right
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
 
 .dialog-section { margin: 14px 16px 0; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+#srvlog-dialog { width: min(1100px, 96vw); }
+.srvlog-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 16px; border-bottom: 1px solid var(--border); }
+.srvlog-bar select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+.srvlog-bar label.check { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.srvlog-bar label.check input { accent-color: var(--accent); margin: 0; }
+#srvlog-info { margin-right: auto; }
+#srvlog { margin: 0; padding: 12px 16px; height: 65vh; overflow: auto; background: var(--code-bg); color: var(--code-text); font-size: 12px; white-space: pre-wrap; }
+#srvlog .lv-WARNING { color: #e0a84a; }
+#srvlog .lv-ERROR, #srvlog .lv-CRITICAL { color: #f06c6c; }
 #log { margin: 0; padding: 12px 16px; height: 60vh; overflow: auto; background: var(--code-bg); color: var(--code-text); font-size: 12px; white-space: pre-wrap; }
 
 @media (max-width: 640px) {

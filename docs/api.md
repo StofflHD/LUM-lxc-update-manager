@@ -35,6 +35,7 @@ the header `X-Requested-With: lum`.
 | GET | `/api/containers/{id}/backups` | The guest's LUM vzdump backups: `id` (= ctime), `volid`, `storage`, `ctime`, `size`, `protected` |
 | DELETE | `/api/containers/{id}/backups/{backup_id}` | Delete one LUM vzdump backup (not protected ones) |
 | POST | `/api/containers/{id}/restore?backup={backup_id}` | Restore the guest from a LUM vzdump backup → job |
+| GET | `/api/logs?level=INFO\|WARNING\|ERROR` | LUM's log since its start (last 2000 lines, no access log) |
 | GET | `/api/history` · `/api/history/{id}/log` | History (with the guest `name`, `auto` = started by the maintenance window) / stored log |
 | DELETE | `/api/history/{id}` · `/api/history` | Remove one / all finished entries (snapshots and backups are kept) |
 | DELETE | `/api/history?snapshots=true&backups=true` | Remove all finished entries and also delete all of LUM's snapshots and/or vzdump backups (background; progress in `/api/status` → `purge`) |

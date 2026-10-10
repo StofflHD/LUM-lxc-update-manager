@@ -998,6 +998,59 @@ $("#import-open").addEventListener("click", () => {
   dlg.showModal();
 });
 
+// --- server log ------------------------------------------------------------------------
+
+let srvlogTimer = null;
+let srvlogText = "";
+
+async function loadServerLog() {
+  const el = $("#srvlog");
+  const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
+  try {
+    const r = await api(`/api/logs?level=${$("#srvlog-level").value}`);
+    const time = (t) => new Date(t * 1000).toLocaleString("en-GB");
+    srvlogText = r.lines.map((l) => `${time(l.time)} ${l.level.padEnd(7)} ${l.name}: ${l.text}`).join("\n");
+    el.innerHTML = r.lines.map((l) => `<span class="lv-${esc(l.level)}">${esc(time(l.time))} ${esc(l.level.padEnd(7))} `
+      + `${esc(l.name)}: ${esc(l.text)}</span>`).join("\n") || '<span class="muted">No messages.</span>';
+    $("#srvlog-info").textContent = `since LUM started (${time(r.started)}), the last ${r.max} lines`;
+    if (atBottom) el.scrollTop = el.scrollHeight;
+  } catch (err) {
+    $("#srvlog-info").textContent = `Error: ${err.message}`;
+  }
+}
+
+function followServerLog() {
+  clearInterval(srvlogTimer);
+  srvlogTimer = $("#srvlog-follow").checked && $("#srvlog-dialog").open ? setInterval(loadServerLog, 5000) : null;
+}
+
+$("#srvlog-open").addEventListener("click", async () => {
+  setMenu(false);
+  $("#srvlog").textContent = "";
+  $("#srvlog-dialog").showModal();
+  await loadServerLog();
+  $("#srvlog").scrollTop = $("#srvlog").scrollHeight;
+  followServerLog();
+});
+$("#srvlog-level").addEventListener("change", async () => {
+  await loadServerLog();
+  $("#srvlog").scrollTop = $("#srvlog").scrollHeight;
+});
+$("#srvlog-follow").addEventListener("change", followServerLog);
+$("#srvlog-dialog").addEventListener("close", () => { clearInterval(srvlogTimer); srvlogTimer = null; });
+$("#srvlog-close").addEventListener("click", () => $("#srvlog-dialog").close());
+$("#srvlog-copy").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(srvlogText);
+    $("#srvlog-copy").textContent = "Copied";
+  } catch {
+    // no clipboard (plain http): select the text instead
+    getSelection().selectAllChildren($("#srvlog"));
+    $("#srvlog-copy").textContent = "Selected – Ctrl+C";
+  }
+  setTimeout(() => { $("#srvlog-copy").textContent = "Copy"; }, 2000);
+});
+
 $("#notify-test").addEventListener("click", async () => {
   setMenu(false);
   try {

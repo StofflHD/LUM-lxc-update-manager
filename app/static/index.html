@@ -39,6 +39,7 @@
           <span class="menu-label">Actions</span>
           <button id="auto-run" role="menuitem">Run auto-update now</button>
           <button id="notify-test" role="menuitem">Send test notification</button>
+          <button id="srvlog-open" role="menuitem">Server log</button>
           <div id="menu-account" class="menu-group" hidden>
             <hr>
             <span class="menu-label">Account</span>
@@ -113,6 +114,24 @@
     <a href="https://github.com/StofflHD/LUM-lxc-update-manager" target="_blank" rel="noopener">GitHub</a> ·
     <a href="https://github.com/StofflHD/LUM-lxc-update-manager/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
   </footer>
+
+  <dialog id="srvlog-dialog">
+    <div class="dialog-head">
+      <h3>Server log</h3>
+      <button id="srvlog-close" aria-label="Close">✕</button>
+    </div>
+    <div class="srvlog-bar">
+      <select id="srvlog-level" aria-label="Show">
+        <option value="INFO">All messages</option>
+        <option value="WARNING">Warnings and errors</option>
+        <option value="ERROR">Errors only</option>
+      </select>
+      <label class="check"><input type="checkbox" id="srvlog-follow" checked><span>Refresh every 5 s</span></label>
+      <span id="srvlog-info" class="muted"></span>
+      <button id="srvlog-copy" type="button">Copy</button>
+    </div>
+    <pre id="srvlog"></pre>
+  </dialog>
 
   <dialog id="log-dialog">
     <div class="dialog-head">

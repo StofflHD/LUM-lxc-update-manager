@@ -28,6 +28,15 @@
 | `update` says *up to date* right after a release | GitHub caches for a few minutes – wait or use `update --force`. |
 | Forgot the password | `pct exec <CTID> -- bash -c 'cd /opt/lxc-update-manager && venv/bin/python -m app.passwd'` |
 
-Logs: `pct exec <CTID> -- journalctl -u lxc-update-manager -n 100`; installer log on the
-host: `/var/log/lxc-update-manager-install.log`. Test the host script directly on the
-host (without SSH): `SSH_ORIGINAL_COMMAND="list" /usr/local/bin/lxc-update-wrapper`.
+## Logs
+
+- **In the web UI:** ☰ → **Server log** shows what LUM logged since its start (the last
+  2000 lines): every job with its result, failed checks, notifications, the maintenance
+  window, warnings. Filter *Warnings and errors* / *Errors only*, it refreshes every 5
+  seconds; **Copy** puts it on the clipboard (on plain http it selects the text). The
+  log of a single update is in its history entry (**Log**).
+- **Older or everything:** `pct exec <CTID> -- journalctl -u lxc-update-manager -n 100`
+  (the web UI leaves out the access log, one line per request).
+- **Installer** log on the host: `/var/log/lxc-update-manager-install.log`.
+- Test the host script directly on the host (without SSH):
+  `SSH_ORIGINAL_COMMAND="list" /usr/local/bin/lxc-update-wrapper`.
