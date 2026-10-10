@@ -36,6 +36,11 @@ CREATE TABLE IF NOT EXISTS history (
     detail TEXT,
     name TEXT
 );
+-- small values that must survive a restart, e.g. the time of the last "Check all"
+CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
 """
 
 # history rows with the guest's name: the current one, or the one stored when the
@@ -104,6 +109,17 @@ class Database:
             # entries from before the name was stored
             self._conn.execute(
                 "UPDATE history SET name=(SELECT name FROM containers c WHERE c.vmid=history.vmid) WHERE name IS NULL"
+            )
+
+    def get_meta(self, key: str) -> str | None:
+        row = self._conn.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+        return row["value"] if row else None
+
+    def set_meta(self, key: str, value: str) -> None:
+        with self._conn:
+            self._conn.execute(
+                "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (key, value),
             )
 
     def sync_containers(self, containers: list[dict]) -> None:

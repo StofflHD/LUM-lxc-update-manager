@@ -249,6 +249,7 @@ async def status():
     return {
         "refreshing": s.refreshing,
         "last_refresh": s.last_refresh,
+        "next_refresh": s.next_refresh(cfg.check_interval_minutes),
         "demo": cfg.demo,
         "version": __version__,
         "hidden": s.hidden,

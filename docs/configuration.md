@@ -70,7 +70,7 @@ update is running.
 | `LUM_PVE_PORT` / `LUM_PVE_USER` | `22` / `root` | SSH port and user on the host |
 | `LUM_SSH_KEY_PATH` / `LUM_KNOWN_HOSTS_PATH` | `data/id_ed25519` / `data/known_hosts` | SSH key and pinned host keys |
 | `LUM_DB_PATH` | `data/lum.db` | Database (containers, history) |
-| `LUM_CHECK_INTERVAL_MINUTES` | `360` | Automatic **Check all** interval |
+| `LUM_CHECK_INTERVAL_MINUTES` | `360` | Automatic **Check all** interval, counted from the last check (also a manual one, and across restarts of LUM) |
 | `LUM_MAX_PARALLEL_CHECKS` | `4` | Guests checked at the same time |
 | `LUM_CLEANUP` | `true` | Default of **Clean up afterwards** in the update dialog: `apt autoremove` + `apt clean` (apk: `apk cache clean`) after an OS update (see [Cleanup](usage.md#cleanup-after-an-os-update)) |
 | `LUM_AUTO_DAYS` | – | Days of the maintenance window: `sun`, `sat,sun`, `mon-fri`, `daily`; empty = no automatic updates (see [Automatic updates](usage.md#automatic-updates-maintenance-window)) |

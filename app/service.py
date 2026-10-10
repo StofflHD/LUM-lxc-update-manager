@@ -144,7 +144,9 @@ class UpdateService:
         self._job_ids = itertools.count(1)
         self._busy: set[int] = set()  # vmids with a running job
         self._check_sem = asyncio.Semaphore(settings.max_parallel_checks)
-        self.last_refresh: float | None = None
+        # the last "Check all" - stored, so a restart doesn't trigger a new one
+        stored = db.get_meta("last_refresh")
+        self.last_refresh: float | None = float(stored) if stored else None
         self.wrapper_version: int | None = None  # host script version, None = unknown
         self.nodes: list[dict] | None = None  # cluster nodes with their wrapper version
         self.hidden: list[int] = []  # guests tagged EXCLUDE_TAG
@@ -308,6 +310,7 @@ class UpdateService:
             running = [int(c["vmid"]) for c in containers if c.get("status") == "running"]
             await asyncio.gather(*(self.check(vmid) for vmid in running if vmid not in self._busy))
             self.last_refresh = time.time()
+            self.db.set_meta("last_refresh", str(self.last_refresh))
         finally:
             self.refreshing = False
 
@@ -616,6 +619,18 @@ class UpdateService:
         job.emit("### Done")
         return True
 
+    def next_refresh(self, interval_minutes: int) -> float:
+        return (self.last_refresh or 0) + interval_minutes * 60
+
+    async def startup_sync(self) -> None:
+        """After a start: host script version, nodes and the guest list (new running guests
+        get checked) - but no "Check all" until its interval is over."""
+        try:
+            self.wrapper_version = await self.host.wrapper_version()
+        except (OSError, ValueError) as err:
+            log.warning("cannot read host script version: %s", err)
+        await self.sync_guests()
+
     def busy(self, vmid: int) -> bool:
         return vmid in self._busy
 
@@ -850,10 +865,20 @@ async def status_poller(service: UpdateService, seconds: int = 60) -> None:
 
 
 async def scheduler(service: UpdateService, interval_minutes: int) -> None:
+    """"Check all" every interval, counted from the last one - also across restarts and
+    after a manual "Check all"."""
+    try:
+        await service.startup_sync()
+    except Exception as err:
+        log.warning("first look at the host failed: %s", err)
     while True:
+        wait = service.next_refresh(interval_minutes) - time.time()
+        if wait > 0:
+            await asyncio.sleep(min(wait, 60))  # look again: a manual check moves the time
+            continue
         try:
             await service.refresh_all()
             await service.notify_updates()
         except Exception:
             log.exception("scheduled refresh failed")
-        await asyncio.sleep(interval_minutes * 60)
+            await asyncio.sleep(60)  # host down: don't retry in a tight loop

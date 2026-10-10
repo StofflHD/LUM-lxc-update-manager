@@ -378,7 +378,9 @@ async function load() {
   try {
     const [status, containers, history] = await Promise.all([api("/api/status"), api("/api/containers"), api("/api/history")]);
     $("#status").textContent = (status.refreshing ? "Checking containers and VMs … · " : "")
-      + `Last check: ${fmtTime(status.last_refresh)} · ${backupText(status.backup)}`
+      + `Last check: ${fmtTime(status.last_refresh)}`
+      + (status.last_refresh && !status.refreshing ? ` (next ${fmtTime(Math.max(status.next_refresh, Date.now() / 1000))})` : "")
+      + ` · ${backupText(status.backup)}`
       + (status.hidden.length ? ` · ${status.hidden.length} hidden (tag no-lum)` : "")
       + maintenanceText(status.maintenance)
       + ((status.nodes || []).length > 1
