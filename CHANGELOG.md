@@ -10,6 +10,15 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.23.1] – 2026-10-10
+
+### Changed
+- **Check** and **Check all** show their progress: the buttons turn into *Checking …*
+  with a spinner, every guest being checked shows *checking …*, and **Check all** has a
+  panel bottom right (*Checking all containers and VMs … 3 of 9 · 12 s*, then *Checked
+  9*). While something is checked the page refreshes more often.
+- API: `/api/status` → `refresh`, `refresh_done`; `/api/containers` → `checking`.
+
 ## [0.23.0] – 2026-10-10
 
 ### Added
@@ -561,7 +570,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.23.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/db8553a...main
+[0.23.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/898ad4f...main
+[0.23.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/db8553a...898ad4f
 [0.22.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/7761f00...db8553a
 [0.22.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/f3b9160...7761f00
 [0.21.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/857a654...f3b9160

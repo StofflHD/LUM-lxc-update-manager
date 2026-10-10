@@ -249,6 +249,11 @@ async def status():
     s, cfg = svc(), get_settings()
     return {
         "refreshing": s.refreshing,
+        # progress of "Check all" (elapsed in seconds), and the result of the last one
+        "refresh": {**s.refresh_progress, "elapsed": round(time.time() - s.refresh_progress["started"])}
+        if s.refresh_progress else None,
+        "refresh_done": {**s.refresh_done, "ago": round(time.time() - s.refresh_done["finished"])}
+        if s.refresh_done else None,
         "last_refresh": s.last_refresh,
         "next_refresh": s.next_refresh(cfg.check_interval_minutes),
         "demo": cfg.demo,
@@ -278,7 +283,8 @@ async def status():
 @app.get("/api/containers")
 async def containers():
     s = svc()
-    return [{**c, "busy": s.busy(c["vmid"]), "low_disk": s.low_disk(c), "self": c["vmid"] == s.self_vmid}
+    return [{**c, "busy": s.busy(c["vmid"]), "checking": c["vmid"] in s.checking, "low_disk": s.low_disk(c),
+             "self": c["vmid"] == s.self_vmid}
             for c in s.db.containers()]
 
 

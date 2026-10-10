@@ -48,6 +48,7 @@ document.addEventListener("toggle", (ev) => {
 
 function updatesCell(c) {
   if (c.status !== "running") return `<span class="muted">–</span>`;
+  if (c.checking) return '<span class="muted"><span class="spinner inline"></span>checking …</span>';
   if (c.last_error && c.last_error.includes("guest agent")) {
     return `<span class="badge warn" title="${esc(c.last_error)}">no guest agent</span>`;
   }
@@ -167,7 +168,9 @@ function renderContainers(all) {
       <td data-label="App">${appCell(c)}</td>
       <td data-label="Last check" class="muted">${fmtTime(c.last_check)}</td>
       <td class="actions">
-        <button data-act="check" data-id="${c.vmid}" ${!running || c.busy ? "disabled" : ""}>Check</button>
+        ${c.checking
+          ? '<button disabled><span class="spinner"></span>Checking …</button>'
+          : `<button data-act="check" data-id="${c.vmid}" ${!running || c.busy ? "disabled" : ""}>Check</button>`}
         <button data-act="os" data-id="${c.vmid}" ${!running || c.busy || !c.upgradable.length ? "disabled" : ""}>OS update</button>
         ${noAppUpdate(c)
           // invisible stand-in keeps the buttons aligned in the table
@@ -280,8 +283,25 @@ function cleanupTask(cl) {
     + `<span>${parts.join(", ")}</span><span class="elapsed">${cl.elapsed} s</span></div>`;
 }
 
+// "Check all" runs on the server: progress (and its result for a few seconds) in the panel
+let serverRefresh = {};
+let fastLoad = null;
+
+function refreshTask({ running, done } = {}) {
+  if (running) {
+    const progress = running.total == null ? "reading the list" : `${running.done} of ${running.total}`;
+    return `<div class="task"><span class="spinner"></span><span>Checking all containers and VMs … ${progress}</span>`
+      + `<span class="elapsed">${running.elapsed} s</span></div>`;
+  }
+  if (done && done.ago <= 8) {
+    return `<div class="task ok"><span class="ok">✔</span><span>Checked ${done.total} container${done.total === 1 ? "" : "s"} / VMs</span>`
+      + `<span class="elapsed">${done.seconds} s</span></div>`;
+  }
+  return "";
+}
+
 function renderTasks() {
-  $("#tasks").innerHTML = cleanupTask(serverCleanup) + [...tasks.values()].map((t) => t.done
+  $("#tasks").innerHTML = refreshTask(serverRefresh) + cleanupTask(serverCleanup) + [...tasks.values()].map((t) => t.done
     ? `<div class="task ok"><span class="ok">✔</span><span>${esc(t.doneText)}</span><span class="elapsed">${elapsed(t)}</span></div>`
     : `<div class="task"><span class="spinner"></span><span>${esc(t.label)} …</span><span class="elapsed">${elapsed(t)}</span></div>`).join("");
   document.querySelectorAll("button[data-task]").forEach((b) => {
@@ -406,6 +426,14 @@ async function load() {
     cleanupDefault = status.cleanup;
     maintenance = status.maintenance;
     serverCleanup = status.purge;
+    serverRefresh = { running: status.refresh, done: status.refresh_done };
+    $("#refresh").disabled = Boolean(status.refresh);
+    $("#refresh").innerHTML = status.refresh ? '<span class="spinner"></span>Checking …' : "Check all";
+    // while something is checked, look more often so the progress moves
+    if (status.refresh || containers.some((c) => c.checking)) {
+      clearTimeout(fastLoad);
+      fastLoad = setTimeout(load, 1500);
+    }
     containers.forEach((c) => { guestTypes[c.vmid] = c.type; });
     lastContainers = containers;
     lastQueue = status.queue;
@@ -583,11 +611,14 @@ document.addEventListener("click", async (ev) => {
   const id = btn.dataset.id;
   try {
     switch (btn.dataset.act) {
-      case "check":
+      case "check": {
         btn.disabled = true;
-        btn.textContent = "…";
-        await api(`/api/containers/${id}/check`, { method: "POST" });
+        btn.innerHTML = '<span class="spinner"></span>Checking …';
+        const done = api(`/api/containers/${id}/check`, { method: "POST" });
+        setTimeout(load, 300); // the server marks it as checking: show that at once
+        await done;
         break;
+      }
       case "os":
       case "app": {
         const choice = await askUpdate(guestLabel(id), btn.dataset.act, "", btn.dataset.act === "app" ? id : null);
@@ -1159,8 +1190,10 @@ $("#sync").addEventListener("click", async () => {
 });
 
 $("#refresh").addEventListener("click", async () => {
+  $("#refresh").disabled = true;
+  $("#refresh").innerHTML = '<span class="spinner"></span>Checking …';
   await api("/api/refresh", { method: "POST" });
-  load();
+  setTimeout(load, 300);
 });
 $("#log-close").addEventListener("click", () => $("#log-dialog").close());
 $("#snap-close").addEventListener("click", () => $("#snap-dialog").close());

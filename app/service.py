@@ -151,6 +151,10 @@ class UpdateService:
         self.nodes: list[dict] | None = None  # cluster nodes with their wrapper version
         self.hidden: list[int] = []  # guests tagged EXCLUDE_TAG
         self.refreshing = False
+        self.checking: set[int] = set()  # guests being checked right now
+        # "Check all" in progress: {"started", "total", "done"}; the last one: {"finished", "total", "seconds"}
+        self.refresh_progress: dict | None = None
+        self.refresh_done: dict | None = None
         self.queue: list[QueueItem] = []
         self._queue_task: asyncio.Task | None = None
         self.cleanup: Cleanup | None = None
@@ -299,6 +303,7 @@ class UpdateService:
         if self.refreshing:
             return
         self.refreshing = True
+        progress = self.refresh_progress = {"started": time.time(), "total": None, "done": 0}
         try:
             try:
                 self.wrapper_version = await self.host.wrapper_version()
@@ -307,12 +312,24 @@ class UpdateService:
             await self._read_nodes()
             containers = self._managed(await self.host.list_containers())
             self._apply_list(containers)
-            running = [int(c["vmid"]) for c in containers if c.get("status") == "running"]
-            await asyncio.gather(*(self.check(vmid) for vmid in running if vmid not in self._busy))
+            running = [int(c["vmid"]) for c in containers
+                       if c.get("status") == "running" and int(c["vmid"]) not in self._busy]
+            progress["total"] = len(running)
+            self.checking.update(running)  # all of them show "checking" until their turn is done
+
+            async def one(vmid: int) -> None:
+                await self.check(vmid)
+                progress["done"] += 1
+
+            await asyncio.gather(*(one(vmid) for vmid in running))
             self.last_refresh = time.time()
             self.db.set_meta("last_refresh", str(self.last_refresh))
+            self.refresh_done = {"finished": self.last_refresh, "total": len(running),
+                                 "seconds": round(self.last_refresh - progress["started"])}
+            log.info("check all: %s guests in %s s", len(running), self.refresh_done["seconds"])
         finally:
             self.refreshing = False
+            self.refresh_progress = None
 
     async def _read_nodes(self) -> None:
         """Cluster nodes and their wrapper; unknown with host scripts < 11."""
@@ -335,6 +352,13 @@ class UpdateService:
         return {"added": added, "removed": removed, "hidden": self.hidden}
 
     async def check(self, vmid: int) -> None:
+        self.checking.add(vmid)
+        try:
+            await self._check(vmid)
+        finally:
+            self.checking.discard(vmid)
+
+    async def _check(self, vmid: int) -> None:
         async with self._check_sem:
             try:
                 info = await self.host.info(vmid)

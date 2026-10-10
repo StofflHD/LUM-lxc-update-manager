@@ -8,7 +8,7 @@
 |---|---|---|
 | Top right | user · **Log out** | The logged-in user; ends the session (not shown when the login is turned off). |
 | | **Refresh list** | Re-reads only the list of containers/VMs (fast). New running guests are checked right away; the result is shown below the status line. |
-| | **Check all** | Re-reads the list and checks every running guest for OS and app updates. Also runs automatically every `LUM_CHECK_INTERVAL_MINUTES`, counted from the last check – the time is stored, so a restart of LUM does not start a check; it only re-reads the list (new guests are checked). |
+| | **Check all** | Re-reads the list and checks every running guest for OS and app updates; the panel bottom right shows the progress (*3 of 9*) and the result, every guest shows *checking …* until it is done. Also runs automatically every `LUM_CHECK_INTERVAL_MINUTES`, counted from the last check – the time is stored, so a restart of LUM does not start a check; it only re-reads the list (new guests are checked). |
 | | **☰** menu | *Theme:* System / Light / Dark (stored in the browser) · *Configuration:* **Settings** (see [Configuration](configuration.md#in-the-web-ui)), **Export …** / **Import …** (see [Export and import](configuration.md#export-and-import)) · *Actions:* **Run auto-update now**, **Send test notification** (see [Notifications](configuration.md#notifications-telegram)), **Server log** (see [Troubleshooting](troubleshooting.md#logs)) · *Account:* **Change password** (not shown without login). |
 | Status line | | Last check (and the next one), backup mode, guests hidden by the `no-lum` tag (hover for their IDs), the next automatic update, the cluster nodes, result of **Refresh list**, and a yellow note when the host script is outdated (in a cluster: on which node). |
 | Above the list | **All** · **With updates** · **Security** | Filter the list: every guest, only guests with OS or app updates, only guests with security updates (stored in the browser). Bulk selections only include visible guests. |
@@ -19,7 +19,7 @@
 | | OS updates column | `up to date`, `▸ N packages` (see below), `not checked` (not checked since it started), `no guest agent` (VM without QEMU guest agent), `Error` (the last check failed – hover for the reason). Stopped guests show `–`. |
 | | `▸ N packages` · `N security` | Pending OS updates – click to list them. **security**: how many come from a security repository (see [Security updates](#security-updates)); they are marked in the list. |
 | | App column | Installed app version (green) or `installed → latest` (orange) with a link to the release page, PyPI or npm. **held back**: the community script pins this version; **pre-release**: the installed version is newer than the latest stable one. Without a version source: *updated with the OS packages*, *no version check (Docker)* or *Version unknown* – see [App updates](#app-updates). |
-| | **Check** | Checks this one guest. |
+| | **Check** | Checks this one guest (*Checking …* with a spinner until it is done). |
 | | **OS update** | Opens the update dialog (backup and cleanup checkboxes), then runs apt/apk with a live log. |
 | | **App update** | Community-script app update; the dialog shows the [release notes](#release-notes) of the new versions. Highlighted when a newer app version exists. Not shown for VMs, containers tagged `self-created`, apps *updated with the OS packages* and apps with *no update via the script*. |
 | | `low disk: … free` | Less free space in `/` than an update needs – see [Free space](#free-space-before-an-update). |
