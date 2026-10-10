@@ -36,7 +36,8 @@ rollback with one click and checks for free space and pending restarts.
   deleted from there; clearing it can delete all of LUM's snapshots and backups too
 - **Secure by design** – the host only allows a fixed set of commands, LUM touches only
   its own snapshots and backups; login with lockout and CSRF protection
-- **Responsive** web UI with light and dark theme and a settings page, works behind a reverse proxy
+- **Responsive** web UI with light and dark theme, a settings page and the server log,
+  works behind a reverse proxy
 - **Easy installer** for the Proxmox host and an `update` command inside the container
 
 <p>

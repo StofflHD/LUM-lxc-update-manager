@@ -145,6 +145,7 @@ label.sel input { margin: 0; accent-color: var(--accent); }
 #upd-notes .note ul { margin: 4px 0; padding-left: 18px; font-family: inherit; max-height: none; }
 #upd-notes .note p { margin: 4px 0; }
 #upd-notes .note code { font-size: 12px; background: var(--bg); padding: 0 3px; border-radius: 3px; }
+#upd-notes .note p.quote { margin: 0; padding: 2px 0 2px 10px; border-left: 3px solid var(--border); color: var(--muted); }
 #upd-notes mark { background: none; color: var(--warn); font-weight: 600; }
 #upd-notes .notes-foot { padding: 8px 12px; font-size: 12px; }
 #upd-clean-row { margin-top: 14px; }

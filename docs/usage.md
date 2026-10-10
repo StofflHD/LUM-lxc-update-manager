@@ -6,15 +6,17 @@
 
 | Where | Control | What it does |
 |---|---|---|
-| Top right | **Refresh list** | Re-reads only the list of containers/VMs (fast). New running guests are checked right away; the result is shown below the status line. |
+| Top right | user · **Log out** | The logged-in user; ends the session (not shown when the login is turned off). |
+| | **Refresh list** | Re-reads only the list of containers/VMs (fast). New running guests are checked right away; the result is shown below the status line. |
 | | **Check all** | Re-reads the list and checks every running guest for OS and app updates. Also runs automatically every `LUM_CHECK_INTERVAL_MINUTES`, counted from the last check – the time is stored, so a restart of LUM does not start a check; it only re-reads the list (new guests are checked). |
 | | **☰** menu | *Theme:* System / Light / Dark (stored in the browser) · *Configuration:* **Settings** (see [Configuration](configuration.md#in-the-web-ui)), **Export …** / **Import …** (see [Export and import](configuration.md#export-and-import)) · *Actions:* **Run auto-update now**, **Send test notification** (see [Notifications](configuration.md#notifications-telegram)), **Server log** (see [Troubleshooting](troubleshooting.md#logs)) · *Account:* **Change password** (not shown without login). |
 | Status line | | Last check (and the next one), backup mode, guests hidden by the `no-lum` tag (hover for their IDs), the next automatic update, the cluster nodes, result of **Refresh list**, and a yellow note when the host script is outdated (in a cluster: on which node). |
 | Above the list | **All** · **With updates** · **Security** | Filter the list: every guest, only guests with OS or app updates, only guests with security updates (stored in the browser). Bulk selections only include visible guests. |
-| | **Select all with updates** · **OS update** · **App update** | Update several guests in one go – see [Updating several guests](#updating-several-guests). |
+| | **Select all with updates** · **Clear selection** · **OS update** · **App update** | Update several guests in one go – see [Updating several guests](#updating-several-guests). |
 | | **Auto-update …** | Update the selected guests automatically in the maintenance window – see [Automatic updates](#automatic-updates-maintenance-window). |
 | Each row | ☐ `ID` · `LXC`/`VM` · node | Checkbox for a bulk update (the one in the header selects all running guests). Container or VM; in a [cluster](installation.md#proxmox-cluster) also its node. VMs need the QEMU guest agent, otherwise **no guest agent** is shown. |
 | | `auto: off` · `auto: OS` · `auto: OS + app` | Below the name: click to set the [automatic updates](#automatic-updates-maintenance-window) of this guest. |
+| | OS updates column | `up to date`, `▸ N packages` (see below), `not checked` (not checked since it started), `no guest agent` (VM without QEMU guest agent), `Error` (the last check failed – hover for the reason). Stopped guests show `–`. |
 | | `▸ N packages` · `N security` | Pending OS updates – click to list them. **security**: how many come from a security repository (see [Security updates](#security-updates)); they are marked in the list. |
 | | App column | Installed app version (green) or `installed → latest` (orange) with a link to the release page, PyPI or npm. **held back**: the community script pins this version; **pre-release**: the installed version is newer than the latest stable one. Without a version source: *updated with the OS packages*, *no version check (Docker)* or *Version unknown* – see [App updates](#app-updates). |
 | | **Check** | Checks this one guest. |
@@ -109,6 +111,8 @@ They come from the same place as the version: GitHub, Codeberg or GitLab release
 (cached for an hour). PyPI, npm, Git tags and apps without a version check have no
 release texts – then the dialog shows none. Bulk updates don't show them. The notes are
 shown as plain text with simple formatting; nothing from them is run in the browser.
+
+<img alt="App update dialog with the release notes of the new versions" src="images/release-notes.png" width="70%">
 
 ### Where the version comes from
 

@@ -490,7 +490,7 @@ function markdown(text) {
   const inline = (s) => esc(s)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/\[((?:[^[\]]|\[[^\]]*\])+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
     .replace(/\b(breaking( changes?)?|migration|migrate|deprecated|important|warning|backup)\b/gi, "<mark>$1</mark>");
   const out = [];
   let list = false;
@@ -503,6 +503,14 @@ function markdown(text) {
       continue;
     }
     if (list) { out.push("</ul>"); list = false; }
+    // "> text" quotes, GitHub alerts "> [!NOTE]" become a label
+    const quote = /^\s*>\s?(.*)$/.exec(line);
+    if (quote) {
+      const alert = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/i.exec(quote[1]);
+      if (alert) out.push(`<p class="quote"><strong>${alert[1][0]}${alert[1].slice(1).toLowerCase()}:</strong></p>`);
+      else if (quote[1].trim()) out.push(`<p class="quote">${inline(quote[1])}</p>`);
+      continue;
+    }
     const head = /^(#{1,6})\s+(.*)$/.exec(line);
     if (head) out.push(`<h${head[1].length <= 2 ? 4 : 5}>${inline(head[2])}</h${head[1].length <= 2 ? 4 : 5}>`);
     else if (line.trim()) out.push(`<p>${inline(line)}</p>`);

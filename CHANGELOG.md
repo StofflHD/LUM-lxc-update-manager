@@ -18,6 +18,15 @@ Update an installation with `update` inside the LUM container. When an entry say
 - Every job (update, rollback, restore, restart) is logged with its start and result.
 - API: `GET /api/logs`.
 
+### Fixed
+- Release notes: links whose text has brackets (`[[GHSA-…]](…)`) and quotes / GitHub
+  notes (`> [!NOTE]`) are shown properly instead of as raw text.
+
+### Documentation
+- Usage: header (user, Log out), *Clear selection*, the states of the OS updates column;
+  README: server log. New screenshots (auto-update, nodes, menu) and one of the release
+  notes.
+
 ## [0.22.1] – 2026-10-10
 
 ### Changed
