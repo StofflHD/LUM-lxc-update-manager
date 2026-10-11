@@ -202,7 +202,8 @@ class UpdateService:
         count = {s: [i for i in items if i.state == s] for s in ("ok", "failed", "skipped", "cancelled")}
         if not items or not self.notifier.wants(bool(count["failed"])):
             return
-        title = "Automatic updates" if all(i.auto for i in items) else "Bulk update"
+        title = ("Automatic updates" if all(i.auto for i in items)
+                 else "Bulk restart" if all(i.kind == "restart" for i in items) else "Bulk update")
         kinds = {"os": "OS update", "app": "App update", "restart": "Restart"}
         text = (f"<b>LUM – {title} finished</b>\n✅ {len(count['ok'])} succeeded · ❌ {len(count['failed'])} failed"
                 f" · ⏭ {len(count['skipped']) + len(count['cancelled'])} skipped")
@@ -848,7 +849,8 @@ class UpdateService:
         if item.kind == "restart":
             if c["vmid"] == self.self_vmid:
                 return "LUM's own container - restart it yourself"
-            return None if c["restart_required"] else "no restart needed"
+            # the maintenance window only restarts guests that need it; a bulk restart all chosen
+            return None if c["restart_required"] or not item.auto else "no restart needed"
         if c["type"] == "qemu":
             return "app updates are only supported for containers"
         if c["self_created"]:
@@ -865,34 +867,13 @@ class UpdateService:
 
     async def _run_queue(self) -> None:
         while item := next((i for i in self.queue if i.state == "waiting"), None):
-            # a delete or a single update on this guest may still run: wait for it
-            while item.vmid in self._busy and item.state == "waiting":
-                await asyncio.sleep(2)
-            if item.state != "waiting":  # cancelled meanwhile
-                continue
-            if item.kind == "restart":  # the updates before may just have changed it
-                await self._check_restart(item.vmid)
-            reason = self._skip_reason(item)
-            if reason:
-                item.state, item.note = "skipped", reason
-                continue
-            try:
-                job = self.start_job(item.vmid, item.kind, backup=item.backup, cleanup=item.cleanup, auto=item.auto)
-            except RuntimeError as err:
-                item.state, item.note = "failed", str(err)
-                continue
-            item.state, item.job_id = "running", job.id
-            job.queued = True
-            await job.wait()
-            item.state = "ok" if job.success else "failed"
-            if not job.success:
-                # the reason: "### Error: ..." or "### skipped: ..." (the community script
-                # refused, e.g. too little RAM - nothing was changed)
-                reasons = [line[4:] for line in job.lines
-                           if line.startswith(("### Error", "### Internal error", "### skipped"))]
-                item.note = reasons[-1] if reasons else "see log"
-                if item.note.startswith("skipped"):
-                    item.state = "skipped"
+            if item.kind == "restart" and not item.auto:
+                # a bulk restart: all its guests at the same time (the window's restarts
+                # come after the updates, one after the other)
+                batch = [i for i in self.queue if i.state == "waiting" and i.kind == "restart" and not i.auto]
+                await asyncio.gather(*(self._run_item(i) for i in batch))
+            else:
+                await self._run_item(item)
         # drained: one message for the whole run (instead of one per guest)
         try:
             await self._notify_queue(list(self.queue))
@@ -900,6 +881,36 @@ class UpdateService:
             log.exception("queue notification failed")
         if not any(i.state == "failed" for i in self.queue):
             asyncio.create_task(self._clear_queue_later(list(self.queue)))
+
+    async def _run_item(self, item: QueueItem) -> None:
+        # a delete or a single update on this guest may still run: wait for it
+        while item.vmid in self._busy and item.state == "waiting":
+            await asyncio.sleep(2)
+        if item.state != "waiting":  # cancelled meanwhile
+            return
+        if item.kind == "restart":  # the updates before may just have changed it
+            await self._check_restart(item.vmid)
+        reason = self._skip_reason(item)
+        if reason:
+            item.state, item.note = "skipped", reason
+            return
+        try:
+            job = self.start_job(item.vmid, item.kind, backup=item.backup, cleanup=item.cleanup, auto=item.auto)
+        except RuntimeError as err:
+            item.state, item.note = "failed", str(err)
+            return
+        item.state, item.job_id = "running", job.id
+        job.queued = True
+        await job.wait()
+        item.state = "ok" if job.success else "failed"
+        if not job.success:
+            # the reason: "### Error: ..." or "### skipped: ..." (the community script
+            # refused, e.g. too little RAM - nothing was changed)
+            reasons = [line[4:] for line in job.lines
+                       if line.startswith(("### Error", "### Internal error", "### skipped"))]
+            item.note = reasons[-1] if reasons else "see log"
+            if item.note.startswith("skipped"):
+                item.state = "skipped"
 
     async def _clear_queue_later(self, finished: list[QueueItem]) -> None:
         """Nothing failed: the queue disappears after a moment (the results are in the

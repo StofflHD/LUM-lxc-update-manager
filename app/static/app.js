@@ -835,6 +835,7 @@ $("#clear-history").addEventListener("click", async () => {
 const canUpdate = {
   os: (c) => c.status === "running" && c.upgradable.length > 0,
   app: (c) => c.status === "running" && c.community_script && !noAppUpdate(c) && !appUpToDate(c),
+  restart: (c) => c.status === "running" && !c.self, // LUM's own container: its own Restart button
 };
 const bulkTargets = (kind) => lastContainers.filter((c) => selected.has(String(c.vmid)) && canUpdate[kind](c))
   .map((c) => c.vmid);
@@ -851,6 +852,11 @@ function renderBulk() {
   $("#bulk-os").title = n && !os ? "None of the selected guests has OS updates" : "";
   $("#bulk-app").disabled = !app;
   $("#bulk-app").title = n && !app ? "None of the selected guests has an app update" : "";
+  const restart = bulkTargets("restart").length;
+  $("#bulk-restart").disabled = !restart;
+  $("#bulk-restart").title = !n ? "" : restart
+    ? "Restart the selected guests – all at the same time"
+    : "None of the selected guests can be restarted here (not running, or LUM's own container)";
   $("#sel-none").hidden = !n;
   $("#bulk-auto").disabled = !n;
   $("#bulk-auto").title = n ? "Update the selected guests automatically in the maintenance window"
@@ -1139,6 +1145,32 @@ $("#auto-run").addEventListener("click", async () => {
   load();
 });
 $("#bulk-app").addEventListener("click", () => bulkUpdate("app"));
+
+$("#bulk-restart").addEventListener("click", async () => {
+  const targets = bulkTargets("restart");
+  const left = selected.size - targets.length;
+  const names = targets.map((v) => guestLabel(v)).join(", ");
+  const yes = await ask({
+    title: `Restart ${targets.length} guest${targets.length === 1 ? "" : "s"}?`,
+    text: `${names}\n\nThey are shut down and started again, all at the same time, and are unavailable `
+      + "for a moment. Each restart gets its own log in the history."
+      + (left ? `\n\n${left} selected guest${left === 1 ? " is" : "s are"} left out (not running, or LUM's own `
+        + "container – restart that one with its own Restart button)." : ""),
+    ok: "Restart",
+  });
+  if (!yes) return;
+  try {
+    await api("/api/queue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vmids: targets, kind: "restart", backup: false }),
+    });
+    selected.clear();
+  } catch (err) {
+    await showError(err.message);
+  }
+  load();
+});
 
 const QUEUE_STATE = {
   waiting: ["waiting", "muted"], running: ["running", "warn"], ok: ["succeeded", "ok"],

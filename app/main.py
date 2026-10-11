@@ -345,7 +345,7 @@ async def update(vmid: int, kind: Literal["os", "app"] = "os", backup: bool = Tr
 
 class QueueBody(BaseModel):
     vmids: list[int]
-    kind: Literal["os", "app"] = "os"
+    kind: Literal["os", "app", "restart"] = "os"  # restart: all of them at the same time
     backup: bool = True
     cleanup: bool | None = None  # None: LUM_CLEANUP
 

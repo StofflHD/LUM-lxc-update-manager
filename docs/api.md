@@ -26,7 +26,7 @@ the header `X-Requested-With: lum`.
 | POST | `/api/import` | Body `{"data": <export>, "settings": true, "guests": true, "history": true}` – returns what was imported; LUM restarts after settings |
 | POST | `/api/notify/test` | Send a Telegram test message (502 with Telegram's error) |
 | GET | `/api/queue` | Bulk update queue: `vmid`, `kind`, `backup`, `state` (`waiting`, `running`, `ok`, `failed`, `skipped`, `cancelled`), `job_id`, `note` |
-| POST | `/api/queue` | Body `{"vmids": [101, 102], "kind": "os"\|"app", "backup": true, "cleanup": true}` – update them one after the other |
+| POST | `/api/queue` | Body `{"vmids": [101, 102], "kind": "os"\|"app"\|"restart", "backup": true, "cleanup": true}` – update them one after the other; `restart` restarts all of them at the same time (not LUM's own container) |
 | DELETE | `/api/queue` | Cancel the waiting guests, or clear a finished queue |
 | WS | `/ws/jobs/{id}` | Live log of a job |
 | GET | `/api/containers/{id}/snapshots` | The guest's LUM snapshots (`lum_*`) |

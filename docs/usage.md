@@ -12,7 +12,7 @@
 | | **☰** menu | *Theme:* System / Light / Dark (stored in the browser) · *Configuration:* **Settings** (see [Configuration](configuration.md#in-the-web-ui)), **Export …** / **Import …** (see [Export and import](configuration.md#export-and-import)) · *Actions:* **Run auto-update now**, **Send test notification** (see [Notifications](configuration.md#notifications-telegram)), **Server log** (see [Troubleshooting](troubleshooting.md#logs)) · *Account:* **Change password** (not shown without login). |
 | Status line | | Last check (and the next one), backup mode, guests hidden by the `no-lum` tag (hover for their IDs), the next automatic update, the cluster nodes, result of **Refresh list**, and a yellow note when the host script is outdated (in a cluster: on which node). |
 | Above the list | **All** · **With updates** · **Security** | Filter the list: every guest, only guests with OS or app updates, only guests with security updates (stored in the browser). Bulk selections only include visible guests. |
-| | **Select all with updates** · **Clear selection** · **OS update** · **App update** | Update several guests in one go – see [Updating several guests](#updating-several-guests). |
+| | **Select all with updates** · **Clear selection** · **OS update** · **App update** · **Restart** | Update several guests in one go – see [Updating several guests](#updating-several-guests). |
 | | **Auto-update …** | Update the selected guests automatically in the maintenance window – see [Automatic updates](#automatic-updates-maintenance-window). |
 | Each row | ☐ `ID` · `LXC`/`VM` · node | Checkbox for a bulk update (the one in the header selects all running guests). Container or VM; in a [cluster](installation.md#proxmox-cluster) also its node. VMs need the QEMU guest agent, otherwise **no guest agent** is shown. |
 | | `auto: off` · `auto: OS` · `auto: OS + app` | Below the name: click to set the [automatic updates](#automatic-updates-maintenance-window) of this guest. |
@@ -254,6 +254,11 @@ services) and a **Restart** button. It reboots the container or VM (`pct reboot`
 `qm reboot`), waits until it answers again, checks it and shows up in the history as
 **Restart**. The badge is gone as soon as the restart is done. A restart is never done
 automatically.
+
+**Several at once:** tick the guests and click **Restart** above the list – every
+selected running guest is restarted, **all at the same time** (whether it needs it or
+not), each with its own history entry, shown in the [queue](#updating-several-guests).
+LUM's own container is left out – restart it with its own button.
 
 **LUM's own container** (found by its host name, marked **LUM** in the list) can be
 restarted the same way: the host reboots it a few seconds after the job is stored, LUM

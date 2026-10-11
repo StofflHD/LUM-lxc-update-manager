@@ -25,7 +25,7 @@ rollback with one click and checks for free space and pending restarts.
 - **Telegram notifications** about failed (or all) updates and available updates
 - **Export / import** of settings, auto-update choices and history
 - **Restart required** – shows when services still run replaced libraries or a VM has a
-  newer kernel, with a restart button
+  newer kernel, with a restart button; several guests can be restarted at once
 - **Free space check** before every update, in the guest and on the vzdump storage, and
   an optional cleanup afterwards (`apt autoremove`, `apt clean`)
 - **App updates** for community-script containers, with installed vs. latest version from
