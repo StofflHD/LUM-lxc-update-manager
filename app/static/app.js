@@ -130,6 +130,9 @@ function diskBadge(c) {
 // the OS packages (their app update does what the OS update does) and apps the
 // community script doesn't update at all (built-in updater)
 const noAppUpdate = (c) => c.type === "qemu" || c.self_created || c.app_kind === "os" || c.app_kind === "builtin";
+// greyed out: the versions were compared and there is nothing newer (without a version
+// check - Docker, unknown - the button stays usable)
+const appUpToDate = (c) => Boolean(c.app_installed && c.app_latest && !c.app_update);
 
 const AUTO_LABEL = { os: "auto: OS", all: "auto: OS + app" };
 let clusterNodes = 0; // > 1: show each guest's node
@@ -175,8 +178,8 @@ function renderContainers(all) {
         ${noAppUpdate(c)
           // invisible stand-in keeps the buttons aligned in the table
           ? '<button class="placeholder" tabindex="-1" aria-hidden="true" disabled>App update</button>'
-          : `<button data-act="app" data-id="${c.vmid}" ${!running || c.busy || !c.community_script ? "disabled" : ""}
-          class="${c.app_update ? "primary" : ""}">App update</button>`}
+          : `<button data-act="app" data-id="${c.vmid}" ${!running || c.busy || !c.community_script || appUpToDate(c) ? "disabled" : ""}
+          class="${c.app_update ? "primary" : ""}"${appUpToDate(c) ? ` title="${esc(`No app update found – ${c.app_installed} is the latest version`)}"` : ""}>App update</button>`}
         ${running && c.restart_required ? `<button data-act="restart" data-id="${c.vmid}" ${c.busy ? "disabled" : ""}
           title="Reboot the ${c.type === "qemu" ? "VM" : "container"} so it runs the updated code">Restart</button>` : ""}
         <button data-act="backups" data-id="${c.vmid}" ${c.busy ? "disabled" : ""} title="Snapshots and vzdump backups: roll back, restore, delete">Backups</button>
