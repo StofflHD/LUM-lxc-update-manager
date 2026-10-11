@@ -100,6 +100,26 @@ def client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+# Only our own files: no inline scripts or styles, no framing (clickjacking), no
+# sniffing. FastAPI's /docs loads Swagger UI from a CDN, so it keeps its own rules.
+CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+       "connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "same-origin",
+}
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.update(SECURITY_HEADERS)
+    if not request.url.path.startswith(("/docs", "/redoc")):
+        response.headers["Content-Security-Policy"] = CSP
+    return response
+
+
 @app.middleware("http")
 async def no_stale_ui(request: Request, call_next):
     """Without a Cache-Control header browsers may keep the old app.js after an
@@ -662,6 +682,9 @@ async def import_(body: ImportBody):
     s, d = svc(), body.data
     if d.get("lum_export") != EXPORT_FORMAT:
         raise HTTPException(400, t("err.not_export"))
+    for part, kind in (("settings", dict), ("guests", list), ("history", list)):
+        if d.get(part) is not None and not isinstance(d[part], kind):
+            raise HTTPException(400, t("err.import_part", part=part))
     result: dict = {"settings": [], "guests": 0, "guests_skipped": [], "history": 0, "restart": False}
     changes: dict = {}
     if body.settings and d.get("settings"):
@@ -677,18 +700,22 @@ async def import_(body: ImportBody):
     if body.guests:
         here = {c["vmid"]: c for c in s.db.containers()}
         for g in d.get("guests") or []:
-            c = here.get(int(g.get("vmid", 0)))
-            mode = g.get("auto_update", "off")
+            try:
+                vmid = int(g.get("vmid", 0))
+            except (AttributeError, TypeError, ValueError):
+                vmid = None
+            c = here.get(vmid)
+            mode = g.get("auto_update", "off") if isinstance(g, dict) else None
             if not c or c["name"] != g.get("name") or mode not in ("off", "os", "all"):
-                result["guests_skipped"].append(int(g.get("vmid", 0)))
+                result["guests_skipped"].append(vmid if vmid is not None else str(g)[:20])
                 continue
             s.db.set_auto_update([c["vmid"]], mode)
             result["guests"] += 1
     if body.history:
         try:
             result["history"] = s.db.import_history(d.get("history") or [])
-        except (KeyError, TypeError, ValueError) as err:
-            raise HTTPException(400, f"history: unexpected entry ({err})")
+        except (AttributeError, KeyError, TypeError, ValueError) as err:
+            raise HTTPException(400, t("err.import_history", msg=err))
     if changes:  # last: LUM restarts afterwards
         settings_edit.write(changes)
         log.info("settings imported: %s", ", ".join(sorted(changes)))

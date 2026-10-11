@@ -185,6 +185,7 @@ class Database:
         self, vmid: int, script: str | None, repo: str | None, installed: str | None, latest: str | None,
         kind: str | None = None, url: str | None = None, note: str | None = None,
     ) -> None:
+        url = url if url and url.lower().startswith("https://") else None  # a link in the web UI
         with self._conn:
             self._conn.execute(
                 """UPDATE containers SET app_script=?, app_repo=?, app_installed=?, app_latest=?,
@@ -365,7 +366,15 @@ class Database:
                 if key in have or e.get("finished") is None:
                     continue
                 values = [e.get(c) for c in self._EXPORT_COLS]
-                values[self._EXPORT_COLS.index("log")] = e.get("log") or ""
+                cols = self._EXPORT_COLS
+                values[cols.index("vmid")] = key[0]
+                values[cols.index("kind")] = key[1]
+                values[cols.index("started")] = float(e["started"])
+                values[cols.index("finished")] = float(e["finished"])
+                values[cols.index("success")] = None if e.get("success") is None else int(bool(e["success"]))
+                for c in ("backup_kind", "backup_ref", "detail", "name"):
+                    values[cols.index(c)] = None if e.get(c) is None else str(e[c])
+                values[self._EXPORT_COLS.index("log")] = str(e.get("log") or "")
                 values[self._EXPORT_COLS.index("backup_removed")] = int(e.get("backup_removed") or 0)
                 values[self._EXPORT_COLS.index("auto")] = int(e.get("auto") or 0)
                 self._conn.execute(

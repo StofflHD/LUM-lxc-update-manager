@@ -33,6 +33,31 @@ from .versions import version_key
 log = logging.getLogger(__name__)
 
 SCRIPT_URL = "https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/{}.sh"
+# names of community scripts (ct/<name>.sh) - the name comes from the guest, so never
+# let anything else into a URL
+SCRIPT_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{0,59}$", re.I)
+# a GitLab instance named in a script: https and a host name, nothing else
+GITLAB_HOST = re.compile(r"^https://[A-Za-z0-9.-]+(:\d{1,5})?$")
+
+
+def https_only(url: str | None) -> str:
+    """The URL if it is https, else "" - links and fetches never use another scheme
+    (javascript:, file:, http: to internal hosts)."""
+    return url if isinstance(url, str) and url.lower().startswith("https://") else ""
+
+
+class _HttpsRedirects(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not https_only(newurl):
+            raise urllib.error.HTTPError(newurl, code, "redirect to a non-https URL refused", headers, fp)
+        new = super().redirect_request(req, fp, code, msg, headers, newurl)
+        # the GitHub token only goes to GitHub
+        if new is not None and not newurl.startswith("https://api.github.com/"):
+            new.remove_header("Authorization")
+        return new
+
+
+_OPENER = urllib.request.build_opener(_HttpsRedirects)
 SCRIPT_TTL = 24 * 3600
 LATEST_TTL = 3600
 
@@ -157,6 +182,8 @@ def parse_script(text: str, script: str) -> AppSource:
         if var:  # pinned via a variable set in the script
             found = re.search(rf'\b{var.group(1)}="([^"$]+)"', text)
             pinned = found.group(1) if found else ""
+        if gitlab and not GITLAB_HOST.match(gitlab):
+            return AppSource("none")  # not a plain https GitLab host: don't follow it
         return AppSource(FORGES[kind], app=args[0].lower().replace(" ", ""), repo=args[1], host=gitlab,
                          pinned=pinned, pin_reason=args[3] if len(args) > 3 and pinned else "",
                          prefix=args[4] if len(args) > 4 else "")
@@ -198,10 +225,12 @@ class AppCatalog:
         self._releases: dict[tuple, tuple[float, list[dict]]] = {}  # forge release lists
 
     def _get(self, url: str, accept: str = "application/json") -> str:
+        if not https_only(url):
+            raise ValueError(f"not an https URL: {url[:80]}")
         headers = {"Accept": accept, "User-Agent": "lxc-update-manager"}
         if self._token and url.startswith("https://api.github.com/"):
             headers["Authorization"] = f"Bearer {self._token}"
-        with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=15) as res:
+        with _OPENER.open(urllib.request.Request(url, headers=headers), timeout=15) as res:
             return res.read().decode()
 
     async def _json(self, url: str):
@@ -209,6 +238,8 @@ class AppCatalog:
 
     async def source(self, script: str) -> AppSource | None:
         """Parse ct/<script>.sh once a day; None if it can't be fetched."""
+        if not SCRIPT_NAME.match(script or ""):
+            return None
         cached = self._sources.get(script)
         if cached and time.time() - cached[0] < SCRIPT_TTL:
             return cached[1]
@@ -283,7 +314,7 @@ class AppCatalog:
             if src.kind == "gitlab" and not url:
                 url = f"{src.host or 'https://gitlab.com'}/{repo}/-/releases/{urllib.parse.quote(tag)}"
             releases.append({
-                "tag": tag, "name": r.get("name") or tag, "url": url,
+                "tag": tag, "name": r.get("name") or tag, "url": https_only(url),
                 "body": r.get("body") if "body" in r else r.get("description") or "",
                 "published": r.get("published_at") or r.get("released_at") or r.get("created_at") or "",
             })

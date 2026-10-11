@@ -138,5 +138,5 @@ update is running.
 | `LUM_SESSION_HOURS` | `12` | Session lifetime |
 | `LUM_AUTH_DISABLED` | `false` | Turn off the login (only behind an authenticating proxy) |
 | `LUM_COOKIE_SECURE` | `false` | Force the `Secure` cookie flag (automatic behind a trusted HTTPS proxy) |
-| `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Reverse proxy IP(s) whose forwarding headers are trusted |
+| `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Reverse proxy IP(s) whose forwarding headers are trusted – only the proxy (the settings dialog takes networks up to /16, IPv6 /48) |
 | `LUM_DEMO` | `false` | Simulated guests for development |

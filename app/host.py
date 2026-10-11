@@ -15,6 +15,7 @@ import asyncssh
 from .config import Settings
 
 _SAFE_ARG = re.compile(r"^[A-Za-z0-9._-]{1,60}$")
+_SCRIPT_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{0,59}$", re.I)
 # terminal control: colours, cursor moves, clear screen (the community scripts' banner)
 _ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][A-Z0-9]|\x1b[=>78]")
 
@@ -111,7 +112,8 @@ class HostClient:
         return ContainerInfo(
             pkg_manager=values.get("pkg", "unknown"),
             community_script=values.get("community") == "1",
-            script=values.get("script") or None,
+            # from the guest: only a plain script name (it ends up in a URL)
+            script=values.get("script") if _SCRIPT_NAME.match(values.get("script", "")) else None,
         )
 
     async def check(self, vmid: int) -> list[str]:

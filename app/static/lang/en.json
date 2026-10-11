@@ -429,6 +429,8 @@
   "err.busy_save": "An update or check is running - save again when it has finished.",
   "err.busy_import": "An update or check is running - import again when it has finished.",
   "err.not_export": "this is not a LUM export file",
+  "err.import_part": "the export file is damaged: \"{part}\" has the wrong format",
+  "err.import_history": "history: unexpected entry ({msg})",
   "err.cleanup_running": "snapshots and backups are already being deleted",
   "err.unknown_entry": "unknown entry",
   "err.job_running": "this job is still running",

@@ -10,6 +10,25 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.28.6] – 2026-10-11
+
+### Security
+From a security review of LUM (no critical or high findings):
+- **Only https links and fetches from outside:** app links and release-note links from
+  community scripts and forges are shown only when they are `https://` (no
+  `javascript:` links); LUM fetches versions and release notes only over https, refuses
+  redirects to other schemes and keeps the GitHub token to GitHub. A GitLab instance
+  named in a community script must be a plain `https://host`.
+- **Security headers:** `Content-Security-Policy` (only LUM's own scripts and styles, no
+  framing), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: same-origin`. LUM can no longer be embedded in an iframe.
+- **`FORWARDED_ALLOW_IPS`** in the settings dialog: networks wider than /16 (IPv6 /48),
+  e.g. `0.0.0.0/0`, are refused – whoever is listed may set the client IP (login
+  lockout) and the scheme.
+- The community-script name reported by a guest is checked before it is used in a URL.
+- Import: a damaged export file (wrong types) gives a clear error instead of an
+  internal server error; the numbers of imported history entries are checked.
+
 ## [0.28.5] – 2026-10-11
 
 ### Changed
@@ -703,7 +722,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.28.5]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/a6d8e48...main
+[0.28.6]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/61d5548...main
+[0.28.5]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/a6d8e48...334f56c
 [0.28.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/72334a0...a6d8e48
 [0.28.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/c4eced6...72334a0
 [0.28.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/d1db7c7...c4eced6

@@ -7,6 +7,9 @@ LUM can run behind any reverse proxy for HTTPS and access from outside. Requirem
 - **Own (sub)domain**, e.g. `lum.example.com`. A sub-path like `example.com/lum/` is **not**
   supported (the UI uses absolute paths).
 - **WebSockets** must be passed through (live update logs, path `/ws/…`).
+- LUM sends its own security headers (`Content-Security-Policy`, `X-Frame-Options:
+  DENY`, `X-Content-Type-Options`, `Referrer-Policy`). The proxy can leave them as they
+  are; LUM can't be shown in an iframe (e.g. a dashboard panel) – open it in its own tab.
 - Pass the public host name: either keep the `Host` header, or send `X-Forwarded-Host`.
   Otherwise the live log is rejected by the origin check.
 - Send `X-Forwarded-For` and `X-Forwarded-Proto`, and tell LUM to trust the proxy:
@@ -15,6 +18,10 @@ LUM can run behind any reverse proxy for HTTPS and access from outside. Requirem
   ```bash
   pct exec <CTID> -- bash -c 'echo FORWARDED_ALLOW_IPS=192.168.1.20 >> /opt/lxc-update-manager/.env && systemctl restart lxc-update-manager'
   ```
+
+  Only the proxy belongs there – whoever is listed may set the client IP and the scheme.
+  The settings dialog accepts single IPs and networks up to a /16 (IPv6: /48), not
+  `0.0.0.0/0`.
 
   Then the login lockout counts per real client (without it, 5 wrong passwords from
   anyone would lock out everybody behind the proxy), and the session cookie is marked

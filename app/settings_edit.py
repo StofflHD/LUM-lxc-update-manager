@@ -97,12 +97,20 @@ def export_values(with_secrets: bool) -> dict[str, str]:
     return {k: env[k] for k in sorted(EDITABLE) if k in env and (with_secrets or kinds[k] != "secret")}
 
 
+# Whoever is in FORWARDED_ALLOW_IPS may set the client IP (login lockout) and the
+# scheme: only the proxy, at most a /16 (IPv4) or /48 (IPv6) network.
+_MIN_PREFIX = {4: 16, 6: 48}
+
+
 def _check_ips(value: str) -> None:
     for part in filter(None, (p.strip() for p in value.split(","))):
         try:
-            ipaddress.ip_network(part, strict=False)
+            net = ipaddress.ip_network(part, strict=False)
         except ValueError:
             raise ValueError(f"FORWARDED_ALLOW_IPS: '{part}' is not an IP address or network") from None
+        if net.prefixlen < _MIN_PREFIX[net.version]:
+            raise ValueError(f"FORWARDED_ALLOW_IPS: '{part}' is too wide - enter the reverse proxy's IP "
+                             f"(at most a /{_MIN_PREFIX[net.version]} network)")
 
 
 def validate(changes: dict) -> dict[str, str]:

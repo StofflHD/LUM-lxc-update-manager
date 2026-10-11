@@ -14,6 +14,9 @@ let dateFormat = "system";
 try { dateFormat = localStorage.getItem("lum-datefmt") || "system"; } catch { /* blocked */ }
 const fmtLocale = () => (dateFormat === "system" ? undefined : dateFormat);
 
+// links from outside (forges, community scripts): https only, never javascript: & co.
+const safeUrl = (u) => (typeof u === "string" && /^https:\/\//i.test(u) ? u : "");
+
 const fmtTime = (ts) => (ts ? new Date(ts * 1000).toLocaleString(fmtLocale()) : "–");
 
 async function api(path, opts = {}) {
@@ -89,8 +92,10 @@ function appCell(c) {
     const title = kind === "builtin" && c.app_note ? `${base}: "${c.app_note}"` : base;
     return `${name}<br><span class="tag" title="${esc(title)}">${te(`app.source_${kind}`)}</span>`;
   }
-  const url = c.app_url || `https://github.com/${c.app_repo}/releases`;
-  const repo = `<a class="tag repo" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(c.app_repo)}">${esc(c.app_repo)}</a>`;
+  const url = safeUrl(c.app_url || `https://github.com/${c.app_repo}/releases`);
+  const repo = url
+    ? `<a class="tag repo" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(c.app_repo)}">${esc(c.app_repo)}</a>`
+    : `<span class="tag repo">${esc(c.app_repo)}</span>`;
   const held = c.app_note ? ` <span class="tag" title="${esc(c.app_note)}">${te("app.held_back")}</span>` : "";
   if (!c.app_installed || !c.app_latest) return `${name}${held}<br>${repo}`;
   const badge = c.app_update
@@ -603,7 +608,7 @@ async function showReleaseNotes(vmid, dlg) {
     if (!dlg.open) return;
     if (!n.releases.length) {
       box.innerHTML = n.error
-        ? `<div class="notes-head">${esc(n.error)}${n.url ? ` – <a href="${esc(n.url)}" target="_blank" rel="noopener">${te("notes.release_page")}</a>` : ""}</div>`
+        ? `<div class="notes-head">${esc(n.error)}${safeUrl(n.url) ? ` – <a href="${esc(n.url)}" target="_blank" rel="noopener">${te("notes.release_page")}</a>` : ""}</div>`
         : "";
       box.hidden = !n.error;
       return;
@@ -613,12 +618,12 @@ async function showReleaseNotes(vmid, dlg) {
         <summary>${esc(r.name || r.tag)}<span class="when">${r.published ? esc(new Date(r.published).toLocaleDateString(fmtLocale())) : ""}</span>
           ${BREAKING.test(r.body) ? `<span class="badge warn" title="${te("notes.breaking_title")}">${te("notes.breaking")}</span>` : ""}</summary>
         <div class="note">${markdown(r.body || "") || `<p class="muted">${te("notes.no_description")}</p>`}
-          ${r.cut || r.url ? `<p><a href="${esc(r.url)}" target="_blank" rel="noopener">${te(r.cut ? "notes.continue" : "notes.release_page")}</a></p>` : ""}</div>
+          ${safeUrl(r.url) ? `<p><a href="${esc(r.url)}" target="_blank" rel="noopener">${te(r.cut ? "notes.continue" : "notes.release_page")}</a></p>` : ""}</div>
       </details>`).join("");
     const count = n.releases.length + n.more;
     box.innerHTML = `<div class="notes-head">${te("notes.head", { count, installed: n.installed, latest: n.latest })}</div>`
       + releases
-      + (n.more ? `<div class="notes-foot">${te("notes.more", { count: n.more })} – <a href="${esc(n.url)}" target="_blank" rel="noopener">${te("notes.all")}</a></div>` : "");
+      + (n.more ? `<div class="notes-foot">${te("notes.more", { count: n.more })}${safeUrl(n.url) ? ` – <a href="${esc(n.url)}" target="_blank" rel="noopener">${te("notes.all")}</a>` : ""}</div>` : "");
   } catch (err) {
     box.innerHTML = `<div class="notes-head">${te("notes.unavailable", { msg: err.message })}</div>`;
   }
