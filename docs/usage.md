@@ -355,7 +355,7 @@ pct set <CTID> --tags "no-app"
 ```
 
 The list picks the tag up within a minute (or with **Refresh list**); the tag is
-case-insensitive; the old name `self-created` still works. Unlike `no-lum` this is not enforced by the host script – it is only
+case-insensitive. Unlike `no-lum` this is not enforced by the host script – it is only
 about what LUM shows and offers.
 
 ## Login
