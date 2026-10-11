@@ -10,6 +10,17 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.24.0] – 2026-10-11
+
+### Added
+- History and log rotation, set in ☰ → **Settings** → *History & logs*: finished history
+  entries older than `LUM_HISTORY_DAYS` (365) or beyond the newest `LUM_HISTORY_MAX`
+  (1000) are removed, update logs older than `LUM_LOG_DAYS` (90) are removed while the
+  entry stays. It runs after a start and every hour; `0` turns a limit off. Snapshots and
+  backups are not touched.
+- `LUM_SERVER_LOG_LINES` (2000): lines of the **Server log** in the web UI.
+- API: history entries → `log_removed`.
+
 ## [0.23.5] – 2026-10-11
 
 ### Fixed
@@ -601,7 +612,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.23.5]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/6f1db0f...main
+[0.24.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/3bf52e4...main
+[0.23.5]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/6f1db0f...3bf52e4
 [0.23.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/f767136...6f1db0f
 [0.23.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/5bf830e...f767136
 [0.23.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ff2ebb5...5bf830e

@@ -37,6 +37,13 @@ handler.addFilter(_NoAccess())
 started = time.time()
 
 
+def resize(size: int) -> None:
+    """LUM_SERVER_LOG_LINES: keeps the newest lines."""
+    global MAX_LINES
+    MAX_LINES = size
+    handler.lines = collections.deque(handler.lines, maxlen=size)
+
+
 def install() -> None:
     """Attach to the root logger and uvicorn's error logger (which doesn't propagate)."""
     for name in ("", "uvicorn.error"):

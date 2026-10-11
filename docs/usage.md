@@ -28,7 +28,7 @@
 | Queue | **Log** · **Cancel remaining** · **Clear** | Progress of a bulk update, see below. |
 | History | `ID` · Name | Guest of the entry; the name stays visible after the guest was removed. |
 | | **Rollback** · **Delete** | Roll back to / delete the snapshot made before that update. With vzdump: **Delete** removes the backup made before that update (not protected ones). |
-| | **Log** · **Remove** | Show the stored log / remove the entry (the snapshot or backup is kept). |
+| | **Log** · **Remove** | Show the stored log / remove the entry (the snapshot or backup is kept). Old entries and logs are removed automatically, see [History and log rotation](configuration.md#history-and-log-rotation). |
 | | **Clear history** | Removes all finished entries (running updates stay). Two optional checkboxes also delete **all snapshots** and/or **all vzdump backups** LUM made, for every guest it manages – see [Backup, cleanup and rollback](#backup-cleanup-and-rollback). |
 
 Below 1100 px window width every row turns into a card. The footer shows the version.

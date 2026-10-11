@@ -224,7 +224,7 @@ function renderHistory(list) {
         ${canRollback ? `<button data-act="rollback" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}">Rollback</button>
           <button data-act="delsnap" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}" data-task="snap:${h.vmid}:${esc(h.backup_ref)}" class="danger">Delete</button>` : ""}
         ${canDeleteVzdump ? `<button data-act="delhistbackup" data-id="${h.id}" data-task="hist:${h.id}" class="danger" title="Delete the vzdump backup made before this update">Delete</button>` : ""}
-        <button data-act="log" data-id="${h.id}">Log</button>
+        <button data-act="log" data-id="${h.id}"${h.log_removed ? ' title="Removed by the log rotation (LUM_LOG_DAYS)"' : ""}>Log</button>
         ${h.finished ? `<button data-act="delhist" data-id="${h.id}" title="Remove this entry from the history">Remove</button>` : ""}
       </td>
     </tr>`;

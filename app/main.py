@@ -20,7 +20,7 @@ from .auth import COOKIE, Auth, write_credentials
 from .config import get_settings
 from .db import Database
 from .host import HostClient
-from .service import UpdateService, maintenance_loop, scheduler, status_poller
+from .service import UpdateService, housekeeping, maintenance_loop, scheduler, status_poller
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -50,6 +50,7 @@ async def lifespan(app: FastAPI):
             raise RuntimeError("LUM_PVE_HOST is not set (or set LUM_DEMO=true)")
         host = HostClient(settings)
 
+    logbuffer.resize(settings.server_log_lines)
     app.state.auth = Auth(settings.auth_file, settings.secret_file, settings.session_hours)
     if settings.demo and not app.state.auth.configured:
         write_credentials(settings.auth_file, "admin", "demo")
@@ -64,7 +65,8 @@ async def lifespan(app: FastAPI):
     )
     tasks = [asyncio.create_task(scheduler(app.state.service, settings.check_interval_minutes)),
              asyncio.create_task(status_poller(app.state.service)),
-             asyncio.create_task(maintenance_loop(app.state.service))]
+             asyncio.create_task(maintenance_loop(app.state.service)),
+             asyncio.create_task(housekeeping(app.state.service))]
     yield
     for task in tasks:
         task.cancel()

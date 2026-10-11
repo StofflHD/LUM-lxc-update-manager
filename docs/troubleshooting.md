@@ -31,10 +31,11 @@
 ## Logs
 
 - **In the web UI:** ☰ → **Server log** shows what LUM logged since its start (the last
-  2000 lines): every job with its result, failed checks, notifications, the maintenance
+  2000 lines, `LUM_SERVER_LOG_LINES`): every job with its result, failed checks, notifications, the maintenance
   window, warnings. Filter *Warnings and errors* / *Errors only*, it refreshes every 5
   seconds; **Copy** puts it on the clipboard (on plain http it selects the text). The
-  log of a single update is in its history entry (**Log**).
+  log of a single update is in its history entry (**Log**) – for `LUM_LOG_DAYS` (90) days,
+  see [rotation](configuration.md#history-and-log-rotation).
 - **Older or everything:** `pct exec <CTID> -- journalctl -u lxc-update-manager -n 100`
   (the web UI leaves out the access log, one line per request).
 - **Installer** log on the host: `/var/log/lxc-update-manager-install.log`.

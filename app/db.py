@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS meta (
 # history rows with the guest's name: the current one, or the one stored when the
 # job ran if the guest no longer exists
 HISTORY_COLS = ("h.id, h.vmid, h.kind, h.started, h.finished, h.success, h.backup_kind, h.backup_ref, "
-                "h.backup_removed, h.detail, COALESCE(c.name, h.name) AS name, h.auto")
+                "h.backup_removed, h.detail, COALESCE(c.name, h.name) AS name, h.auto, h.log_removed")
 
 
 # Proxmox tag: a container built by hand that happens to look like a community-script
@@ -100,6 +100,7 @@ class Database:
                 "detail": "TEXT",
                 "name": "TEXT",  # guest name when the job ran
                 "auto": "INTEGER NOT NULL DEFAULT 0",  # started by the maintenance window
+                "log_removed": "INTEGER NOT NULL DEFAULT 0",  # log dropped by the log rotation
             },
         }
         with self._conn:
@@ -307,6 +308,31 @@ class Database:
                 "DELETE FROM history WHERE id=? AND finished IS NOT NULL", (history_id,)
             )
         return cur.rowcount > 0
+
+    def rotate(self, history_days: int, history_max: int, log_days: int) -> tuple[int, int]:
+        """History and log rotation, only finished entries; 0 = keep. Returns
+        (entries removed, logs removed)."""
+        now = time.time()
+        removed = logs = 0
+        with self._conn:
+            if history_days:
+                removed += self._conn.execute(
+                    "DELETE FROM history WHERE finished IS NOT NULL AND finished < ?", (now - history_days * 86400,)
+                ).rowcount
+            if history_max:
+                removed += self._conn.execute(
+                    """DELETE FROM history WHERE finished IS NOT NULL AND id NOT IN
+                       (SELECT id FROM history WHERE finished IS NOT NULL ORDER BY id DESC LIMIT ?)""",
+                    (history_max,),
+                ).rowcount
+            if log_days:
+                logs = self._conn.execute(
+                    """UPDATE history SET log=?, log_removed=1
+                       WHERE finished IS NOT NULL AND finished < ? AND log_removed=0""",
+                    (f"### The log was removed by the log rotation (older than {log_days} days, LUM_LOG_DAYS).",
+                     now - log_days * 86400),
+                ).rowcount
+        return removed, logs
 
     def clear_history(self) -> int:
         """Remove all finished entries, returns how many."""

@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     notify: Literal["off", "failures", "all"] = "failures"  # per update / bulk update
     notify_updates: bool = True  # after the scheduled check: which updates are available
 
+    # rotation (app/service.py housekeeping, hourly): 0 = keep forever / no limit
+    history_days: int = 365  # finished history entries older than this are removed
+    history_max: int = 1000  # at most this many finished entries (the newest)
+    log_days: int = 90  # update logs older than this are removed, the entry stays
+    server_log_lines: int = 2000  # "Server log" in the web UI (in memory)
+
     # web UI login, set with: venv/bin/python -m app.passwd
     auth_file: Path = Path("data/auth.json")
     secret_file: Path = Path("data/secret.key")
@@ -59,6 +65,10 @@ class Settings(BaseSettings):
             raise ValueError("LUM_BACKUP_MODE=vzdump needs LUM_BACKUP_STORAGE")
         if self.snapshot_keep < 1 or self.backup_keep < 1:
             raise ValueError("LUM_SNAPSHOT_KEEP / LUM_BACKUP_KEEP must be at least 1")
+        if min(self.history_days, self.history_max, self.log_days) < 0:
+            raise ValueError("LUM_HISTORY_DAYS / LUM_HISTORY_MAX / LUM_LOG_DAYS must be 0 or more")
+        if not 100 <= self.server_log_lines <= 50000:
+            raise ValueError("LUM_SERVER_LOG_LINES must be between 100 and 50000")
         from .schedule import parse_days, parse_time
 
         try:

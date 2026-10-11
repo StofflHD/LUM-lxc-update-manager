@@ -679,6 +679,12 @@ class UpdateService:
             log.warning("cannot read host script version: %s", err)
         await self.sync_guests()
 
+    def rotate(self) -> None:
+        s = self._s
+        removed, logs = self.db.rotate(s.history_days, s.history_max, s.log_days)
+        if removed or logs:
+            log.info("history rotation: %s entries and %s logs removed", removed, logs)
+
     def busy(self, vmid: int) -> bool:
         return vmid in self._busy
 
@@ -902,6 +908,16 @@ class UpdateService:
         same = len(self.queue) == len(finished) and all(a is b for a, b in zip(self.queue, finished))
         if same and not self.queue_active:  # no new run meanwhile
             self.queue.clear()
+
+
+async def housekeeping(service: UpdateService, seconds: int = 3600) -> None:
+    """History and log rotation: right after the start, then every hour."""
+    while True:
+        try:
+            service.rotate()
+        except Exception:
+            log.exception("history rotation failed")
+        await asyncio.sleep(seconds)
 
 
 async def maintenance_loop(service: UpdateService, seconds: int = 20) -> None:
