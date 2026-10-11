@@ -53,7 +53,9 @@ applies to all of them.
   community script refuses (exit 75/113/114) counts as skipped as well.
 - A failed update does **not** stop the queue; the next guest is updated anyway.
 - **Cancel remaining** cancels the waiting guests; the one being updated finishes.
-  When the queue is done, **Clear** removes it (a new bulk update replaces it as well).
+  When the queue is done without a failed update, it disappears on its own after about
+  15 seconds (the results stay in the history). With a failure it stays until **Clear**
+  (a new bulk update replaces it as well).
 - The queue lives in memory: restarting LUM ends it after the running update.
   Settings can't be saved while it runs.
 

@@ -19,6 +19,7 @@ from .notify import Notifier, esc, lines
 log = logging.getLogger(__name__)
 
 EXCLUDE_TAG = "no-lum"  # Proxmox tag: LUM leaves this container / VM alone
+QUEUE_CLEAR_AFTER = 15  # seconds a queue without failures stays visible after it finished
 
 # exit codes of the community-scripts update with PHS_SILENT=1 that mean
 # "skipped on purpose", see tools/pve/update-apps.sh
@@ -891,6 +892,16 @@ class UpdateService:
             await self._notify_queue(list(self.queue))
         except Exception:
             log.exception("queue notification failed")
+        if not any(i.state == "failed" for i in self.queue):
+            asyncio.create_task(self._clear_queue_later(list(self.queue)))
+
+    async def _clear_queue_later(self, finished: list[QueueItem]) -> None:
+        """Nothing failed: the queue disappears after a moment (the results are in the
+        history); with a failure it stays until "Clear"."""
+        await asyncio.sleep(QUEUE_CLEAR_AFTER)
+        same = len(self.queue) == len(finished) and all(a is b for a, b in zip(self.queue, finished))
+        if same and not self.queue_active:  # no new run meanwhile
+            self.queue.clear()
 
 
 async def maintenance_loop(service: UpdateService, seconds: int = 20) -> None:

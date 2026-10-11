@@ -1141,7 +1141,8 @@ function renderQueue(queue) {
   $("#queue-title").textContent = open
     ? `Queue · ${queue.length - open} of ${queue.length} done`
     : `Queue · finished: ${count("ok")} succeeded, ${count("failed")} failed, `
-      + `${count("skipped") + count("cancelled")} skipped or cancelled`;
+      + `${count("skipped") + count("cancelled")} skipped or cancelled`
+      + (count("failed") ? "" : " · closes in a moment");
   $("#queue-cancel").textContent = open ? "Cancel remaining" : "Clear";
   $("#queue-cancel").hidden = open > 0 && !count("waiting");
   const names = Object.fromEntries(lastContainers.map((c) => [c.vmid, c.name]));
