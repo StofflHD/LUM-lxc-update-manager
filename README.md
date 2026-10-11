@@ -17,7 +17,7 @@ rollback with one click and checks for free space and pending restarts.
 
 - **Containers and VMs in one list** – LXC via `pct`, VMs via the QEMU guest agent, on a
   single host or all nodes of a cluster; tag a guest `no-lum` to keep LUM away from it,
-  or `self-created` for OS updates only
+  or `no-app` for OS updates only
 - **OS updates** (apt / apk) with one click and a live log – or for several guests at
   once, one after the other; security updates are highlighted and can be filtered
 - **Automatic updates** per guest in a maintenance window (days, start, end), optionally

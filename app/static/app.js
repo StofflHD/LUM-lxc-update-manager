@@ -163,10 +163,10 @@ function diskBadge(c) {
     + "an update needs more (LUM_MIN_FREE_MB). Free up space or enlarge the disk.")}">low disk</span>`;
 }
 
-// no App update button: VMs, containers tagged self-created, apps that only come with
+// no App update button: VMs, containers tagged no-app, apps that only come with
 // the OS packages (their app update does what the OS update does) and apps the
 // community script doesn't update at all (built-in updater)
-const noAppUpdate = (c) => c.type === "qemu" || c.self_created || c.app_kind === "os" || c.app_kind === "builtin";
+const noAppUpdate = (c) => c.type === "qemu" || c.no_app || c.app_kind === "os" || c.app_kind === "builtin";
 // greyed out: the versions were compared and there is nothing newer (without a version
 // check - Docker, unknown - the button stays usable)
 const appUpToDate = (c) => Boolean(c.app_installed && c.app_latest && !c.app_update);

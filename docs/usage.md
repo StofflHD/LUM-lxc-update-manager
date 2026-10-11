@@ -21,7 +21,7 @@
 | | App column | Installed app version (green) or `installed → latest` (orange) with a link to the release page, PyPI or npm. **held back**: the community script pins this version; **pre-release**: the installed version is newer than the latest stable one. Without a version source: *updated with the OS packages*, *no version check (Docker)* or *Version unknown* – see [App updates](#app-updates). |
 | | **Check** | Checks this one guest (*Checking …* with a spinner until it is done). |
 | | **OS update** | Opens the update dialog (backup and cleanup checkboxes), then runs apt/apk with a live log. |
-| | **App update** | Community-script app update; the dialog shows the [release notes](#release-notes) of the new versions. Highlighted when a newer app version exists, greyed out when the version check found nothing newer (without a version check – Docker, *Version unknown* – it stays usable). Not shown for VMs, containers tagged `self-created`, apps *updated with the OS packages* and apps with *no update via the script*. |
+| | **App update** | Community-script app update; the dialog shows the [release notes](#release-notes) of the new versions. Highlighted when a newer app version exists, greyed out when the version check found nothing newer (without a version check – Docker, *Version unknown* – it stays usable). Not shown for VMs, containers tagged `no-app`, apps *updated with the OS packages* and apps with *no update via the script*. |
 | | `low disk: … free` | Less free space in `/` than an update needs – see [Free space](#free-space-before-an-update). |
 | | `restart required` · **Restart** | After updates the guest should be restarted – hover the badge for the reason, see [Restart after updates](#restart-after-updates). |
 | | **Backups** | The guest's LUM snapshots (**Rollback**, **Delete**) and vzdump backups (**Restore**, **Delete**) – see [Backup, cleanup and rollback](#backup-cleanup-and-rollback). Greyed out when the guest has none (counted with every check; stopped guests with **Check all**). |
@@ -341,21 +341,21 @@ by `;` (e.g. `--tags "mytag;no-lum"`).
 The change shows up with the next **Refresh list** or **Check all**. Remove the tag to let
 LUM manage the guest again.
 
-### Containers without app updates: `self-created`
+### Containers without app updates: `no-app`
 
 A container you built yourself may still have an `update` command (e.g. copied from a
 community-script container) and then shows up as a community-script app. Give it the tag
-**`self-created`** and LUM manages only its OS updates:
+**`no-app`** and LUM manages only its OS updates:
 
 - no **App update** button, no app version check, no app column;
-- bulk app updates skip it (*tagged self-created*), the API refuses an app update.
+- bulk app updates skip it (*tagged no-app*), the API refuses an app update.
 
 ```bash
-pct set <CTID> --tags "self-created"
+pct set <CTID> --tags "no-app"
 ```
 
 The list picks the tag up within a minute (or with **Refresh list**); the tag is
-case-insensitive. Unlike `no-lum` this is not enforced by the host script – it is only
+case-insensitive; the old name `self-created` still works. Unlike `no-lum` this is not enforced by the host script – it is only
 about what LUM shows and offers.
 
 ## Login

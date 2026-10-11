@@ -436,7 +436,7 @@ class UpdateService:
                 return
             await self._check_disk(vmid)
             await self.count_restore_points(vmid)
-            if info.script and not (self.db.container(vmid) or {}).get("self_created"):
+            if info.script and not (self.db.container(vmid) or {}).get("no_app"):
                 await self._check_app(vmid, info.script)
 
     async def _check_disk(self, vmid: int) -> None:
@@ -910,8 +910,8 @@ class UpdateService:
             return None if c["restart_required"] or not item.auto else "no restart needed"
         if c["type"] == "qemu":
             return "app updates are only supported for containers"
-        if c["self_created"]:
-            return "tagged self-created"
+        if c["no_app"]:
+            return "tagged no-app"
         if not c["community_script"]:
             return "no community-scripts app"
         if c["app_kind"] == "os":
