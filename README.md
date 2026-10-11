@@ -26,6 +26,8 @@ rollback with one click and checks for free space and pending restarts.
   required for a new kernel) – read only, LUM never updates or reboots the host
 - **Telegram notifications** about failed (or all) updates and available updates
 - **Export / import** of settings, auto-update choices and history
+- **English and German** web UI and Telegram messages – one JSON file per language, easy
+  to add more ([Translating](docs/translating.md))
 - **Restart required** – shows when services still run replaced libraries or a VM has a
   newer kernel, with a restart button; several guests can be restarted at once
 - **Free space check** before every update, in the guest and on the vzdump storage, and
@@ -80,6 +82,7 @@ options – see [VMs](docs/usage.md#vms).
 | [Troubleshooting](docs/troubleshooting.md) | Common problems and fixes, logs |
 | [API](docs/api.md) | HTTP API of the web UI |
 | [Development](docs/development.md) | Demo mode without Proxmox |
+| [Translating](docs/translating.md) | Language files, adding a language |
 | [Changelog](CHANGELOG.md) | What changed in which version |
 
 ## How it works

@@ -1,18 +1,20 @@
 const $ = (sel) => document.querySelector(sel);
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+// translated text, escaped for HTML (the parameters may be names, versions, ...)
+const te = (key, vars) => esc(t(key, vars));
 // vmid -> "lxc" | "qemu", filled on every load; history only knows the vmid
 const guestTypes = {};
 const guestLabel = (id) => `${guestTypes[id] === "qemu" ? "VM" : "CT"} ${id}`;
 
-const fmtTime = (ts) => (ts ? new Date(ts * 1000).toLocaleString("en-GB") : "–");
+const fmtTime = (ts) => (ts ? new Date(ts * 1000).toLocaleString(I18N.locale) : "–");
 
 async function api(path, opts = {}) {
   // the header proves the request comes from this page (CSRF protection on the server)
   const res = await fetch(path, { ...opts, headers: { "X-Requested-With": "lum", ...(opts.headers || {}) } });
   if (res.status === 401) {
     location.replace("/login");
-    throw new Error("Not logged in");
+    throw new Error(t("common.not_logged_in"));
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -30,13 +32,13 @@ function renderSummary(list) {
   const errors = list.filter((c) => c.last_error).length;
   const vms = list.filter((c) => c.type === "qemu").length;
   $("#summary").innerHTML = [
-    [`${list.length - vms} / ${vms}`, "Containers / VMs"],
-    [withUpdates.length, "With updates"],
-    [packages, "Pending packages"],
-    [security, "Security updates", security ? "err" : ""],
-    [appUpdates, "App updates"],
-    [errors, "Errors"],
-  ].map(([v, l, cls = ""]) => `<div class="tile"><div class="v ${cls}">${v}</div><div class="l">${l}</div></div>`).join("");
+    [`${list.length - vms} / ${vms}`, t("summary.guests")],
+    [withUpdates.length, t("summary.with_updates")],
+    [packages, t("summary.packages")],
+    [security, t("summary.security"), security ? "err" : ""],
+    [appUpdates, t("summary.app_updates")],
+    [errors, t("summary.errors")],
+  ].map(([v, l, cls = ""]) => `<div class="tile"><div class="v ${cls}">${v}</div><div class="l">${esc(l)}</div></div>`).join("");
 }
 
 // keep expanded package lists open across the periodic re-render
@@ -46,88 +48,85 @@ document.addEventListener("toggle", (ev) => {
   if (id) ev.target.open ? openDetails.add(id) : openDetails.delete(id);
 }, true);
 
+// "<n> packages" + "<n> security", expandable package list (guests and hosts)
+function packageList(key, packages, security) {
+  const sec = new Set(security);
+  const secBadge = sec.size
+    ? ` <span class="badge err" title="${te("pkg.security_title", { count: sec.size })}">${te("pkg.security", { count: sec.size })}</span>`
+    : "";
+  return `<details data-vmid="${esc(key)}" ${openDetails.has(String(key)) ? "open" : ""}><summary><span class="badge warn">${te("pkg.packages", { count: packages.length })}</span>${secBadge}</summary>
+    <ul>${packages.map((p) => `<li${sec.has(p) ? ' class="sec"' : ""}>${esc(p)}</li>`).join("")}</ul></details>`;
+}
+
 function updatesCell(c) {
   if (c.status !== "running") return `<span class="muted">–</span>`;
-  if (c.checking) return '<span class="muted"><span class="spinner inline"></span>checking …</span>';
+  if (c.checking) return `<span class="muted"><span class="spinner inline"></span>${te("guest.checking")}</span>`;
   if (c.last_error && c.last_error.includes("guest agent")) {
-    return `<span class="badge warn" title="${esc(c.last_error)}">no guest agent</span>`;
+    return `<span class="badge warn" title="${esc(c.last_error)}">${te("guest.no_agent")}</span>`;
   }
-  if (c.last_error) return `<span class="badge err" title="${esc(c.last_error)}">Error</span>`;
-  if (!c.last_check) return `<span class="muted">not checked</span>`;
-  if (!c.upgradable.length) return `<span class="badge ok">up to date</span>`;
-  const sec = new Set(c.security);
-  const secBadge = sec.size
-    ? ` <span class="badge err" title="${sec.size} of them from a security repository (*-security)">${sec.size} security</span>`
-    : "";
-  return `<details data-vmid="${c.vmid}" ${openDetails.has(String(c.vmid)) ? "open" : ""}><summary><span class="badge warn">${c.upgradable.length} package${c.upgradable.length === 1 ? "" : "s"}</span>${secBadge}</summary>
-    <ul>${c.upgradable.map((p) => `<li${sec.has(p) ? ' class="sec"' : ""}>${esc(p)}</li>`).join("")}</ul></details>`;
+  if (c.last_error) return `<span class="badge err" title="${esc(c.last_error)}">${te("common.error")}</span>`;
+  if (!c.last_check) return `<span class="muted">${te("guest.not_checked")}</span>`;
+  if (!c.upgradable.length) return `<span class="badge ok">${te("guest.up_to_date")}</span>`;
+  return packageList(c.vmid, c.upgradable, c.security);
 }
 
 // where the app version comes from (app_kind) when there is no version to compare
-const APP_SOURCE_HINT = {
-  os: ["updated with the OS packages", "The app is installed from OS packages (apt/apk) and updated with the OS updates."],
-  docker: ["no version check (Docker)", "The app runs in Docker – LUM can't compare versions; the app update still works."],
-  none: ["Version unknown", "The community script has no version check LUM can use; the app update still works."],
-  builtin: ["no update via the script", "The community script does not update this app"],
-};
+const APP_SOURCE_HINTS = ["os", "docker", "none", "builtin"];
 
 function appCell(c) {
   if (!c.community_script) return `<span class="muted">–</span>`;
   const name = esc(c.app_script || "?");
   const kind = c.app_kind || (c.app_repo ? "github" : "none");
-  if (APP_SOURCE_HINT[kind]) {
-    const [text, base] = APP_SOURCE_HINT[kind];
+  if (APP_SOURCE_HINTS.includes(kind)) {
+    const base = t(`app.source_${kind}_title`);
     const title = kind === "builtin" && c.app_note ? `${base}: "${c.app_note}"` : base;
-    return `${name}<br><span class="tag" title="${esc(title)}">${esc(text)}</span>`;
+    return `${name}<br><span class="tag" title="${esc(title)}">${te(`app.source_${kind}`)}</span>`;
   }
   const url = c.app_url || `https://github.com/${c.app_repo}/releases`;
   const repo = `<a class="tag repo" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(c.app_repo)}">${esc(c.app_repo)}</a>`;
-  const held = c.app_note ? ` <span class="tag" title="${esc(c.app_note)}">held back</span>` : "";
+  const held = c.app_note ? ` <span class="tag" title="${esc(c.app_note)}">${te("app.held_back")}</span>` : "";
   if (!c.app_installed || !c.app_latest) return `${name}${held}<br>${repo}`;
   const badge = c.app_update
     ? `<span class="badge warn">${esc(c.app_installed)} → ${esc(c.app_latest)}</span>`
     : `<span class="badge ok">${esc(c.app_installed)}</span>`;
   const ahead = c.app_ahead
-    ? ` <span class="tag" title="${esc(`Installed ${c.app_installed} is newer than the latest stable release ${c.app_latest}`)}">pre-release</span>`
+    ? ` <span class="tag" title="${te("app.prerelease_title", { installed: c.app_installed, latest: c.app_latest })}">${te("app.prerelease")}</span>`
     : "";
   return `${name} ${badge}${held}${ahead}<br>${repo}`;
 }
 
 // the Proxmox host(s) themselves - shown only, LUM never updates or reboots them
 function hostUpdatesCell(h) {
-  if (h.error && !h.checked) return `<span class="badge warn" title="${esc(h.error)}">not checked</span>`;
-  if (!h.packages.length) return '<span class="badge ok">up to date</span>';
-  const sec = new Set(h.security);
-  const secBadge = sec.size ? ` <span class="badge err">${sec.size} security</span>` : "";
-  const key = `host-${h.node}`;
-  return `<details data-vmid="${esc(key)}" ${openDetails.has(key) ? "open" : ""}><summary><span class="badge warn">${h.packages.length} package${h.packages.length === 1 ? "" : "s"}</span>${secBadge}</summary>
-    <ul>${h.packages.map((p) => `<li${sec.has(p) ? ' class="sec"' : ""}>${esc(p)}</li>`).join("")}</ul></details>`;
+  if (h.error && !h.checked) return `<span class="badge warn" title="${esc(hostError(h))}">${te("guest.not_checked")}</span>`;
+  if (!h.packages.length) return `<span class="badge ok">${te("guest.up_to_date")}</span>`;
+  return packageList(`host-${h.node}`, h.packages, h.security);
 }
+
+const hostError = (h) => (h.error_key ? t(h.error_key, h.error_params || {}) : h.error);
 
 function renderHosts(hosts) {
   $("#hosts-section").hidden = !hosts.length;
   if (!hosts.length) return;
-  $("#hosts-plural").hidden = hosts.length === 1;
+  $("#hosts-title").textContent = t("hosts.title", { count: hosts.length });
   $("#hosts").innerHTML = hosts.map((h) => {
+    const newer = h.newest_kernel && h.newest_kernel !== h.kernel;
     const kernel = h.kernel
-      ? `${esc(h.kernel)}${h.newest_kernel && h.newest_kernel !== h.kernel ? `<br><span class="muted">installed: ${esc(h.newest_kernel)}</span>` : ""}`
+      ? `${esc(h.kernel)}${newer ? `<br><span class="muted">${te("hosts.installed", { kernel: h.newest_kernel })}</span>` : ""}`
       : "–";
     const stale = h.lists && Date.now() / 1000 - h.lists > 3 * 86400;
     return `<tr>
-      <td data-label="Node"><strong>${esc(h.node)}</strong></td>
+      <td data-label="${te("col.node")}"><strong>${esc(h.node)}</strong></td>
       <td data-label="Proxmox VE">${esc(h.pve || "–")}</td>
-      <td data-label="Status">${h.reboot ? `<span class="badge warn" title="${esc(h.newest_kernel && h.newest_kernel !== h.kernel
-        ? `A newer kernel is installed (${h.newest_kernel}) – it is used after a reboot of the host`
-        : "The host asks for a reboot")}">reboot required</span>` : '<span class="badge ok">ok</span>'}${h.error
-        ? `<br><span class="badge warn" title="${esc(h.error)}">last check failed</span>` : ""}</td>
-      <td data-label="OS updates">${hostUpdatesCell(h)}</td>
-      <td data-label="Kernel">${kernel}</td>
-      <td data-label="Last check" class="muted"${h.lists ? ` title="${esc(`Package lists from ${fmtTime(h.lists)}`)}"` : ""}>${fmtTime(h.checked)}${stale
-        ? '<br><span class="badge warn" title="Proxmox refreshes them every day (pve-daily-update) – run apt update on the host">old package lists</span>' : ""}</td>
+      <td data-label="${te("col.status")}">${h.reboot
+        ? `<span class="badge warn" title="${newer ? te("hosts.reboot_kernel", { kernel: h.newest_kernel }) : te("hosts.reboot_flag")}">${te("hosts.reboot")}</span>`
+        : `<span class="badge ok">${te("hosts.ok")}</span>`}${h.error
+        ? `<br><span class="badge warn" title="${esc(hostError(h))}">${te("hosts.check_failed")}</span>` : ""}</td>
+      <td data-label="${te("col.os_updates")}">${hostUpdatesCell(h)}</td>
+      <td data-label="${te("col.kernel")}">${kernel}</td>
+      <td data-label="${te("col.last_check")}" class="muted"${h.lists ? ` title="${te("hosts.lists_from", { time: fmtTime(h.lists) })}"` : ""}>${fmtTime(h.checked)}${stale
+        ? `<br><span class="badge warn" title="${te("hosts.old_lists_title")}">${te("hosts.old_lists")}</span>` : ""}</td>
     </tr>`;
   }).join("");
-  $("#hosts-note").textContent = "Checked with every Check all, read only: LUM does not update or reboot the "
-    + "Proxmox host. Update it yourself: apt update && apt full-upgrade (Proxmox: not apt upgrade).";
 }
 
 // list filter: all | updates | security (stored per browser)
@@ -147,20 +146,21 @@ let lastQueue = [];
 function restartBadge(c) {
   if (c.status !== "running" || !c.restart_required) return "";
   const why = [
-    c.restart_reboot ? (c.type === "qemu" ? "A newer kernel is installed or the system asks for a reboot."
-      : "The system asks for a reboot.") : "",
-    c.restart_services.length ? `Still running the old code of updated libraries: ${
-      c.restart_services.map((s) => s.replace(/\.service$/, "")).join(", ")}` : "",
+    c.restart_reboot ? t(c.type === "qemu" ? "guest.restart_vm" : "guest.restart_flag") : "",
+    c.restart_services.length
+      ? t("guest.restart_services", { services: c.restart_services.map((s) => s.replace(/\.service$/, "")).join(", ") })
+      : "",
   ].filter(Boolean).join("\n");
-  return `<br><span class="badge warn" title="${esc(why)}">restart required</span>`;
+  return `<br><span class="badge warn" title="${esc(why)}">${te("guest.restart_required")}</span>`;
 }
 
-const fmtKb = (kb) => (kb >= 1048576 ? `${(kb / 1048576).toFixed(1)} GB` : `${Math.floor(kb / 1024)} MB`);
+// 3.8 GB / 3,8 GB depending on the language
+const fmtNum = (n) => n.toLocaleString(I18N.locale, { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+const fmtKb = (kb) => (kb >= 1048576 ? `${fmtNum(kb / 1048576)} GB` : `${Math.floor(kb / 1024)} MB`);
 
 function diskBadge(c) {
   if (c.status !== "running" || !c.low_disk) return "";
-  return `<br><span class="badge err" title="${esc(`Only ${fmtKb(c.disk_free_kb)} of ${fmtKb(c.disk_size_kb)} free in / – `
-    + "an update needs more (LUM_MIN_FREE_MB). Free up space or enlarge the disk.")}">low disk</span>`;
+  return `<br><span class="badge err" title="${te("guest.low_disk_title", { free: fmtKb(c.disk_free_kb), size: fmtKb(c.disk_size_kb) })}">${te("guest.low_disk")}</span>`;
 }
 
 // no App update button: VMs, containers tagged no-app, apps that only come with
@@ -171,25 +171,25 @@ const noAppUpdate = (c) => c.type === "qemu" || c.no_app || c.app_kind === "os" 
 // check - Docker, unknown - the button stays usable)
 const appUpToDate = (c) => Boolean(c.app_installed && c.app_latest && !c.app_update);
 
-const AUTO_LABEL = { os: "auto: OS", all: "auto: OS + app" };
+const autoLabel = (mode) => t(`auto.label_${mode === "os" || mode === "all" ? mode : "off"}`);
 let clusterNodes = 0; // > 1: show each guest's node
 let maintenance = null;
 
 // per guest: "auto: off / OS / OS + app" - a click opens the auto-update dialog for it
 function autoTag(c) {
-  const on = Boolean(AUTO_LABEL[c.auto_update]);
-  const when = !on ? "Click to update this guest automatically in the maintenance window"
-    : maintenance?.next ? `Updated automatically in the maintenance window – next: ${fmtTime(maintenance.next)}`
-      : "Updated automatically in the maintenance window – none set yet (☰ → Settings → Auto-update)";
+  const on = c.auto_update === "os" || c.auto_update === "all";
+  const when = !on ? t("auto.tag_off_title")
+    : maintenance?.next ? t("auto.tag_next_title", { time: fmtTime(maintenance.next) })
+      : t("auto.tag_nowindow_title");
   return `<button type="button" class="tag-button ${on ? "on" : ""}" data-act="auto" data-id="${c.vmid}"
-    title="${esc(when)}">${on ? AUTO_LABEL[c.auto_update] : "auto: off"}</button>`;
+    title="${esc(when)}">${esc(autoLabel(c.auto_update))}</button>`;
 }
 
 function maintenanceText(m) {
   if (!m) return "";
-  if (m.running) return " · Auto-update running";
-  if (m.next) return ` · Auto-update: ${fmtTime(m.next)} (${m.guests} guest${m.guests === 1 ? "" : "s"})`;
-  return m.guests ? " · Auto-update: no window set" : "";
+  if (m.running) return ` · ${t("status.auto_running")}`;
+  if (m.next) return ` · ${t("status.auto_next", { time: fmtTime(m.next), count: m.guests })}`;
+  return m.guests ? ` · ${t("status.auto_nowindow")}` : "";
 }
 
 function renderContainers(all) {
@@ -199,47 +199,46 @@ function renderContainers(all) {
   $("#containers").innerHTML = list.map((c) => {
     const running = c.status === "running";
     return `<tr>
-      <td data-label="ID"><label class="sel"><input type="checkbox" data-sel="${c.vmid}" aria-label="Select ${c.vmid}"
-        ${selected.has(String(c.vmid)) ? "checked" : ""} ${running ? "" : "disabled"}>${c.vmid}</label><br><span class="tag">${c.type === "qemu" ? "VM" : "LXC"}</span>${clusterNodes > 1 && c.node ? `<span class="tag" title="Cluster node">${esc(c.node)}</span>` : ""}</td>
-      <td data-label="Name"><strong>${esc(c.name)}</strong>${c.self ? ' <span class="badge muted" title="LUM runs in this container">LUM</span>' : ""}<br>${autoTag(c)}${c.tags.length ? "<br>" : ""}${c.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("")}</td>
-      <td data-label="Status"><span class="badge ${running ? "ok" : "muted"}">${esc(c.status)}</span>${restartBadge(c)}${diskBadge(c)}${queued.has(c.vmid) ? '<br><span class="tag">queued</span>' : ""}</td>
-      <td data-label="Package manager">${esc(c.pkg_manager || "–")}${c.community_script ? '<br><span class="tag">community-script</span>' : ""}</td>
-      <td data-label="OS updates">${updatesCell(c)}</td>
-      <td data-label="App">${appCell(c)}</td>
-      <td data-label="Last check" class="muted">${fmtTime(c.last_check)}</td>
+      <td data-label="${te("col.id")}"><label class="sel"><input type="checkbox" data-sel="${c.vmid}" aria-label="${te("bulk.select_guest", { id: c.vmid })}"
+        ${selected.has(String(c.vmid)) ? "checked" : ""} ${running ? "" : "disabled"}>${c.vmid}</label><br><span class="tag">${c.type === "qemu" ? "VM" : "LXC"}</span>${clusterNodes > 1 && c.node ? `<span class="tag" title="${te("guest.cluster_node")}">${esc(c.node)}</span>` : ""}</td>
+      <td data-label="${te("col.name")}"><strong>${esc(c.name)}</strong>${c.self ? ` <span class="badge muted" title="${te("guest.self_title")}">LUM</span>` : ""}<br>${autoTag(c)}${c.tags.length ? "<br>" : ""}${c.tags.map((tag) => `<span class="tag">#${esc(tag)}</span>`).join("")}</td>
+      <td data-label="${te("col.status")}"><span class="badge ${running ? "ok" : "muted"}">${esc(I18N.has(`state.${c.status}`) ? t(`state.${c.status}`) : c.status)}</span>${restartBadge(c)}${diskBadge(c)}${queued.has(c.vmid) ? `<br><span class="tag">${te("guest.queued")}</span>` : ""}</td>
+      <td data-label="${te("col.pkg_manager")}">${esc(c.pkg_manager || "–")}${c.community_script ? '<br><span class="tag">community-script</span>' : ""}</td>
+      <td data-label="${te("col.os_updates")}">${updatesCell(c)}</td>
+      <td data-label="${te("col.app")}">${appCell(c)}</td>
+      <td data-label="${te("col.last_check")}" class="muted">${fmtTime(c.last_check)}</td>
       <td class="actions">
         ${c.checking
-          ? '<button disabled><span class="spinner"></span>Checking …</button>'
-          : `<button data-act="check" data-id="${c.vmid}" ${!running || c.busy ? "disabled" : ""}>Check</button>`}
-        <button data-act="os" data-id="${c.vmid}" ${!running || c.busy || !c.upgradable.length ? "disabled" : ""}>OS update</button>
+          ? `<button disabled><span class="spinner"></span>${te("action.checking")}</button>`
+          : `<button data-act="check" data-id="${c.vmid}" ${!running || c.busy ? "disabled" : ""}>${te("action.check")}</button>`}
+        <button data-act="os" data-id="${c.vmid}" ${!running || c.busy || !c.upgradable.length ? "disabled" : ""}>${te("action.os_update")}</button>
         ${noAppUpdate(c)
           // invisible stand-in keeps the buttons aligned in the table
-          ? '<button class="placeholder" tabindex="-1" aria-hidden="true" disabled>App update</button>'
+          ? `<button class="placeholder" tabindex="-1" aria-hidden="true" disabled>${te("action.app_update")}</button>`
           : `<button data-act="app" data-id="${c.vmid}" ${!running || c.busy || !c.community_script || appUpToDate(c) ? "disabled" : ""}
-          class="${c.app_update ? "primary" : ""}"${appUpToDate(c) ? ` title="${esc(`No app update found – ${c.app_installed} is the latest version`)}"` : ""}>App update</button>`}
+          class="${c.app_update ? "primary" : ""}"${appUpToDate(c) ? ` title="${te("app.up_to_date_title", { version: c.app_installed })}"` : ""}>${te("action.app_update")}</button>`}
         ${running && c.restart_required ? `<button data-act="restart" data-id="${c.vmid}" ${c.busy ? "disabled" : ""}
-          title="Reboot the ${c.type === "qemu" ? "VM" : "container"} so it runs the updated code">Restart</button>` : ""}
+          title="${te(c.type === "qemu" ? "action.restart_title_vm" : "action.restart_title_ct")}">${te("action.restart")}</button>` : ""}
         <button data-act="backups" data-id="${c.vmid}" ${c.busy || c.restore_points === 0 ? "disabled" : ""}
-          title="${c.restore_points === 0 ? "No snapshots or vzdump backups made by LUM"
-            : "Snapshots and vzdump backups: roll back, restore, delete"}">Backups</button>
+          title="${te(c.restore_points === 0 ? "action.backups_none_title" : "action.backups_title")}">${te("action.backups")}</button>
       </td>
     </tr>`;
-  }).join("") || `<tr><td colspan="8" class="muted">${all.length
-    ? (listFilter === "security" ? "No container or VM has security updates." : "No container or VM has updates.")
-    : "No containers or VMs found."}</td></tr>`;
+  }).join("") || `<tr><td colspan="8" class="muted">${te(all.length
+    ? (listFilter === "security" ? "guest.none_security" : "guest.none_updates")
+    : "guest.none")}</td></tr>`;
 }
 
-const KIND = { os: "OS update", app: "App update", rollback: "Rollback", restore: "Restore", restart: "Restart" };
+const kindLabel = (kind) => (I18N.has(`kind.${kind}`) ? t(`kind.${kind}`) : kind);
 
-const fmtSize = (bytes) => (bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.round((bytes || 0) / 1e6)} MB`);
+const fmtSize = (bytes) => (bytes >= 1e9 ? `${fmtNum(bytes / 1e9)} GB` : `${Math.round((bytes || 0) / 1e6)} MB`);
 
 function backupCell(h) {
   if (h.kind === "rollback") return `<span class="muted">→ ${esc(h.detail)}</span>`;
   if (h.kind === "restore") return `<span class="muted">← vzdump ${fmtTime(Number(h.detail))}</span>`;
   if (!h.backup_kind) return `<span class="muted">–</span>`;
-  const label = h.backup_kind === "snapshot" ? `Snapshot ${esc(h.backup_ref)}` : `vzdump → ${esc(h.backup_ref)}`;
+  const label = h.backup_kind === "snapshot" ? `${te("history.snapshot")} ${esc(h.backup_ref)}` : `vzdump → ${esc(h.backup_ref)}`;
   return h.backup_removed
-    ? `<s class="muted" title="deleted (cleanup, Delete or a restore)">${label}</s>`
+    ? `<s class="muted" title="${te("history.backup_removed_title")}">${label}</s>`
     : label;
 }
 
@@ -251,28 +250,28 @@ function renderHistory(list) {
     const canRollback = h.kind !== "rollback" && h.backup_kind === "snapshot" && !h.backup_removed && h.finished;
     const canDeleteVzdump = h.backup_kind === "vzdump" && !h.backup_removed && h.finished;
     return `<tr>
-      <td data-label="Time">${fmtTime(h.started)}</td><td data-label="ID">${guestLabel(h.vmid)}</td>
-      <td data-label="Name">${h.name ? esc(h.name) : '<span class="muted">–</span>'}</td>
-      <td data-label="Type">${KIND[h.kind] || esc(h.kind)}${h.auto ? ' <span class="tag auto" title="Started by the maintenance window">auto</span>' : ""}</td>
-      <td data-label="Result">${h.success == null ? '<span class="badge warn">running</span>'
-        : h.success ? '<span class="badge ok">succeeded</span>' : '<span class="badge err">failed</span>'}</td>
-      <td data-label="Backup">${backupCell(h)}</td>
+      <td data-label="${te("col.time")}">${fmtTime(h.started)}</td><td data-label="${te("col.id")}">${guestLabel(h.vmid)}</td>
+      <td data-label="${te("col.name")}">${h.name ? esc(h.name) : '<span class="muted">–</span>'}</td>
+      <td data-label="${te("col.type")}">${esc(kindLabel(h.kind))}${h.auto ? ` <span class="tag auto" title="${te("history.auto_title")}">auto</span>` : ""}</td>
+      <td data-label="${te("col.result")}">${h.success == null ? `<span class="badge warn">${te("result.running")}</span>`
+        : h.success ? `<span class="badge ok">${te("result.ok")}</span>` : `<span class="badge err">${te("result.failed")}</span>`}</td>
+      <td data-label="${te("col.backup")}">${backupCell(h)}</td>
       <td class="actions">
-        ${canRollback ? `<button data-act="rollback" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}">Rollback</button>
-          <button data-act="delsnap" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}" data-task="snap:${h.vmid}:${esc(h.backup_ref)}" class="danger">Delete</button>` : ""}
-        ${canDeleteVzdump ? `<button data-act="delhistbackup" data-id="${h.id}" data-task="hist:${h.id}" class="danger" title="Delete the vzdump backup made before this update">Delete</button>` : ""}
-        <button data-act="log" data-id="${h.id}"${h.log_removed ? ' title="Removed by the log rotation (LUM_LOG_DAYS)"' : ""}>Log</button>
-        ${h.finished ? `<button data-act="delhist" data-id="${h.id}" title="Remove this entry from the history">Remove</button>` : ""}
+        ${canRollback ? `<button data-act="rollback" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}">${te("action.rollback")}</button>
+          <button data-act="delsnap" data-id="${h.vmid}" data-snap="${esc(h.backup_ref)}" data-task="snap:${h.vmid}:${esc(h.backup_ref)}" class="danger">${te("common.delete")}</button>` : ""}
+        ${canDeleteVzdump ? `<button data-act="delhistbackup" data-id="${h.id}" data-task="hist:${h.id}" class="danger" title="${te("history.delete_backup_title")}">${te("common.delete")}</button>` : ""}
+        <button data-act="log" data-id="${h.id}"${h.log_removed ? ` title="${te("history.log_removed_title")}"` : ""}>${te("common.log")}</button>
+        ${h.finished ? `<button data-act="delhist" data-id="${h.id}" title="${te("history.remove_title")}">${te("common.remove")}</button>` : ""}
       </td>
     </tr>`;
-  }).join("") || `<tr><td colspan="7" class="muted">No updates run yet.</td></tr>`;
+  }).join("") || `<tr><td colspan="7" class="muted">${te("history.empty")}</td></tr>`;
   renderTasks();
 }
 
 // Own confirm/message dialog. window.confirm()/alert() can be switched off by
 // the browser ("prevent this page from creating additional dialogs"), after
 // which confirm() returns false silently and buttons seem to do nothing.
-function ask({ title, text, ok = "OK", danger = false, cancel = true }) {
+function ask({ title, text, ok = t("common.ok"), danger = false, cancel = true }) {
   return new Promise((resolve) => {
     const dlg = $("#ask-dialog");
     $("#ask-title").textContent = title;
@@ -295,34 +294,35 @@ function ask({ title, text, ok = "OK", danger = false, cancel = true }) {
   });
 }
 
-const showError = (text) => ask({ title: "Error", text, cancel: false });
+const showError = (text) => ask({ title: t("common.error"), text, cancel: false });
 
 // Deleting a snapshot or backup takes a while (ZFS/LVM, pvesm free on a PBS) and
 // reports no progress of its own. Show it as a running task with the elapsed time:
 // in a panel bottom right and on the button. Both survive the re-rendering every 5 s.
 const tasks = new Map(); // key -> { label, start, done }
 
-const elapsed = (t) => `${Math.round(((t.done || Date.now()) - t.start) / 1000)} s`;
+const elapsed = (task) => `${Math.round(((task.done || Date.now()) - task.start) / 1000)} s`;
 
 // "Clear history" with snapshots / backups runs on the server; shown with the tasks
 let serverCleanup = null;
 
 function cleanupTask(cl) {
   if (!cl || (cl.state === "done" && cl.since_finished > 20)) return "";
-  const what = [cl.snapshots && "snapshots", cl.backups && "backups"].filter(Boolean).join(" and ");
-  const details = [...cl.failed.map((f) => `failed: ${f}`), ...cl.skipped.map((f) => `skipped: ${f}`)].join("\n");
+  const details = [...cl.failed.map((f) => t("tasks.failed_item", { item: f })),
+    ...cl.skipped.map((f) => t("tasks.skipped_item", { item: f }))].join("\n");
   if (cl.state !== "done") {
-    const progress = cl.state === "collecting" ? "looking for them" : `${cl.done} of ${cl.total}`;
-    return `<div class="task"><span class="spinner"></span><span>Deleting all LUM ${what} … ${progress}</span>`
+    const what = t(cl.snapshots && cl.backups ? "tasks.what_both" : cl.snapshots ? "tasks.what_snapshots" : "tasks.what_backups");
+    const progress = cl.state === "collecting" ? t("tasks.looking") : t("tasks.of", { done: cl.done, total: cl.total });
+    return `<div class="task"><span class="spinner"></span><span>${te("tasks.deleting_all", { what, progress })}</span>`
       + `<span class="elapsed">${cl.elapsed} s</span></div>`;
   }
-  const parts = [`${cl.deleted_snapshots} snapshot${cl.deleted_snapshots === 1 ? "" : "s"}`,
-    `${cl.deleted_backups} backup${cl.deleted_backups === 1 ? "" : "s"} deleted`];
-  if (cl.skipped.length) parts.push(`${cl.skipped.length} skipped`);
-  if (cl.failed.length) parts.push(`${cl.failed.length} failed`);
+  const parts = [t("tasks.snapshots_deleted", { count: cl.deleted_snapshots }),
+    t("tasks.backups_deleted", { count: cl.deleted_backups })];
+  if (cl.skipped.length) parts.push(t("tasks.n_skipped", { count: cl.skipped.length }));
+  if (cl.failed.length) parts.push(t("tasks.n_failed", { count: cl.failed.length }));
   return `<div class="task ${cl.failed.length ? "err" : "ok"}" title="${esc(details)}">`
     + `<span class="${cl.failed.length ? "err" : "ok"}">${cl.failed.length ? "✘" : "✔"}</span>`
-    + `<span>${parts.join(", ")}</span><span class="elapsed">${cl.elapsed} s</span></div>`;
+    + `<span>${esc(parts.join(", "))}</span><span class="elapsed">${cl.elapsed} s</span></div>`;
 }
 
 // "Check all" runs on the server: progress (and its result for a few seconds) in the panel
@@ -331,26 +331,26 @@ let fastLoad = null;
 
 function refreshTask({ running, done } = {}) {
   if (running) {
-    const progress = running.total == null ? "reading the list" : `${running.done} of ${running.total}`;
-    return `<div class="task"><span class="spinner"></span><span>Checking all containers and VMs … ${progress}</span>`
+    const progress = running.total == null ? t("tasks.reading_list") : t("tasks.of", { done: running.done, total: running.total });
+    return `<div class="task"><span class="spinner"></span><span>${te("tasks.checking_all", { progress })}</span>`
       + `<span class="elapsed">${running.elapsed} s</span></div>`;
   }
   if (done && done.ago <= 8) {
-    return `<div class="task ok"><span class="ok">✔</span><span>Checked ${done.total} container${done.total === 1 ? "" : "s"} / VMs</span>`
+    return `<div class="task ok"><span class="ok">✔</span><span>${te("tasks.checked", { count: done.total })}</span>`
       + `<span class="elapsed">${done.seconds} s</span></div>`;
   }
   return "";
 }
 
 function renderTasks() {
-  $("#tasks").innerHTML = refreshTask(serverRefresh) + cleanupTask(serverCleanup) + [...tasks.values()].map((t) => t.done
-    ? `<div class="task ok"><span class="ok">✔</span><span>${esc(t.doneText)}</span><span class="elapsed">${elapsed(t)}</span></div>`
-    : `<div class="task"><span class="spinner"></span><span>${esc(t.label)} …</span><span class="elapsed">${elapsed(t)}</span></div>`).join("");
+  $("#tasks").innerHTML = refreshTask(serverRefresh) + cleanupTask(serverCleanup) + [...tasks.values()].map((task) => task.done
+    ? `<div class="task ok"><span class="ok">✔</span><span>${esc(task.doneText)}</span><span class="elapsed">${elapsed(task)}</span></div>`
+    : `<div class="task"><span class="spinner"></span><span>${esc(task.label)} …</span><span class="elapsed">${elapsed(task)}</span></div>`).join("");
   document.querySelectorAll("button[data-task]").forEach((b) => {
-    const t = tasks.get(b.dataset.task);
-    if (t && !t.done) {
+    const task = tasks.get(b.dataset.task);
+    if (task && !task.done) {
       b.disabled = true;
-      b.innerHTML = `<span class="spinner"></span>${elapsed(t)}`;
+      b.innerHTML = `<span class="spinner"></span>${elapsed(task)}`;
     }
   });
 }
@@ -374,7 +374,7 @@ async function runTask(key, label, doneText, fn) {
   }
 }
 
-setInterval(() => { if ([...tasks.values()].some((t) => !t.done)) renderTasks(); }, 1000);
+setInterval(() => { if ([...tasks.values()].some((task) => !task.done)) renderTasks(); }, 1000);
 
 let backupsVmid = null; // guest shown in the Backups dialog
 
@@ -391,9 +391,9 @@ function snapMsg(text, cls = "muted") {
 
 async function showBackups(vmid) {
   backupsVmid = vmid;
-  $("#snap-title").textContent = `Backups of ${guestLabel(vmid)}`;
-  $("#snap-list").innerHTML = `<tr><td class="muted">Loading …</td></tr>`;
-  $("#vz-list").innerHTML = `<tr><td class="muted">Loading …</td></tr>`;
+  $("#snap-title").textContent = t("backups.title", { guest: guestLabel(vmid) });
+  $("#snap-list").innerHTML = `<tr><td class="muted">${te("common.loading")}</td></tr>`;
+  $("#vz-list").innerHTML = `<tr><td class="muted">${te("common.loading")}</td></tr>`;
   if (!$("#snap-dialog").open) {
     snapMsg("");
     $("#snap-dialog").showModal();
@@ -403,10 +403,10 @@ async function showBackups(vmid) {
     $("#snap-list").innerHTML = snaps.map((x) => `<tr>
         <td>${esc(x.name)}</td><td class="muted">${fmtTime(x.snaptime)}</td>
         <td class="actions">
-          <button data-act="rollback" data-id="${vmid}" data-snap="${esc(x.name)}">Rollback</button>
-          <button data-act="delsnap" data-id="${vmid}" data-snap="${esc(x.name)}" data-task="snap:${vmid}:${esc(x.name)}" class="danger">Delete</button>
+          <button data-act="rollback" data-id="${vmid}" data-snap="${esc(x.name)}">${te("action.rollback")}</button>
+          <button data-act="delsnap" data-id="${vmid}" data-snap="${esc(x.name)}" data-task="snap:${vmid}:${esc(x.name)}" class="danger">${te("common.delete")}</button>
         </td>
-      </tr>`).join("") || `<tr><td class="muted">No snapshots made by the update manager.</td></tr>`;
+      </tr>`).join("") || `<tr><td class="muted">${te("backups.no_snapshots")}</td></tr>`;
   } catch (err) {
     $("#snap-list").innerHTML = `<tr><td class="err">${esc(err.message)}</td></tr>`;
   }
@@ -415,12 +415,12 @@ async function showBackups(vmid) {
     $("#vz-list").innerHTML = backups.map((b) => `<tr>
         <td>${fmtTime(b.ctime)}</td><td class="muted">${esc(b.storage)} · ${fmtSize(b.size)}</td>
         <td class="actions">
-          <button data-act="restore" data-id="${vmid}" data-backup="${b.id}">Restore</button>
+          <button data-act="restore" data-id="${vmid}" data-backup="${b.id}">${te("action.restore")}</button>
           ${b.protected
-            ? '<span class="tag" title="Protected in Proxmox – remove the protection there to delete it">protected</span>'
-            : `<button data-act="delbackup" data-id="${vmid}" data-backup="${b.id}" data-task="vz:${vmid}:${b.id}" class="danger">Delete</button>`}
+            ? `<span class="tag" title="${te("backups.protected_title")}">${te("backups.protected")}</span>`
+            : `<button data-act="delbackup" data-id="${vmid}" data-backup="${b.id}" data-task="vz:${vmid}:${b.id}" class="danger">${te("common.delete")}</button>`}
         </td>
-      </tr>`).join("") || `<tr><td class="muted">No vzdump backups made by the update manager.</td></tr>`;
+      </tr>`).join("") || `<tr><td class="muted">${te("backups.no_vzdump")}</td></tr>`;
   } catch (err) {
     $("#vz-list").innerHTML = `<tr><td class="err">${esc(err.message)}</td></tr>`;
   }
@@ -431,46 +431,45 @@ let backupCfg = null;
 let cleanupDefault = true;
 
 function backupText(b) {
-  if (b.mode === "snapshot") return `Backup: snapshot (keeps ${b.keep})`;
-  if (b.mode === "vzdump") return `Backup: vzdump → ${b.storage} (keeps ${b.keep})`;
-  return "Backup: none";
+  if (b.mode === "snapshot") return t("status.backup_snapshot", { keep: b.keep });
+  if (b.mode === "vzdump") return t("status.backup_vzdump", { storage: b.storage, keep: b.keep });
+  return t("status.backup_none");
 }
 
 async function load() {
   try {
     const [status, containers, history] = await Promise.all([api("/api/status"), api("/api/containers"), api("/api/history")]);
-    $("#status").textContent = (status.refreshing ? "Checking containers and VMs … · " : "")
-      + `Last check: ${fmtTime(status.last_refresh)}`
-      + (status.last_refresh && !status.refreshing ? ` (next ${fmtTime(Math.max(status.next_refresh, Date.now() / 1000))})` : "")
+    const offline = (status.nodes || []).filter((n) => !n.online).length;
+    $("#status").textContent = (status.refreshing ? `${t("status.checking")} · ` : "")
+      + t("status.last_check", { time: fmtTime(status.last_refresh) })
+      + (status.last_refresh && !status.refreshing
+        ? ` ${t("status.next", { time: fmtTime(Math.max(status.next_refresh, Date.now() / 1000)) })}` : "")
       + ` · ${backupText(status.backup)}`
-      + (status.hidden.length ? ` · ${status.hidden.length} hidden (tag no-lum)` : "")
+      + (status.hidden.length ? ` · ${t("status.hidden", { count: status.hidden.length })}` : "")
       + maintenanceText(status.maintenance)
       + ((status.nodes || []).length > 1
-        ? ` · Cluster: ${status.nodes.length} nodes${status.nodes.some((n) => !n.online) ? ` (${status.nodes.filter((n) => !n.online).length} offline)` : ""}`
+        ? ` · ${t("status.cluster", { count: status.nodes.length })}${offline ? ` ${t("status.offline", { count: offline })}` : ""}`
         : "")
-      + (status.demo ? " · DEMO mode" : "");
-    $("#status").title = status.hidden.length ? `Not managed by LUM (Proxmox tag "no-lum"): ${status.hidden.join(", ")}` : "";
+      + (status.demo ? ` · ${t("status.demo")}` : "");
+    $("#status").title = status.hidden.length ? t("status.hidden_title", { ids: status.hidden.join(", ") }) : "";
     $("#version").textContent = `LUM v${status.version}`;
     const hs = status.host_script;
     const update = "bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update";
     $("#host-warning").hidden = !hs.outdated && !hs.nodes_outdated?.length;
     if (hs.outdated) {
-      $("#host-warning").textContent = `The host script on the Proxmox host is outdated (version ${hs.version}, `
-        + `needs ${hs.required}) – some functions will fail. Update it on the host: ${update}`;
+      $("#host-warning").textContent = t("warn.host_outdated", { version: hs.version, required: hs.required, command: update });
     } else if (hs.nodes_outdated?.length) {
-      $("#host-warning").textContent = `The host script is missing or outdated on node${hs.nodes_outdated.length === 1 ? "" : "s"} `
-        + `${hs.nodes_outdated.join(", ")} – guests there can't be checked or updated. Run on the node of the LUM `
-        + `container (it updates all nodes): ${update}`;
+      $("#host-warning").textContent = t("warn.nodes_outdated",
+        { count: hs.nodes_outdated.length, nodes: hs.nodes_outdated.join(", "), command: update });
     }
     clusterNodes = (status.nodes || []).length;
-    $("#refresh").disabled = status.refreshing;
     backupCfg = status.backup;
     cleanupDefault = status.cleanup;
     maintenance = status.maintenance;
     serverCleanup = status.purge;
     serverRefresh = { running: status.refresh, done: status.refresh_done };
     $("#refresh").disabled = Boolean(status.refresh);
-    $("#refresh").innerHTML = status.refresh ? '<span class="spinner"></span>Checking …' : "Check all";
+    $("#refresh").innerHTML = status.refresh ? `<span class="spinner"></span>${te("action.checking")}` : te("header.check_all");
     // while something is checked, look more often so the progress moves
     if (status.refresh || containers.some((c) => c.checking)) {
       clearTimeout(fastLoad);
@@ -489,7 +488,7 @@ async function load() {
     renderQueue(status.queue);
     renderHistory(history);
   } catch (err) {
-    $("#status").textContent = `Error: ${err.message}`;
+    $("#status").textContent = t("common.error_msg", { msg: err.message });
   }
 }
 
@@ -502,17 +501,15 @@ function askUpdate(target, kind, extra = "", vmidForNotes = null) {
     const form = $("#upd-form");
     const box = form.backup;
     const mode = backupCfg?.mode || "none";
-    $("#upd-title").textContent = `${kind === "os" ? "OS update" : "App update (community script)"} – ${target}`;
+    $("#upd-title").textContent = t(kind === "os" ? "upd.title_os" : "upd.title_app", { target });
     $("#upd-extra").textContent = extra;
     $("#upd-extra").hidden = !extra;
     $("#upd-notes").hidden = true;
     $("#upd-notes").innerHTML = "";
     dlg.classList.remove("wide");
     if (kind === "app" && vmidForNotes) showReleaseNotes(vmidForNotes, dlg);
-    $("#upd-backup-label").textContent = {
-      snapshot: "Create a snapshot before the update",
-      vzdump: `Create a vzdump backup to ${backupCfg?.storage} before the update`,
-    }[mode] || "Create a backup before the update";
+    $("#upd-backup-label").textContent = mode === "snapshot" ? t("upd.backup_snapshot")
+      : mode === "vzdump" ? t("upd.backup_vzdump", { storage: backupCfg?.storage }) : t("upd.backup_generic");
     box.disabled = mode === "none";
     box.checked = mode !== "none";
     // apt autoremove / clean: OS updates only
@@ -522,15 +519,13 @@ function askUpdate(target, kind, extra = "", vmidForNotes = null) {
     const note = () => {
       const el = $("#upd-note");
       if (mode === "none") {
-        el.textContent = "Backups are turned off (LUM_BACKUP_MODE=none).";
+        el.textContent = t("upd.backup_off");
         el.className = "muted";
       } else if (!box.checked) {
-        el.textContent = "Without a backup this update cannot be rolled back.";
+        el.textContent = t("upd.no_backup_warn");
         el.className = "warn-text";
       } else {
-        el.textContent = mode === "snapshot"
-          ? "You can roll back to it from the history or the Backups button."
-          : "You can restore it under the Backups button.";
+        el.textContent = t(mode === "snapshot" ? "upd.rollback_hint" : "upd.restore_hint");
         el.className = "muted";
       }
     };
@@ -594,31 +589,31 @@ const BREAKING = /\b(breaking|migration|migrate|deprecated)\b/i;
 
 async function showReleaseNotes(vmid, dlg) {
   const box = $("#upd-notes");
-  box.innerHTML = '<div class="notes-head">Loading the release notes …</div>';
+  box.innerHTML = `<div class="notes-head">${te("notes.loading")}</div>`;
   box.hidden = false;
   try {
     const n = await api(`/api/containers/${vmid}/release-notes`);
     if (!dlg.open) return;
     if (!n.releases.length) {
       box.innerHTML = n.error
-        ? `<div class="notes-head">${esc(n.error)}${n.url ? ` – <a href="${esc(n.url)}" target="_blank" rel="noopener">release page</a>` : ""}</div>`
+        ? `<div class="notes-head">${esc(n.error)}${n.url ? ` – <a href="${esc(n.url)}" target="_blank" rel="noopener">${te("notes.release_page")}</a>` : ""}</div>`
         : "";
       box.hidden = !n.error;
       return;
     }
     dlg.classList.add("wide");
     const releases = n.releases.map((r, i) => `<details ${i === 0 ? "open" : ""}>
-        <summary>${esc(r.name || r.tag)}<span class="when">${r.published ? esc(new Date(r.published).toLocaleDateString("en-GB")) : ""}</span>
-          ${BREAKING.test(r.body) ? '<span class="badge warn" title="The notes mention breaking changes or a migration">read before updating</span>' : ""}</summary>
-        <div class="note">${markdown(r.body || "") || '<p class="muted">No description.</p>'}
-          ${r.cut || r.url ? `<p><a href="${esc(r.url)}" target="_blank" rel="noopener">${r.cut ? "continue reading" : "release page"}</a></p>` : ""}</div>
+        <summary>${esc(r.name || r.tag)}<span class="when">${r.published ? esc(new Date(r.published).toLocaleDateString(I18N.locale)) : ""}</span>
+          ${BREAKING.test(r.body) ? `<span class="badge warn" title="${te("notes.breaking_title")}">${te("notes.breaking")}</span>` : ""}</summary>
+        <div class="note">${markdown(r.body || "") || `<p class="muted">${te("notes.no_description")}</p>`}
+          ${r.cut || r.url ? `<p><a href="${esc(r.url)}" target="_blank" rel="noopener">${te(r.cut ? "notes.continue" : "notes.release_page")}</a></p>` : ""}</div>
       </details>`).join("");
     const count = n.releases.length + n.more;
-    box.innerHTML = `<div class="notes-head">What's new: ${count} release${count === 1 ? "" : "s"} from ${esc(n.installed)} to ${esc(n.latest)}</div>`
+    box.innerHTML = `<div class="notes-head">${te("notes.head", { count, installed: n.installed, latest: n.latest })}</div>`
       + releases
-      + (n.more ? `<div class="notes-foot">… and ${n.more} older ones – <a href="${esc(n.url)}" target="_blank" rel="noopener">all release notes</a></div>` : "");
+      + (n.more ? `<div class="notes-foot">${te("notes.more", { count: n.more })} – <a href="${esc(n.url)}" target="_blank" rel="noopener">${te("notes.all")}</a></div>` : "");
   } catch (err) {
-    box.innerHTML = `<div class="notes-head">Release notes not available: ${esc(err.message)}</div>`;
+    box.innerHTML = `<div class="notes-head">${te("notes.unavailable", { msg: err.message })}</div>`;
   }
 }
 
@@ -635,14 +630,16 @@ function appendLog(line) {
   if (atBottom) el.scrollTop = el.scrollHeight;
 }
 
+const resultLine = (success) => (success ? `✔ ${t("result.ok")}` : `✘ ${t("result.failed")}`);
+
 function followJob(job) {
-  openLog(`${guestLabel(job.vmid)} – ${KIND[job.kind]}${job.target ? ` (${job.target})` : ""}`);
+  openLog(`${guestLabel(job.vmid)} – ${kindLabel(job.kind)}${job.target ? ` (${job.target})` : ""}`);
   const proto = location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${proto}://${location.host}/ws/jobs/${job.id}`);
   ws.onmessage = (ev) => {
     if (ev.data.startsWith("{")) {
       const msg = JSON.parse(ev.data);
-      if (msg.done) { appendLog(msg.success ? "\n✔ succeeded" : "\n✘ failed"); load(); return; }
+      if (msg.done) { appendLog(`\n${resultLine(msg.success)}`); load(); return; }
     }
     appendLog(ev.data);
   };
@@ -656,7 +653,7 @@ document.addEventListener("click", async (ev) => {
     switch (btn.dataset.act) {
       case "check": {
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span>Checking …';
+        btn.innerHTML = `<span class="spinner"></span>${te("action.checking")}`;
         const done = api(`/api/containers/${id}/check`, { method: "POST" });
         setTimeout(load, 300); // the server marks it as checking: show that at once
         await done;
@@ -672,22 +669,23 @@ document.addEventListener("click", async (ev) => {
       }
       case "delsnap": {
         const snap = btn.dataset.snap;
+        const guest = guestLabel(id);
         const yes = await ask({
-          title: `Delete snapshot of ${guestLabel(id)}?`,
-          text: `${snap}\n\nYou can no longer roll back to it.`,
-          ok: "Delete",
+          title: t("ask.delsnap_title", { guest }),
+          text: t("ask.delsnap_text", { snap }),
+          ok: t("common.delete"),
           danger: true,
         });
         if (!yes) return;
         const inDialog = Boolean(btn.closest("#snap-dialog"));
         if (inDialog) snapMsg("");
         try {
-          await runTask(btn.dataset.task, `Deleting snapshot ${snap} of ${guestLabel(id)}`,
-            `Deleted snapshot ${snap} of ${guestLabel(id)}`,
+          await runTask(btn.dataset.task, t("tasks.deleting_snap", { snap, guest }), t("tasks.deleted_snap", { snap, guest }),
             () => api(`/api/containers/${id}/snapshots/${encodeURIComponent(snap)}`, { method: "DELETE" }));
         } catch (err) {
-          if (inDialog && $("#snap-dialog").open) snapMsg(`Could not delete ${snap}: ${err.message}`, "err");
-          else await showError(`Could not delete ${snap}: ${err.message}`);
+          const text = t("ask.delete_failed", { what: snap, msg: err.message });
+          if (inDialog && $("#snap-dialog").open) snapMsg(text, "err");
+          else await showError(text);
         }
         await refreshBackups(id);
         break;
@@ -697,21 +695,22 @@ document.addEventListener("click", async (ev) => {
         break;
       case "delbackup": {
         const when = fmtTime(Number(btn.dataset.backup));
+        const guest = guestLabel(id);
         const yes = await ask({
-          title: `Delete vzdump backup of ${guestLabel(id)}?`,
-          text: `Backup of ${when}\n\nIt is removed from the backup storage and can't be restored any more.`,
-          ok: "Delete",
+          title: t("ask.delbackup_title", { guest }),
+          text: t("ask.delbackup_text", { when }),
+          ok: t("common.delete"),
           danger: true,
         });
         if (!yes) return;
         snapMsg("");
         try {
-          await runTask(btn.dataset.task, `Deleting the vzdump backup of ${when} (${guestLabel(id)})`,
-            `Deleted the vzdump backup of ${when} (${guestLabel(id)})`,
+          await runTask(btn.dataset.task, t("tasks.deleting_backup", { when, guest }), t("tasks.deleted_backup", { when, guest }),
             () => api(`/api/containers/${id}/backups/${btn.dataset.backup}`, { method: "DELETE" }));
         } catch (err) {
-          if ($("#snap-dialog").open) snapMsg(`Could not delete the backup of ${when}: ${err.message}`, "err");
-          else await showError(`Could not delete the backup of ${when}: ${err.message}`);
+          const text = t("ask.delete_backup_failed", { when, msg: err.message });
+          if ($("#snap-dialog").open) snapMsg(text, "err");
+          else await showError(text);
         }
         await refreshBackups(id);
         break;
@@ -719,10 +718,9 @@ document.addEventListener("click", async (ev) => {
       case "restore": {
         const when = fmtTime(Number(btn.dataset.backup));
         const yes = await ask({
-          title: `Restore ${guestLabel(id)}?`,
-          text: `Backup of ${when}\n\nThe guest is shut down, replaced by the backup and started again if it `
-            + "was running. All changes since the backup are lost, and Proxmox deletes the guest's snapshots.",
-          ok: "Restore",
+          title: t("ask.restore_title", { guest: guestLabel(id) }),
+          text: t("ask.restore_text", { when }),
+          ok: t("action.restore"),
           danger: true,
         });
         if (!yes) return;
@@ -733,17 +731,14 @@ document.addEventListener("click", async (ev) => {
       case "restart": {
         const isSelf = lastContainers.find((c) => String(c.vmid) === id)?.self;
         const yes = await ask({
-          title: `Restart ${guestLabel(id)}?`,
-          text: "It is shut down and started again, so its services use the updated libraries "
-            + "(and a VM the new kernel). It is unavailable for a moment."
-            + (isSelf ? "\n\nLUM runs in this container: LUM restarts with it, and this page reloads "
-              + "when LUM is back (about half a minute)." : ""),
-          ok: "Restart",
+          title: t("ask.restart_title", { guest: guestLabel(id) }),
+          text: t("ask.restart_text") + (isSelf ? `\n\n${t("ask.restart_self")}` : ""),
+          ok: t("action.restart"),
         });
         if (!yes) return;
         followJob(await api(`/api/containers/${id}/restart`, { method: "POST" }));
         if (isSelf) {
-          notice("LUM is restarting with its container …");
+          notice(t("notice.self_restarting"));
           setTimeout(async () => { if (await waitForRestart()) location.reload(); }, 3000);
         }
         break;
@@ -751,10 +746,9 @@ document.addEventListener("click", async (ev) => {
       case "rollback": {
         const snap = btn.dataset.snap;
         const yes = await ask({
-          title: `Roll ${guestLabel(id)} back?`,
-          text: `Snapshot ${snap}\n\nIt will be shut down and started again afterwards. `
-            + "All changes since the snapshot will be lost.",
-          ok: "Roll back",
+          title: t("ask.rollback_title", { guest: guestLabel(id) }),
+          text: t("ask.rollback_text", { snap }),
+          ok: t("ask.rollback_ok"),
           danger: true,
         });
         if (!yes) return;
@@ -764,29 +758,24 @@ document.addEventListener("click", async (ev) => {
       }
       case "delhistbackup": {
         const h = historyById[id];
+        const guest = guestLabel(h.vmid);
         const yes = await ask({
-          title: `Delete vzdump backup of ${guestLabel(h.vmid)}?`,
-          text: `Backup on "${h.backup_ref}" made before the ${KIND[h.kind] || h.kind} of ${fmtTime(h.started)}`
-            + "\n\nIt is removed from the backup storage and can't be restored any more.",
-          ok: "Delete",
+          title: t("ask.delbackup_title", { guest }),
+          text: t("ask.delhistbackup_text", { storage: h.backup_ref, kind: kindLabel(h.kind), time: fmtTime(h.started) }),
+          ok: t("common.delete"),
           danger: true,
         });
         if (!yes) return;
-        const res = await runTask(btn.dataset.task, `Deleting the vzdump backup of ${guestLabel(h.vmid)}`,
-          `Deleted the vzdump backup of ${guestLabel(h.vmid)}`,
+        const res = await runTask(btn.dataset.task, t("tasks.deleting_backup_of", { guest }), t("tasks.deleted_backup_of", { guest }),
           () => api(`/api/history/${id}/backup`, { method: "DELETE" }));
-        if (res && res.deleted == null) {
-          await showError("The backup no longer exists on the storage – the entry is marked as deleted.");
-        }
+        if (res && res.deleted == null) await showError(t("ask.backup_gone"));
         break;
       }
       case "delhist": {
         const yes = await ask({
-          title: "Remove history entry?",
-          text: "The entry and its log are removed from the history.\n\n"
-            + "A snapshot or vzdump backup made for this update is not deleted – it stays "
-            + "available under the Backups button of the container or VM.",
-          ok: "Remove",
+          title: t("ask.delhist_title"),
+          text: t("ask.delhist_text"),
+          ok: t("common.remove"),
           danger: true,
         });
         if (!yes) return;
@@ -801,16 +790,18 @@ document.addEventListener("click", async (ev) => {
         if (!job.done) {
           followJob(job);
         } else {
-          openLog(`${guestLabel(job.vmid)} – ${KIND[job.kind] || job.kind}`);
-          $("#log").textContent = `${job.lines.join("\n")}\n\n${job.success ? "✔ succeeded" : "✘ failed"}`;
+          openLog(`${guestLabel(job.vmid)} – ${kindLabel(job.kind)}`);
+          $("#log").textContent = `${job.lines.join("\n")}\n\n${resultLine(job.success)}`;
         }
         break;
       }
-      case "log":
+      case "log": {
         const h = historyById[id];
-        openLog(h ? `${guestLabel(h.vmid)}${h.name ? ` ${h.name}` : ""} – ${KIND[h.kind] || h.kind} · ${fmtTime(h.started)}` : `History #${id}`);
+        openLog(h ? `${guestLabel(h.vmid)}${h.name ? ` ${h.name}` : ""} – ${kindLabel(h.kind)} · ${fmtTime(h.started)}`
+          : t("history.entry", { id }));
         $("#log").textContent = await api(`/api/history/${id}/log`);
         break;
+      }
     }
   } catch (err) {
     await showError(err.message);
@@ -827,14 +818,10 @@ function askClear() {
     const note = () => {
       const snaps = form.snapshots.checked;
       const backups = form.backups.checked;
-      $("#clear-ok").textContent = snaps || backups ? "Clear and delete" : "Clear history";
+      $("#clear-ok").textContent = t(snaps || backups ? "clear.ok_delete" : "history.clear");
       $("#clear-note").textContent = snaps || backups
-        ? `Deletes the ${[snaps && "snapshots", backups && "vzdump backups"].filter(Boolean).join(" and ")} `
-          + "LUM made, for every container and VM it manages – they can't be rolled back or restored "
-          + "any more. Your own snapshots and backups and protected backups are not touched. "
-          + "Runs in the background (bottom right)."
-        : "Snapshots and backups are not deleted – they stay available under each "
-          + "container's or VM's Backups button.";
+        ? t("clear.delete_note", { what: t(snaps && backups ? "clear.what_both" : snaps ? "clear.what_snapshots" : "clear.what_backups") })
+        : t("clear.keep_note");
       $("#clear-note").className = snaps || backups ? "warn-text" : "muted";
     };
     form.snapshots.onchange = note;
@@ -880,25 +867,20 @@ const bulkTargets = (kind) => lastContainers.filter((c) => selected.has(String(c
 
 function renderBulk() {
   const n = selected.size;
-  $("#bulk-count").textContent = n
-    ? `${n} selected`
-    : "Select containers and VMs to update several at once";
+  $("#bulk-count").textContent = n ? t("bulk.selected", { count: n }) : t("bulk.hint");
   // like the buttons in the rows: only usable when a selected guest has something to update
   const os = bulkTargets("os").length;
   const app = bulkTargets("app").length;
   $("#bulk-os").disabled = !os;
-  $("#bulk-os").title = n && !os ? "None of the selected guests has OS updates" : "";
+  $("#bulk-os").title = n && !os ? t("bulk.no_os") : "";
   $("#bulk-app").disabled = !app;
-  $("#bulk-app").title = n && !app ? "None of the selected guests has an app update" : "";
+  $("#bulk-app").title = n && !app ? t("bulk.no_app") : "";
   const restart = bulkTargets("restart").length;
   $("#bulk-restart").disabled = !restart;
-  $("#bulk-restart").title = !n ? "" : restart
-    ? "Restart the selected guests – all at the same time"
-    : "None of the selected guests can be restarted here (not running, or LUM's own container)";
+  $("#bulk-restart").title = !n ? "" : t(restart ? "bulk.restart_title" : "bulk.no_restart");
   $("#sel-none").hidden = !n;
   $("#bulk-auto").disabled = !n;
-  $("#bulk-auto").title = n ? "Update the selected guests automatically in the maintenance window"
-    : "Select guests first (checkboxes in the list), or click \"auto: …\" at a single guest";
+  $("#bulk-auto").title = t(n ? "bulk.auto_title" : "bulk.auto_hint");
   const running = visibleGuests(lastContainers).filter((c) => c.status === "running");
   const all = running.length > 0 && running.every((c) => selected.has(String(c.vmid)));
   $("#sel-all").checked = all;
@@ -925,7 +907,7 @@ $("#sel-all").addEventListener("change", (ev) => {
 
 $("#sel-updates").addEventListener("click", () => {
   setSelection(visibleGuests(lastContainers).filter(hasUpdates).map((c) => c.vmid));
-  if (!selected.size) notice("No container or VM has updates right now.");
+  if (!selected.size) notice(t("notice.no_updates"));
 });
 
 $("#sel-none").addEventListener("click", () => setSelection([]));
@@ -941,10 +923,8 @@ document.querySelectorAll("[data-filter]").forEach((b) => b.addEventListener("cl
 async function bulkUpdate(kind) {
   const vmids = bulkTargets(kind);
   const skipped = selected.size - vmids.length;
-  const what = kind === "os" ? "OS updates" : "an app update";
-  const extra = "They run one after the other, each with its own log in the history; a failed update does not stop the others."
-    + (skipped ? ` ${skipped} selected guest${skipped === 1 ? " has" : "s have"} no ${what.replace(/^an /, "")} and ${skipped === 1 ? "is" : "are"} left out.` : "");
-  const choice = await askUpdate(`${vmids.length} guest${vmids.length === 1 ? "" : "s"}`, kind, extra);
+  const extra = t("bulk.extra") + (skipped ? ` ${t(kind === "os" ? "bulk.left_out_os" : "bulk.left_out_app", { count: skipped })}` : "");
+  const choice = await askUpdate(t("bulk.n_guests", { count: vmids.length }), kind, extra);
   if (!choice) return;
   try {
     await api("/api/queue", {
@@ -959,6 +939,7 @@ async function bulkUpdate(kind) {
   load();
 }
 $("#bulk-os").addEventListener("click", () => bulkUpdate("os"));
+$("#bulk-app").addEventListener("click", () => bulkUpdate("app"));
 
 // auto-update mode for the selected guests
 $("#bulk-auto").addEventListener("click", () => openAutoDialog([...selected].map(Number)));
@@ -969,12 +950,13 @@ function openAutoDialog(vmids) {
   form.reset();
   if (modes.size === 1) form.querySelector(`input[value="${[...modes][0]}"]`).checked = true;
   const one = vmids.length === 1 && lastContainers.find((c) => c.vmid === vmids[0]);
-  $("#auto-title").textContent = `Auto-update – ${one ? `${guestLabel(one.vmid)} ${one.name}` : `${vmids.length} guests`}`;
+  $("#auto-title").textContent = t("auto.dialog_title",
+    { target: one ? `${guestLabel(one.vmid)} ${one.name}` : t("bulk.n_guests", { count: vmids.length }) });
   const m = maintenance || {};
   $("#auto-window").textContent = m.days
-    ? `Maintenance window: ${m.days} ${m.time}${m.until ? `–${m.until}` : ""}${m.restart ? ", restarts guests that need it" : ""}. `
-      + "Updates run like a bulk update, with backup and cleanup; VMs and apps without an app update only get OS updates."
-    : "No maintenance window is set yet – set days and time in ☰ → Settings → Auto-update.";
+    ? `${t("auto.window", { days: m.days, time: `${m.time}${m.until ? `–${m.until}` : ""}` })}${m.restart ? t("auto.window_restart") : ""}. `
+      + t("auto.window_how")
+    : t("auto.no_window");
   const dlg = $("#auto-dialog");
   form.onsubmit = async (ev) => {
     ev.preventDefault();
@@ -983,7 +965,7 @@ function openAutoDialog(vmids) {
     dlg.close();
     try {
       await api("/api/auto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ vmids, mode }) });
-      notice(`Auto-update ${mode === "off" ? "turned off" : `set to ${AUTO_LABEL[mode].slice(6)}`} for ${vmids.length} guest${vmids.length === 1 ? "" : "s"}.`);
+      notice(t(mode === "off" ? "notice.auto_off" : "notice.auto_set", { mode: autoLabel(mode), count: vmids.length }));
     } catch (err) {
       await showError(err.message);
     }
@@ -1024,7 +1006,7 @@ $("#export-open").addEventListener("click", () => {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       dlg.close();
     } catch (err) {
-      await showError(`Export failed: ${err.message}`);
+      await showError(t("export.failed", { msg: err.message }));
     }
   };
   $("#export-cancel").onclick = () => dlg.close();
@@ -1049,20 +1031,21 @@ $("#import-open").addEventListener("click", () => {
     msg("");
     try {
       const parsed = JSON.parse(await form.file.files[0].text());
-      if (parsed.lum_export !== 1) throw new Error("not a LUM export file");
+      if (parsed.lum_export !== 1) throw new Error(t("import.not_export"));
       data = parsed;
       const parts = [
-        parsed.settings && `${Object.keys(parsed.settings).length} settings`,
-        parsed.guests && `${parsed.guests.filter((g) => g.auto_update !== "off").length} guests with auto-update`,
-        parsed.history && `${parsed.history.length} history entries`,
+        parsed.settings && t("import.n_settings", { count: Object.keys(parsed.settings).length }),
+        parsed.guests && t("import.n_guests", { count: parsed.guests.filter((g) => g.auto_update !== "off").length }),
+        parsed.history && t("import.n_history", { count: parsed.history.length }),
       ].filter(Boolean);
-      $("#import-info").textContent = `LUM ${parsed.version}, ${fmtTime(parsed.exported)}: ${parts.join(", ") || "empty"}.`;
+      $("#import-info").textContent = t("import.info",
+        { version: parsed.version, time: fmtTime(parsed.exported), parts: parts.join(", ") || t("import.empty") });
       form.settings.disabled = !Object.keys(parsed.settings || {}).length;
       form.guests.disabled = !parsed.guests?.length;
       form.history.disabled = !parsed.history?.length;
     } catch (err) {
       $("#import-info").textContent = "";
-      msg(`Can't read the file: ${err.message}`, "err");
+      msg(t("import.cant_read", { msg: err.message }), "err");
     }
   };
   const dlg = $("#import-dialog");
@@ -1077,16 +1060,16 @@ $("#import-open").addEventListener("click", () => {
         body: JSON.stringify({ data, settings: pick("settings"), guests: pick("guests"), history: pick("history") }),
       });
       const done = [
-        r.settings.length && `${r.settings.length} settings`,
-        r.guests && `auto-update of ${r.guests} guest${r.guests === 1 ? "" : "s"}`,
-        `${r.history} history entr${r.history === 1 ? "y" : "ies"}`,
+        r.settings.length && t("import.n_settings", { count: r.settings.length }),
+        r.guests && t("import.done_guests", { count: r.guests }),
+        t("import.n_history", { count: r.history }),
       ].filter(Boolean).join(", ");
-      const skipped = r.guests_skipped.length ? ` Skipped (ID or name differs here): ${r.guests_skipped.join(", ")}.` : "";
+      const skipped = r.guests_skipped.length ? ` ${t("import.skipped", { ids: r.guests_skipped.join(", ") })}` : "";
       if (r.restart) {
-        msg(`Imported: ${done}.${skipped} LUM is restarting …`, "ok");
+        msg(`${t("import.done", { what: done })}${skipped} ${t("common.restarting")}`, "ok");
         if (await waitForRestart()) location.reload();
       } else {
-        msg(`Imported: ${done}.${skipped}${r.settings.length ? " Restart LUM to apply the settings." : ""}`, "ok");
+        msg(`${t("import.done", { what: done })}${skipped}${r.settings.length ? ` ${t("import.restart_needed")}` : ""}`, "ok");
         load();
       }
     } catch (err) {
@@ -1108,14 +1091,14 @@ async function loadServerLog() {
   const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
   try {
     const r = await api(`/api/logs?level=${$("#srvlog-level").value}`);
-    const time = (t) => new Date(t * 1000).toLocaleString("en-GB");
+    const time = (ts) => new Date(ts * 1000).toLocaleString(I18N.locale);
     srvlogText = r.lines.map((l) => `${time(l.time)} ${l.level.padEnd(7)} ${l.name}: ${l.text}`).join("\n");
     el.innerHTML = r.lines.map((l) => `<span class="lv-${esc(l.level)}">${esc(time(l.time))} ${esc(l.level.padEnd(7))} `
-      + `${esc(l.name)}: ${esc(l.text)}</span>`).join("\n") || '<span class="muted">No messages.</span>';
-    $("#srvlog-info").textContent = `since LUM started (${time(r.started)}), the last ${r.max} lines`;
+      + `${esc(l.name)}: ${esc(l.text)}</span>`).join("\n") || `<span class="muted">${te("srvlog.empty")}</span>`;
+    $("#srvlog-info").textContent = t("srvlog.info", { time: time(r.started), max: r.max });
     if (atBottom) el.scrollTop = el.scrollHeight;
   } catch (err) {
-    $("#srvlog-info").textContent = `Error: ${err.message}`;
+    $("#srvlog-info").textContent = t("common.error_msg", { msg: err.message });
   }
 }
 
@@ -1142,22 +1125,22 @@ $("#srvlog-close").addEventListener("click", () => $("#srvlog-dialog").close());
 $("#srvlog-copy").addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(srvlogText);
-    $("#srvlog-copy").textContent = "Copied";
+    $("#srvlog-copy").textContent = t("srvlog.copied");
   } catch {
     // no clipboard (plain http): select the text instead
     getSelection().selectAllChildren($("#srvlog"));
-    $("#srvlog-copy").textContent = "Selected – Ctrl+C";
+    $("#srvlog-copy").textContent = t("srvlog.selected");
   }
-  setTimeout(() => { $("#srvlog-copy").textContent = "Copy"; }, 2000);
+  setTimeout(() => { $("#srvlog-copy").textContent = t("srvlog.copy"); }, 2000);
 });
 
 $("#notify-test").addEventListener("click", async () => {
   setMenu(false);
   try {
     await api("/api/notify/test", { method: "POST" });
-    await ask({ title: "Test notification sent", text: "Check Telegram – the message should be there.", cancel: false });
+    await ask({ title: t("notify.sent_title"), text: t("notify.sent_text"), cancel: false });
   } catch (err) {
-    await showError(`No test notification: ${err.message}`);
+    await showError(t("notify.failed", { msg: err.message }));
   }
 });
 
@@ -1165,14 +1148,13 @@ $("#auto-run").addEventListener("click", async () => {
   setMenu(false);
   const m = maintenance || {};
   if (!m.guests) {
-    await showError("No container or VM is set to auto-update. Select guests and use \"Auto-update …\" first.");
+    await showError(t("auto.run_none"));
     return;
   }
   const yes = await ask({
-    title: "Run the automatic updates now?",
-    text: `${m.guests} guest${m.guests === 1 ? "" : "s"} set to auto-update are checked and updated now, `
-      + "one after the other, as in the maintenance window" + (m.restart ? " (with restarts)." : "."),
-    ok: "Run now",
+    title: t("auto.run_title"),
+    text: t("auto.run_text", { count: m.guests }) + (m.restart ? ` ${t("auto.run_restart")}` : ""),
+    ok: t("auto.run_ok"),
   });
   if (!yes) return;
   try {
@@ -1182,19 +1164,15 @@ $("#auto-run").addEventListener("click", async () => {
   }
   load();
 });
-$("#bulk-app").addEventListener("click", () => bulkUpdate("app"));
 
 $("#bulk-restart").addEventListener("click", async () => {
   const targets = bulkTargets("restart");
   const left = selected.size - targets.length;
   const names = targets.map((v) => guestLabel(v)).join(", ");
   const yes = await ask({
-    title: `Restart ${targets.length} guest${targets.length === 1 ? "" : "s"}?`,
-    text: `${names}\n\nThey are shut down and started again, all at the same time, and are unavailable `
-      + "for a moment. Each restart gets its own log in the history."
-      + (left ? `\n\n${left} selected guest${left === 1 ? " is" : "s are"} left out (not running, or LUM's own `
-        + "container – restart that one with its own Restart button)." : ""),
-    ok: "Restart",
+    title: t("ask.bulk_restart_title", { count: targets.length }),
+    text: `${names}\n\n${t("ask.bulk_restart_text")}` + (left ? `\n\n${t("ask.bulk_restart_left", { count: left })}` : ""),
+    ok: t("action.restart"),
   });
   if (!yes) return;
   try {
@@ -1210,10 +1188,7 @@ $("#bulk-restart").addEventListener("click", async () => {
   load();
 });
 
-const QUEUE_STATE = {
-  waiting: ["waiting", "muted"], running: ["running", "warn"], ok: ["succeeded", "ok"],
-  failed: ["failed", "err"], skipped: ["skipped", "muted"], cancelled: ["cancelled", "muted"],
-};
+const QUEUE_CLASS = { waiting: "muted", running: "warn", ok: "ok", failed: "err", skipped: "muted", cancelled: "muted" };
 
 function renderQueue(queue) {
   $("#queue-section").hidden = !queue.length;
@@ -1221,22 +1196,21 @@ function renderQueue(queue) {
   const open = queue.filter((i) => i.state === "waiting" || i.state === "running").length;
   const count = (state) => queue.filter((i) => i.state === state).length;
   $("#queue-title").textContent = open
-    ? `Queue · ${queue.length - open} of ${queue.length} done`
-    : `Queue · finished: ${count("ok")} succeeded, ${count("failed")} failed, `
-      + `${count("skipped") + count("cancelled")} skipped or cancelled`
-      + (count("failed") ? "" : " · closes in a moment");
-  $("#queue-cancel").textContent = open ? "Cancel remaining" : "Clear";
+    ? t("queue.progress", { done: queue.length - open, total: queue.length })
+    : t("queue.finished", { ok: count("ok"), failed: count("failed"), skipped: count("skipped") + count("cancelled") })
+      + (count("failed") ? "" : ` · ${t("queue.closing")}`);
+  $("#queue-cancel").textContent = t(open ? "queue.cancel_remaining" : "queue.clear");
   $("#queue-cancel").hidden = open > 0 && !count("waiting");
   const names = Object.fromEntries(lastContainers.map((c) => [c.vmid, c.name]));
   $("#queue").innerHTML = queue.map((i) => {
-    const [label, cls] = QUEUE_STATE[i.state] || [i.state, "muted"];
+    const note = i.note_key ? t(i.note_key, i.note_params || {}) : i.note;
     return `<tr>
-      <td data-label="ID">${guestLabel(i.vmid)}</td>
-      <td data-label="Name">${esc(names[i.vmid] || "–")}</td>
-      <td data-label="Type">${KIND[i.kind]}</td>
-      <td data-label="State">${i.state === "running" ? '<span class="spinner inline"></span>' : ""}<span class="badge ${cls}">${label}</span></td>
-      <td data-label="Note" class="muted">${esc(i.note) || "–"}</td>
-      <td class="actions">${i.job_id ? `<button data-act="joblog" data-id="${i.job_id}">Log</button>` : ""}</td>
+      <td data-label="${te("col.id")}">${guestLabel(i.vmid)}</td>
+      <td data-label="${te("col.name")}">${esc(names[i.vmid] || "–")}</td>
+      <td data-label="${te("col.type")}">${esc(kindLabel(i.kind))}</td>
+      <td data-label="${te("col.state")}">${i.state === "running" ? '<span class="spinner inline"></span>' : ""}<span class="badge ${QUEUE_CLASS[i.state] || "muted"}">${te(`queue.state_${i.state}`)}</span></td>
+      <td data-label="${te("col.note")}" class="muted">${esc(note) || "–"}</td>
+      <td class="actions">${i.job_id ? `<button data-act="joblog" data-id="${i.job_id}">${te("common.log")}</button>` : ""}</td>
     </tr>`;
   }).join("");
 }
@@ -1266,9 +1240,9 @@ $("#sync").addEventListener("click", async () => {
   try {
     const r = await api("/api/sync", { method: "POST" });
     const parts = [];
-    if (r.added.length) parts.push(`New: ${r.added.join(", ")}`);
-    if (r.removed.length) parts.push(`Removed or tagged no-lum: ${r.removed.join(", ")}`);
-    notice(parts.length ? `List refreshed · ${parts.join(" · ")}` : "List refreshed · no new or removed containers/VMs");
+    if (r.added.length) parts.push(t("notice.sync_new", { ids: r.added.join(", ") }));
+    if (r.removed.length) parts.push(t("notice.sync_removed", { ids: r.removed.join(", ") }));
+    notice(parts.length ? `${t("notice.sync_done")} · ${parts.join(" · ")}` : `${t("notice.sync_done")} · ${t("notice.sync_nothing")}`);
   } catch (err) {
     await showError(err.message);
   } finally {
@@ -1279,7 +1253,7 @@ $("#sync").addEventListener("click", async () => {
 
 $("#refresh").addEventListener("click", async () => {
   $("#refresh").disabled = true;
-  $("#refresh").innerHTML = '<span class="spinner"></span>Checking …';
+  $("#refresh").innerHTML = `<span class="spinner"></span>${te("action.checking")}`;
   await api("/api/refresh", { method: "POST" });
   setTimeout(load, 300);
 });
@@ -1344,6 +1318,17 @@ document.querySelectorAll("[data-theme-choice]").forEach((b) => b.addEventListen
   applyTheme(choice);
 }));
 
+// --- language, stored per browser (and as cookie for the server's messages) -----------
+
+function renderLanguages() {
+  $("#lang-choices").innerHTML = Object.entries(I18N.languages).map(([code, name]) =>
+    `<button role="menuitemradio" data-lang="${esc(code)}" aria-checked="${code === I18N.lang}" lang="${esc(code)}">${esc(name)}</button>`).join("");
+}
+$("#lang-choices").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-lang]");
+  if (b && b.dataset.lang !== I18N.lang) I18N.set(b.dataset.lang);
+});
+
 // --- settings (.env) ----------------------------------------------------------------
 
 const settingsForm = $("#settings-form");
@@ -1353,37 +1338,43 @@ const settingsMsg = (text, cls = "muted") => {
   $("#settings-msg").hidden = !text;
 };
 
+// labels and groups come from the server in English; the language file may override them
+const tOr = (key, fallback) => (I18N.has(key) ? t(key) : fallback);
+const groupKey = (g) => `setgroup.${g.toLowerCase().replace(/[^a-z]+/g, "_").replace(/^_|_$/g, "")}`;
+
 function fieldHtml(f) {
   const id = `set-${f.key}`;
   let input;
   if (f.kind === "readonly") {
-    input = `<span class="readonly" title="Change with the installer (--update) or in .env">${esc(f.value || "–")}</span>`;
+    input = `<span class="readonly" title="${te("settings.readonly_title")}">${esc(f.value || "–")}</span>`;
   } else if (f.kind === "bool") {
     input = `<input type="checkbox" id="${id}" name="${f.key}" ${f.value ? "checked" : ""}>`;
   } else if (f.kind === "choice") {
-    input = `<select id="${id}" name="${f.key}">${f.options.map((o) => `<option ${o === f.value ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
+    // option values are the .env values; languages are shown by their name
+    const label = (o) => (f.key === "LUM_NOTIFY_LANGUAGE" ? I18N.languages[o] || o : tOr(`setopt.${f.key}.${o}`, o));
+    input = `<select id="${id}" name="${f.key}">${f.options.map((o) => `<option value="${esc(o)}" ${o === f.value ? "selected" : ""}>${esc(label(o))}</option>`).join("")}</select>`;
   } else if (f.kind === "secret") {
     input = `<input type="password" id="${id}" name="${f.key}" autocomplete="off"
-      placeholder="${f.value ? "set – leave empty to keep, '-' to remove" : "not set"}">`;
+      placeholder="${te(f.value ? "settings.secret_set" : "settings.secret_unset")}">`;
   } else if (f.kind === "int") {
     input = `<input type="number" id="${id}" name="${f.key}" value="${esc(f.value)}" min="${f.min}" max="${f.max}" required>`;
   } else {
-    input = `<input type="text" id="${id}" name="${f.key}" value="${esc(f.value)}" placeholder="${esc(f.placeholder || "")}">`;
+    input = `<input type="text" id="${id}" name="${f.key}" value="${esc(f.value)}" placeholder="${esc(tOr(`setph.${f.key}`, f.placeholder || ""))}">`;
   }
-  return `<label for="${id}"><span>${esc(f.label)}</span>${input}</label>`;
+  return `<label for="${id}"><span>${esc(tOr(`set.${f.key}`, f.label))}</span>${input}</label>`;
 }
 
 async function openSettings() {
   setMenu(false);
   settingsMsg("");
-  $("#settings-fields").innerHTML = '<p class="muted">Loading …</p>';
+  $("#settings-fields").innerHTML = `<p class="muted">${te("common.loading")}</p>`;
   $("#settings-dialog").showModal();
   try {
     const { fields, restart_supported: canRestart } = await api("/api/settings");
     const groups = [...new Set(fields.map((f) => f.group))];
-    $("#settings-fields").innerHTML = groups.map((g) => `<fieldset><legend>${esc(g)}</legend>
+    $("#settings-fields").innerHTML = groups.map((g) => `<fieldset><legend>${esc(tOr(groupKey(g), g))}</legend>
       ${fields.filter((f) => f.group === g).map(fieldHtml).join("")}</fieldset>`).join("");
-    if (!canRestart) settingsMsg("LUM doesn't run as a systemd service here – restart it yourself after saving.");
+    if (!canRestart) settingsMsg(t("settings.no_systemd"));
   } catch (err) {
     $("#settings-fields").innerHTML = `<p class="err">${esc(err.message)}</p>`;
   }
@@ -1415,13 +1406,13 @@ settingsForm.addEventListener("submit", async (ev) => {
       body: JSON.stringify({ values }),
     });
     if (!r.saved.length) {
-      settingsMsg("Nothing changed.");
+      settingsMsg(t("settings.unchanged"));
     } else if (r.restart) {
-      settingsMsg(`Saved (${r.saved.join(", ")}). LUM is restarting …`, "ok");
+      settingsMsg(`${t("settings.saved", { keys: r.saved.join(", ") })} ${t("common.restarting")}`, "ok");
       if (await waitForRestart()) location.reload();
-      else settingsMsg("Saved, but LUM did not come back – check: journalctl -u lxc-update-manager", "err");
+      else settingsMsg(t("settings.not_back"), "err");
     } else {
-      settingsMsg(`Saved (${r.saved.join(", ")}). Restart LUM to apply.`, "ok");
+      settingsMsg(`${t("settings.saved", { keys: r.saved.join(", ") })} ${t("settings.restart_needed")}`, "ok");
     }
   } catch (err) {
     settingsMsg(err.message, "err");
@@ -1443,7 +1434,7 @@ $("#pw-close").addEventListener("click", () => $("#pw-dialog").close());
 pwForm.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   if (pwForm.new.value !== pwForm.repeat.value) {
-    pwMsg("The new passwords do not match.", "err");
+    pwMsg(t("pw.mismatch"), "err");
     return;
   }
   try {
@@ -1453,11 +1444,16 @@ pwForm.addEventListener("submit", async (ev) => {
       body: JSON.stringify({ current: pwForm.current.value, new: pwForm.new.value }),
     });
     pwForm.reset();
-    pwMsg("Password changed. Other sessions have been logged out.", "ok");
+    pwMsg(t("pw.changed"), "ok");
   } catch (err) {
     pwMsg(err.message, "err");
   }
 });
 
-load();
-setInterval(load, 5000);
+// the texts first (i18n.js), then the first render
+I18N.ready.then(() => {
+  renderLanguages();
+  renderBulk();
+  load();
+  setInterval(load, 5000);
+});

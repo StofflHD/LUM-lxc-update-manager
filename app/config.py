@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     telegram_chat_id: str = ""
     notify: Literal["off", "failures", "all"] = "failures"  # per update / bulk update
     notify_updates: bool = True  # after the scheduled check: which updates are available
+    notify_language: str = "en"  # language of the messages, a file in app/static/lang
 
     # rotation (app/service.py housekeeping, hourly): 0 = keep forever / no limit
     history_days: int = 365  # finished history entries older than this are removed
@@ -82,6 +83,10 @@ class Settings(BaseSettings):
 
         if self.telegram_token and not re.fullmatch(r"\d+:[A-Za-z0-9_-]{20,}", self.telegram_token):
             raise ValueError("LUM_TELEGRAM_TOKEN looks wrong - it is like 123456789:AAH… (from @BotFather)")
+        from .i18n import languages
+
+        if self.notify_language not in languages():
+            raise ValueError(f"LUM_NOTIFY_LANGUAGE: one of {', '.join(languages())}")
         if self.telegram_chat_id and not re.fullmatch(r"-?\d+|@[A-Za-z][A-Za-z0-9_]{4,}", self.telegram_chat_id):
             raise ValueError("LUM_TELEGRAM_CHAT_ID: a number (groups are negative) or @channelname")
         return self

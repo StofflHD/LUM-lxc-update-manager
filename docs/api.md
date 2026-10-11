@@ -2,8 +2,9 @@
 
 [← Back to the README](../README.md)
 
-All endpoints except `/api/login` and `/api/auth/state` need the session cookie; requests that change something need
-the header `X-Requested-With: lum`.
+All endpoints except `/api/login`, `/api/auth/state` and `/api/i18n` need the session cookie; requests that change
+something need the header `X-Requested-With: lum`. Error messages (`detail`) come in the language of the cookie
+`lum_lang` (set by the web UI) or `Accept-Language`, else English.
 
 | Method | Path | Description |
 |---|---|---|
@@ -11,6 +12,7 @@ the header `X-Requested-With: lum`.
 | GET | `/api/auth/state` · `/api/me` | Login configured? / current user |
 | POST | `/api/password` | Change password |
 | GET · POST | `/api/settings` | Editable settings / save them (LUM restarts) |
+| GET | `/api/i18n?lang=de` | The texts of the best matching language merged over English, and the available languages (`lang`, `languages`, `strings`); no login needed |
 | GET | `/api/status` | Version, last and next check (`last_refresh`, `next_refresh`), progress of **Check all** (`refresh`: `total`, `done`, `elapsed`; `refresh_done`), backup mode, host script version, hidden (`no-lum`) guests, `queue`, `nodes` (cluster nodes with their host script version; `host_script.nodes_outdated`), `cleanup` (default of the cleanup checkbox), `purge` (progress of deleting all snapshots / backups), `maintenance` (window, next start, running, last run), `hosts` (updates of the Proxmox host(s): `node`, `pve`, `kernel`, `newest_kernel`, `reboot`, `packages`, `security`, `lists`, `checked`, `error`) |
 | GET | `/api/containers` | All containers/VMs with update status (`upgradable`, `security` = the security updates among them, `restart_required`, `restart_reboot`, `restart_services`, `disk_free_kb`, `disk_size_kb`, `low_disk`, `self` = LUM's own container, `no_app` = tagged `no-app` (old name `self_created` / tag `self-created` still work), `auto_update` = `os`/`all`/null, `node`, `checking` = being checked right now, `restore_points` = number of LUM snapshots + vzdump backups, null = not counted yet) |
 | POST | `/api/sync` | Re-read the list of containers/VMs only (no package checks) |
@@ -25,7 +27,7 @@ the header `X-Requested-With: lum`.
 | GET | `/api/export?settings=true&secrets=false&guests=true&history=true` | Export as JSON (download) |
 | POST | `/api/import` | Body `{"data": <export>, "settings": true, "guests": true, "history": true}` – returns what was imported; LUM restarts after settings |
 | POST | `/api/notify/test` | Send a Telegram test message (502 with Telegram's error) |
-| GET | `/api/queue` | Bulk update queue: `vmid`, `kind`, `backup`, `state` (`waiting`, `running`, `ok`, `failed`, `skipped`, `cancelled`), `job_id`, `note` |
+| GET | `/api/queue` | Bulk update queue: `vmid`, `kind`, `backup`, `state` (`waiting`, `running`, `ok`, `failed`, `skipped`, `cancelled`), `job_id`, `note` (English) and `note_key` / `note_params` (to translate it with the language files) |
 | POST | `/api/queue` | Body `{"vmids": [101, 102], "kind": "os"\|"app"\|"restart", "backup": true, "cleanup": true}` – update them one after the other; `restart` restarts all of them at the same time (not LUM's own container) |
 | DELETE | `/api/queue` | Cancel the waiting guests, or clear a finished queue |
 | WS | `/ws/jobs/{id}` | Live log of a job |

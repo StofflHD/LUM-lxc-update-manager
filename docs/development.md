@@ -31,3 +31,12 @@ Updates, snapshots, vzdump backups (103 and 200 start with some, one of them pro
 rollback, restore and cleanup are simulated in memory (reset on restart); deletes take a
 few seconds like on a real host. The database is real (`LUM_DB_PATH`). For vzdump instead
 of snapshots set `LUM_BACKUP_MODE=vzdump` and `LUM_BACKUP_STORAGE=pbs`.
+
+## Texts
+
+Every text of the web UI, the error messages and the Telegram messages is in
+`app/static/lang/<code>.json` – in JavaScript `t("key", { name })`, in HTML
+`data-i18n="key"` (`-title`, `-aria`, `-placeholder`), in Python `i18n.t("key", name=…)`
+(the request's language) or `LumError("key", …)` for messages raised to the API. A new
+text goes into `en.json` and `de.json`; `python -m app.i18n_check` finds what is
+missing. See [Translating](translating.md).

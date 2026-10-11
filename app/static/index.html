@@ -9,41 +9,45 @@
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/theme.js"></script>
+  <script src="/static/i18n.js"></script>
 </head>
 <body>
   <header>
     <div>
       <h1 class="brand"><img src="/static/logo.svg" alt="" width="28" height="28">LXC Update Manager</h1>
-      <p id="status" class="muted">Loading …</p>
+      <p id="status" class="muted" data-i18n="common.loading">Loading …</p>
       <p id="host-warning" class="warn-text" hidden></p>
       <p id="notice" class="muted" role="status" hidden></p>
     </div>
     <div class="header-actions">
       <span id="user" class="user"></span>
-      <button id="logout" hidden>Log out</button>
-      <button id="sync" title="Look for new or removed containers and VMs (no update check)">Refresh list</button>
-      <button id="refresh" class="primary" title="Check all containers and VMs for updates">Check all</button>
+      <button id="logout" hidden data-i18n="header.logout">Log out</button>
+      <button id="sync" data-i18n="header.sync" data-i18n-title="header.sync_title" title="Look for new or removed containers and VMs (no update check)">Refresh list</button>
+      <button id="refresh" class="primary" data-i18n="header.check_all" data-i18n-title="header.check_all_title" title="Check all containers and VMs for updates">Check all</button>
       <div class="menu" id="menu">
-        <button id="menu-toggle" class="menu-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">☰</button>
+        <button id="menu-toggle" class="menu-toggle" data-i18n-aria="menu.menu" aria-label="Menu" aria-haspopup="true" aria-expanded="false">☰</button>
         <div class="menu-panel" id="menu-panel" role="menu" hidden>
-          <span class="menu-label">Theme</span>
-          <button role="menuitemradio" data-theme-choice="system" aria-checked="true">System</button>
-          <button role="menuitemradio" data-theme-choice="light" aria-checked="false">Light</button>
-          <button role="menuitemradio" data-theme-choice="dark" aria-checked="false">Dark</button>
+          <span class="menu-label" data-i18n="menu.theme">Theme</span>
+          <button role="menuitemradio" data-theme-choice="system" aria-checked="true" data-i18n="menu.theme_system">System</button>
+          <button role="menuitemradio" data-theme-choice="light" aria-checked="false" data-i18n="menu.theme_light">Light</button>
+          <button role="menuitemradio" data-theme-choice="dark" aria-checked="false" data-i18n="menu.theme_dark">Dark</button>
           <hr>
-          <span class="menu-label">Configuration</span>
-          <button id="settings-open" role="menuitem">Settings</button>
-          <button id="export-open" role="menuitem">Export …</button>
-          <button id="import-open" role="menuitem">Import …</button>
+          <span class="menu-label" data-i18n="menu.language">Language</span>
+          <div id="lang-choices" class="menu-group"></div>
           <hr>
-          <span class="menu-label">Actions</span>
-          <button id="auto-run" role="menuitem">Run auto-update now</button>
-          <button id="notify-test" role="menuitem">Send test notification</button>
-          <button id="srvlog-open" role="menuitem">Server log</button>
+          <span class="menu-label" data-i18n="menu.configuration">Configuration</span>
+          <button id="settings-open" role="menuitem" data-i18n="menu.settings">Settings</button>
+          <button id="export-open" role="menuitem" data-i18n="menu.export">Export …</button>
+          <button id="import-open" role="menuitem" data-i18n="menu.import">Import …</button>
+          <hr>
+          <span class="menu-label" data-i18n="menu.actions">Actions</span>
+          <button id="auto-run" role="menuitem" data-i18n="menu.auto_run">Run auto-update now</button>
+          <button id="notify-test" role="menuitem" data-i18n="menu.notify_test">Send test notification</button>
+          <button id="srvlog-open" role="menuitem" data-i18n="menu.server_log">Server log</button>
           <div id="menu-account" class="menu-group" hidden>
             <hr>
-            <span class="menu-label">Account</span>
-            <button id="pw-open" role="menuitem">Change password</button>
+            <span class="menu-label" data-i18n="menu.account">Account</span>
+            <button id="pw-open" role="menuitem" data-i18n="menu.change_password">Change password</button>
           </div>
         </div>
       </div>
@@ -55,25 +59,26 @@
 
     <section>
       <div class="toolbar" id="bulk">
-        <div class="seg" role="group" aria-label="Show">
-          <button type="button" data-filter="all" aria-pressed="true">All</button>
-          <button type="button" data-filter="updates" aria-pressed="false" title="Only guests with OS or app updates">With updates</button>
-          <button type="button" data-filter="security" aria-pressed="false" title="Only guests with security updates">Security</button>
+        <div class="seg" role="group" data-i18n-aria="filter.show" aria-label="Show">
+          <button type="button" data-filter="all" aria-pressed="true" data-i18n="filter.all">All</button>
+          <button type="button" data-filter="updates" aria-pressed="false" data-i18n="filter.updates" data-i18n-title="filter.updates_title" title="Only guests with OS or app updates">With updates</button>
+          <button type="button" data-filter="security" aria-pressed="false" data-i18n="filter.security" data-i18n-title="filter.security_title" title="Only guests with security updates">Security</button>
         </div>
-        <span id="bulk-count" class="muted">Select containers and VMs to update several at once</span>
-        <button id="sel-updates" type="button" title="Select all running guests with OS or app updates">Select all with updates</button>
-        <button id="sel-none" type="button" hidden>Clear selection</button>
-        <button id="bulk-os" type="button" class="primary" disabled>OS update</button>
-        <button id="bulk-app" type="button" disabled>App update</button>
-        <button id="bulk-restart" type="button" disabled>Restart</button>
-        <button id="bulk-auto" type="button" disabled title="Update the selected guests automatically in the maintenance window">Auto-update …</button>
+        <span id="bulk-count" class="muted"></span>
+        <button id="sel-updates" type="button" data-i18n="bulk.select_updates" data-i18n-title="bulk.select_updates_title" title="Select all running guests with OS or app updates">Select all with updates</button>
+        <button id="sel-none" type="button" hidden data-i18n="bulk.clear_selection">Clear selection</button>
+        <button id="bulk-os" type="button" class="primary" disabled data-i18n="action.os_update">OS update</button>
+        <button id="bulk-app" type="button" disabled data-i18n="action.app_update">App update</button>
+        <button id="bulk-restart" type="button" disabled data-i18n="action.restart">Restart</button>
+        <button id="bulk-auto" type="button" disabled data-i18n="bulk.auto">Auto-update …</button>
       </div>
       <div class="table-wrap">
         <table class="responsive">
           <thead>
             <tr>
-              <th><label class="sel"><input type="checkbox" id="sel-all" aria-label="Select all running guests">ID</label></th><th>Name</th><th>Status</th><th>Package manager</th>
-              <th>OS updates</th><th>App</th><th>Last check</th><th></th>
+              <th><label class="sel"><input type="checkbox" id="sel-all" data-i18n-aria="bulk.select_all_running" aria-label="Select all running guests"><span data-i18n="col.id">ID</span></label></th>
+              <th data-i18n="col.name">Name</th><th data-i18n="col.status">Status</th><th data-i18n="col.pkg_manager">Package manager</th>
+              <th data-i18n="col.os_updates">OS updates</th><th data-i18n="col.app">App</th><th data-i18n="col.last_check">Last check</th><th></th>
             </tr>
           </thead>
           <tbody id="containers"></tbody>
@@ -83,25 +88,27 @@
 
     <section id="hosts-section" hidden>
       <div class="section-head">
-        <h2>Proxmox host<span id="hosts-plural">s</span></h2>
+        <h2 id="hosts-title">Proxmox hosts</h2>
       </div>
       <div class="table-wrap">
         <table class="responsive">
-          <thead><tr><th>Node</th><th>Proxmox VE</th><th>Status</th><th>OS updates</th><th>Kernel</th><th>Last check</th></tr></thead>
+          <thead><tr><th data-i18n="col.node">Node</th><th>Proxmox VE</th><th data-i18n="col.status">Status</th>
+            <th data-i18n="col.os_updates">OS updates</th><th data-i18n="col.kernel">Kernel</th><th data-i18n="col.last_check">Last check</th></tr></thead>
           <tbody id="hosts"></tbody>
         </table>
       </div>
-      <p class="muted small" id="hosts-note"></p>
+      <p class="muted small" data-i18n="hosts.note">Checked with every Check all, read only: LUM does not update or reboot the Proxmox host. Update it yourself: apt update &amp;&amp; apt full-upgrade (Proxmox: not apt upgrade).</p>
     </section>
 
     <section id="queue-section" hidden>
       <div class="section-head">
-        <h2 id="queue-title">Queue</h2>
-        <button id="queue-cancel" type="button">Cancel remaining</button>
+        <h2 id="queue-title" data-i18n="queue.title">Queue</h2>
+        <button id="queue-cancel" type="button" data-i18n="queue.cancel_remaining">Cancel remaining</button>
       </div>
       <div class="table-wrap">
         <table class="responsive">
-          <thead><tr><th>ID</th><th>Name</th><th>Type</th><th>State</th><th>Note</th><th></th></tr></thead>
+          <thead><tr><th data-i18n="col.id">ID</th><th data-i18n="col.name">Name</th><th data-i18n="col.type">Type</th>
+            <th data-i18n="col.state">State</th><th data-i18n="col.note">Note</th><th></th></tr></thead>
           <tbody id="queue"></tbody>
         </table>
       </div>
@@ -109,12 +116,13 @@
 
     <section>
       <div class="section-head">
-        <h2>History</h2>
-        <button id="clear-history" type="button">Clear history</button>
+        <h2 data-i18n="history.title">History</h2>
+        <button id="clear-history" type="button" data-i18n="history.clear">Clear history</button>
       </div>
       <div class="table-wrap">
         <table class="responsive">
-          <thead><tr><th>Time</th><th>ID</th><th>Name</th><th>Type</th><th>Result</th><th>Backup</th><th></th></tr></thead>
+          <thead><tr><th data-i18n="col.time">Time</th><th data-i18n="col.id">ID</th><th data-i18n="col.name">Name</th>
+            <th data-i18n="col.type">Type</th><th data-i18n="col.result">Result</th><th data-i18n="col.backup">Backup</th><th></th></tr></thead>
           <tbody id="history"></tbody>
         </table>
       </div>
@@ -131,41 +139,41 @@
 
   <dialog id="srvlog-dialog">
     <div class="dialog-head">
-      <h3>Server log</h3>
-      <button id="srvlog-close" aria-label="Close">✕</button>
+      <h3 data-i18n="menu.server_log">Server log</h3>
+      <button id="srvlog-close" data-i18n-aria="common.close" aria-label="Close">✕</button>
     </div>
     <div class="srvlog-bar">
-      <select id="srvlog-level" aria-label="Show">
-        <option value="INFO">All messages</option>
-        <option value="WARNING">Warnings and errors</option>
-        <option value="ERROR">Errors only</option>
+      <select id="srvlog-level" data-i18n-aria="filter.show" aria-label="Show">
+        <option value="INFO" data-i18n="srvlog.all">All messages</option>
+        <option value="WARNING" data-i18n="srvlog.warnings">Warnings and errors</option>
+        <option value="ERROR" data-i18n="srvlog.errors">Errors only</option>
       </select>
-      <label class="check"><input type="checkbox" id="srvlog-follow" checked><span>Refresh every 5 s</span></label>
+      <label class="check"><input type="checkbox" id="srvlog-follow" checked><span data-i18n="srvlog.follow">Refresh every 5 s</span></label>
       <span id="srvlog-info" class="muted"></span>
-      <button id="srvlog-copy" type="button">Copy</button>
+      <button id="srvlog-copy" type="button" data-i18n="srvlog.copy">Copy</button>
     </div>
     <pre id="srvlog"></pre>
   </dialog>
 
   <dialog id="log-dialog">
     <div class="dialog-head">
-      <h3 id="log-title">Log</h3>
-      <button id="log-close" aria-label="Close">✕</button>
+      <h3 id="log-title" data-i18n="common.log">Log</h3>
+      <button id="log-close" data-i18n-aria="common.close" aria-label="Close">✕</button>
     </div>
     <pre id="log"></pre>
   </dialog>
 
   <dialog id="snap-dialog">
     <div class="dialog-head">
-      <h3 id="snap-title">Backups</h3>
-      <button id="snap-close" aria-label="Close">✕</button>
+      <h3 id="snap-title" data-i18n="action.backups">Backups</h3>
+      <button id="snap-close" data-i18n-aria="common.close" aria-label="Close">✕</button>
     </div>
-    <p class="muted dialog-note">Only snapshots (lum_*) and vzdump backups (note "lxc-update-manager") made by
+    <p class="muted dialog-note" data-i18n="backups.intro">Only snapshots (lum_*) and vzdump backups (note "lxc-update-manager") made by
       LUM. Your own snapshots and backup jobs are not shown and never touched.</p>
     <p id="snap-msg" class="dialog-note" role="status" hidden></p>
-    <h4 class="dialog-section">Snapshots</h4>
+    <h4 class="dialog-section" data-i18n="backups.snapshots">Snapshots</h4>
     <table><tbody id="snap-list"></tbody></table>
-    <h4 class="dialog-section">vzdump backups</h4>
+    <h4 class="dialog-section" data-i18n="backups.vzdump">vzdump backups</h4>
     <table><tbody id="vz-list"></tbody></table>
   </dialog>
 
@@ -177,7 +185,7 @@
     <form id="ask-form">
       <p id="ask-text"></p>
       <div class="dialog-actions">
-        <button type="button" id="ask-cancel">Cancel</button>
+        <button type="button" id="ask-cancel" data-i18n="common.cancel">Cancel</button>
         <button type="submit" id="ask-ok" class="primary">OK</button>
       </div>
     </form>
@@ -185,141 +193,141 @@
 
   <dialog id="export-dialog">
     <div class="dialog-head">
-      <h3>Export</h3>
-      <button id="export-close" type="button" aria-label="Close">✕</button>
+      <h3 data-i18n="export.title">Export</h3>
+      <button id="export-close" type="button" data-i18n-aria="common.close" aria-label="Close">✕</button>
     </div>
     <form id="export-form">
-      <p class="muted">Downloads a JSON file you can import into this or another LUM. Not included: the
+      <p class="muted" data-i18n="export.intro">Downloads a JSON file you can import into this or another LUM. Not included: the
         connection to the Proxmox host and the login.</p>
-      <label class="check"><input type="checkbox" name="settings" checked><span>Settings</span></label>
-      <label class="check indent"><input type="checkbox" name="secrets"><span>with the GitHub and Telegram tokens</span></label>
-      <label class="check"><input type="checkbox" name="guests" checked><span>Auto-update per container / VM</span></label>
-      <label class="check"><input type="checkbox" name="history" checked><span>History with logs</span></label>
-      <p id="export-note" class="warn-text" hidden>The file then contains the tokens in plain text – keep it safe.</p>
+      <label class="check"><input type="checkbox" name="settings" checked><span data-i18n="export.settings">Settings</span></label>
+      <label class="check indent"><input type="checkbox" name="secrets"><span data-i18n="export.secrets">with the GitHub and Telegram tokens</span></label>
+      <label class="check"><input type="checkbox" name="guests" checked><span data-i18n="export.guests">Auto-update per container / VM</span></label>
+      <label class="check"><input type="checkbox" name="history" checked><span data-i18n="export.history">History with logs</span></label>
+      <p id="export-note" class="warn-text" hidden data-i18n="export.secrets_note">The file then contains the tokens in plain text – keep it safe.</p>
       <div class="dialog-actions">
-        <button type="button" id="export-cancel">Cancel</button>
-        <button class="primary" type="submit">Download</button>
+        <button type="button" id="export-cancel" data-i18n="common.cancel">Cancel</button>
+        <button class="primary" type="submit" data-i18n="export.download">Download</button>
       </div>
     </form>
   </dialog>
 
   <dialog id="import-dialog">
     <div class="dialog-head">
-      <h3>Import</h3>
-      <button id="import-close" type="button" aria-label="Close">✕</button>
+      <h3 data-i18n="import.title">Import</h3>
+      <button id="import-close" type="button" data-i18n-aria="common.close" aria-label="Close">✕</button>
     </div>
     <form id="import-form">
-      <label>Export file (.json)<input type="file" name="file" accept=".json,application/json" required></label>
+      <label><span data-i18n="import.file">Export file (.json)</span><input type="file" name="file" accept=".json,application/json" required></label>
       <p id="import-info" class="muted"></p>
-      <label class="check"><input type="checkbox" name="settings" checked><span>Settings – LUM restarts afterwards</span></label>
-      <label class="check"><input type="checkbox" name="guests" checked><span>Auto-update (containers / VMs with the same ID and name)</span></label>
-      <label class="check"><input type="checkbox" name="history" checked><span>History (entries not there yet are added)</span></label>
+      <label class="check"><input type="checkbox" name="settings" checked><span data-i18n="import.settings">Settings – LUM restarts afterwards</span></label>
+      <label class="check"><input type="checkbox" name="guests" checked><span data-i18n="import.guests">Auto-update (containers / VMs with the same ID and name)</span></label>
+      <label class="check"><input type="checkbox" name="history" checked><span data-i18n="import.history">History (entries not there yet are added)</span></label>
       <p id="import-msg" role="alert" hidden></p>
       <div class="dialog-actions">
-        <button type="button" id="import-cancel">Cancel</button>
-        <button class="primary" type="submit">Import</button>
+        <button type="button" id="import-cancel" data-i18n="common.cancel">Cancel</button>
+        <button class="primary" type="submit" data-i18n="import.button">Import</button>
       </div>
     </form>
   </dialog>
 
   <dialog id="auto-dialog">
     <div class="dialog-head">
-      <h3 id="auto-title">Auto-update</h3>
-      <button id="auto-close" type="button" aria-label="Close">✕</button>
+      <h3 id="auto-title" data-i18n="auto.title">Auto-update</h3>
+      <button id="auto-close" type="button" data-i18n-aria="common.close" aria-label="Close">✕</button>
     </div>
     <form id="auto-form">
       <p id="auto-window" class="muted"></p>
-      <label class="check"><input type="radio" name="mode" value="off"><span>Off – only manual updates</span></label>
-      <label class="check"><input type="radio" name="mode" value="os"><span>OS updates</span></label>
-      <label class="check"><input type="radio" name="mode" value="all"><span>OS and app updates</span></label>
+      <label class="check"><input type="radio" name="mode" value="off"><span data-i18n="auto.mode_off">Off – only manual updates</span></label>
+      <label class="check"><input type="radio" name="mode" value="os"><span data-i18n="auto.mode_os">OS updates</span></label>
+      <label class="check"><input type="radio" name="mode" value="all"><span data-i18n="auto.mode_all">OS and app updates</span></label>
       <div class="dialog-actions">
-        <button type="button" id="auto-cancel">Cancel</button>
-        <button class="primary" type="submit">Save</button>
+        <button type="button" id="auto-cancel" data-i18n="common.cancel">Cancel</button>
+        <button class="primary" type="submit" data-i18n="common.save">Save</button>
       </div>
     </form>
   </dialog>
 
   <dialog id="clear-dialog">
     <div class="dialog-head">
-      <h3>Clear the whole history?</h3>
-      <button id="clear-close" type="button" aria-label="Close">✕</button>
+      <h3 data-i18n="clear.title">Clear the whole history?</h3>
+      <button id="clear-close" type="button" data-i18n-aria="common.close" aria-label="Close">✕</button>
     </div>
     <form id="clear-form">
-      <p class="muted">All finished entries and their logs are removed. Running updates stay.</p>
+      <p class="muted" data-i18n="clear.intro">All finished entries and their logs are removed. Running updates stay.</p>
       <label class="check">
         <input type="checkbox" name="snapshots">
-        <span>Also delete all snapshots made by LUM (lum_*)</span>
+        <span data-i18n="clear.snapshots">Also delete all snapshots made by LUM (lum_*)</span>
       </label>
       <label class="check">
         <input type="checkbox" name="backups">
-        <span>Also delete all vzdump backups made by LUM</span>
+        <span data-i18n="clear.backups">Also delete all vzdump backups made by LUM</span>
       </label>
       <p id="clear-note" class="muted"></p>
       <div class="dialog-actions">
-        <button type="button" id="clear-cancel">Cancel</button>
-        <button class="primary danger" type="submit" id="clear-ok">Clear history</button>
+        <button type="button" id="clear-cancel" data-i18n="common.cancel">Cancel</button>
+        <button class="primary danger" type="submit" id="clear-ok" data-i18n="history.clear">Clear history</button>
       </div>
     </form>
   </dialog>
 
   <dialog id="upd-dialog">
     <div class="dialog-head">
-      <h3 id="upd-title">Start update</h3>
-      <button id="upd-close" type="button" aria-label="Close">✕</button>
+      <h3 id="upd-title" data-i18n="upd.start">Start update</h3>
+      <button id="upd-close" type="button" data-i18n-aria="common.close" aria-label="Close">✕</button>
     </div>
     <form id="upd-form">
       <label class="check">
         <input type="checkbox" name="backup" checked>
-        <span id="upd-backup-label">Create a snapshot before the update</span>
+        <span id="upd-backup-label"></span>
       </label>
       <p id="upd-note" class="muted"></p>
       <label class="check" id="upd-clean-row">
         <input type="checkbox" name="cleanup" checked>
-        <span>Clean up afterwards (apt autoremove, apt clean)</span>
+        <span data-i18n="upd.cleanup">Clean up afterwards (apt autoremove, apt clean)</span>
       </label>
       <p id="upd-extra" class="muted" hidden></p>
       <div id="upd-notes" hidden></div>
       <div class="dialog-actions">
-        <button type="button" id="upd-cancel">Cancel</button>
-        <button class="primary" type="submit">Start update</button>
+        <button type="button" id="upd-cancel" data-i18n="common.cancel">Cancel</button>
+        <button class="primary" type="submit" data-i18n="upd.start">Start update</button>
       </div>
     </form>
   </dialog>
 
   <dialog id="settings-dialog">
     <div class="dialog-head">
-      <h3>Settings</h3>
-      <button id="settings-close" type="button" aria-label="Close">✕</button>
+      <h3 data-i18n="menu.settings">Settings</h3>
+      <button id="settings-close" type="button" data-i18n-aria="common.close" aria-label="Close">✕</button>
     </div>
     <form id="settings-form">
       <div id="settings-fields"></div>
-      <p class="muted settings-note">Saved to <code>/opt/lxc-update-manager/.env</code>. LUM restarts to apply the
+      <p class="muted settings-note" data-i18n-html="settings.note">Saved to <code>/opt/lxc-update-manager/.env</code>. LUM restarts to apply the
         changes (a few seconds). Not possible while an update is running.</p>
       <p id="settings-msg" role="alert" hidden></p>
       <div class="dialog-actions">
-        <button type="button" id="settings-cancel">Cancel</button>
-        <button class="primary" type="submit">Save</button>
+        <button type="button" id="settings-cancel" data-i18n="common.cancel">Cancel</button>
+        <button class="primary" type="submit" data-i18n="common.save">Save</button>
       </div>
     </form>
   </dialog>
 
   <dialog id="pw-dialog">
     <div class="dialog-head">
-      <h3>Change password</h3>
-      <button id="pw-close" type="button" aria-label="Close">✕</button>
+      <h3 data-i18n="menu.change_password">Change password</h3>
+      <button id="pw-close" type="button" data-i18n-aria="common.close" aria-label="Close">✕</button>
     </div>
     <form id="pw-form">
-      <label>Current password
+      <label><span data-i18n="pw.current">Current password</span>
         <input name="current" type="password" autocomplete="current-password" required>
       </label>
-      <label>New password (at least 8 characters)
+      <label><span data-i18n="pw.new">New password (at least 8 characters)</span>
         <input name="new" type="password" autocomplete="new-password" minlength="8" required>
       </label>
-      <label>Repeat new password
+      <label><span data-i18n="pw.repeat">Repeat new password</span>
         <input name="repeat" type="password" autocomplete="new-password" minlength="8" required>
       </label>
       <p id="pw-msg" role="alert" hidden></p>
-      <button class="primary" type="submit">Save</button>
+      <button class="primary" type="submit" data-i18n="common.save">Save</button>
     </form>
   </dialog>
 

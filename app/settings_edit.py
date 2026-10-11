@@ -16,6 +16,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from .config import Settings
+from .i18n import languages
 
 ENV_FILE = Path(".env")
 _LINE = re.compile(r"^\s*#?\s*([A-Z][A-Z0-9_]*)\s*=(.*)$")
@@ -45,6 +46,7 @@ FIELDS = [
     ("LUM_TELEGRAM_CHAT_ID", "Notifications (Telegram)", "Chat id", "text", {"placeholder": "e.g. 123456789 or -1001234567890"}),
     ("LUM_NOTIFY", "Notifications (Telegram)", "Report updates", "choice", {"options": ["failures", "all", "off"]}),
     ("LUM_NOTIFY_UPDATES", "Notifications (Telegram)", "Report available updates after the scheduled check", "bool", {}),
+    ("LUM_NOTIFY_LANGUAGE", "Notifications (Telegram)", "Language of the messages", "choice", {"options": list(languages())}),
     ("LUM_HISTORY_DAYS", "History & logs", "Keep history entries for … days (0 = forever)", "int", {"min": 0, "max": 3650}),
     ("LUM_HISTORY_MAX", "History & logs", "Keep at most … history entries (0 = no limit)", "int", {"min": 0, "max": 100000}),
     ("LUM_LOG_DAYS", "History & logs", "Keep the update logs for … days (0 = forever; the entry stays)", "int",

@@ -15,6 +15,7 @@ from .config import Settings
 from . import schedule
 from .db import Database, is_security
 from .host import HostCommandError
+from .i18n import LumError, LumValueError, t
 from .notify import Notifier, esc, lines
 
 log = logging.getLogger(__name__)
@@ -103,12 +104,20 @@ class QueueItem:
     auto: bool = False  # maintenance window
     state: str = "waiting"  # waiting | running | ok | failed | skipped | cancelled
     job_id: int | None = None
-    note: str = ""
+    note: str = ""  # English (log); the web UI and Telegram translate note_key
+    note_key: str | None = None
+    note_params: dict = field(default_factory=dict)
+
+    def set_note(self, key: str, **params) -> None:
+        self.note_key, self.note_params, self.note = key, params, t(key, "en", **params)
+
+    def note_text(self, lang: str) -> str:
+        return t(self.note_key, lang, **self.note_params) if self.note_key else self.note
 
     def as_dict(self) -> dict:
         return {"vmid": self.vmid, "kind": self.kind, "backup": self.backup, "cleanup": self.cleanup,
-                "auto": self.auto, "state": self.state,
-                "job_id": self.job_id, "note": self.note}
+                "auto": self.auto, "state": self.state, "job_id": self.job_id,
+                "note": self.note, "note_key": self.note_key, "note_params": self.note_params}
 
 
 @dataclass
@@ -194,10 +203,10 @@ class UpdateService:
         state, reason = self._outcome(job)
         if not self.notifier.wants(state == "failed"):
             return
-        kind = {"os": "OS update", "app": "App update", "rollback": "Rollback", "restore": "Restore",
-                "restart": "Restart"}.get(job.kind, job.kind)
-        icon, word = {"ok": ("✅", "succeeded"), "failed": ("❌", "failed"), "skipped": ("⏭", "skipped")}[state]
-        text = f"{icon} <b>LUM</b>: {kind} of {esc(self._guest(job.vmid))} {word}"
+        lang = self.notifier.lang
+        icon = {"ok": "✅", "failed": "❌", "skipped": "⏭"}[state]
+        text = f"{icon} <b>LUM</b>: " + t(f"tg.job_{state}", lang, kind=t(f"kind.{job.kind}", lang),
+                                        guest=esc(self._guest(job.vmid)))
         if reason:
             text += f"\n{esc(reason)}"
         await self.notifier.send(text)
@@ -206,32 +215,34 @@ class UpdateService:
         count = {s: [i for i in items if i.state == s] for s in ("ok", "failed", "skipped", "cancelled")}
         if not items or not self.notifier.wants(bool(count["failed"])):
             return
-        title = ("Automatic updates" if all(i.auto for i in items)
-                 else "Bulk restart" if all(i.kind == "restart" for i in items) else "Bulk update")
-        kinds = {"os": "OS update", "app": "App update", "restart": "Restart"}
-        text = (f"<b>LUM – {title} finished</b>\n✅ {len(count['ok'])} succeeded · ❌ {len(count['failed'])} failed"
-                f" · ⏭ {len(count['skipped']) + len(count['cancelled'])} skipped")
+        lang = self.notifier.lang
+        title = t("tg.title_auto" if all(i.auto for i in items)
+                  else "tg.title_restart" if all(i.kind == "restart" for i in items) else "tg.title_bulk", lang)
+        text = (f"<b>LUM – {t('tg.queue_finished', lang, title=title)}</b>\n"
+                + t("tg.queue_counts", lang, ok=len(count["ok"]), failed=len(count["failed"]),
+                    skipped=len(count["skipped"]) + len(count["cancelled"])))
         if count["failed"]:
-            text += "\n\n" + lines([f"{esc(self._guest(i.vmid))}: {kinds.get(i.kind, i.kind)} – {esc(i.note)}"
-                                     for i in count["failed"]])
+            text += "\n\n" + lines([f"{esc(self._guest(i.vmid))}: {t(f'kind.{i.kind}', lang)} – {esc(i.note_text(lang))}"
+                                     for i in count["failed"]], lang)
         await self.notifier.send(text)
 
     async def notify_updates(self) -> None:
         """After the scheduled check: which guests have updates (only when that changed)."""
         if not (self.notifier.enabled and self._s.notify_updates):
             return
+        lang = self.notifier.lang
         found, key = [], []
         for c in self.db.containers():
             if c["status"] != "running":
                 continue
             parts = []
             if c["upgradable"]:
-                sec = f" ({len(c['security'])} security)" if c["security"] else ""
-                parts.append(f"{len(c['upgradable'])} package{'s' if len(c['upgradable']) != 1 else ''}{sec}")
+                sec = f" ({t('tg.security', lang, count=len(c['security']))})" if c["security"] else ""
+                parts.append(t("tg.packages", lang, count=len(c["upgradable"])) + sec)
             if c["app_update"]:
-                parts.append(f"app {c['app_installed']} → {c['app_latest']}")
+                parts.append(t("tg.app", lang, installed=c["app_installed"], latest=c["app_latest"]))
             if c["restart_required"]:
-                parts.append("restart required")
+                parts.append(t("tg.restart_required", lang))
             if parts:
                 found.append(f"{esc(self._guest(c['vmid']))}: {esc(', '.join(parts))}")
                 key.append((c["vmid"], tuple(c["upgradable"]), c["app_latest"] if c["app_update"] else None,
@@ -241,19 +252,18 @@ class UpdateService:
                 continue
             parts = []
             if h.get("packages"):
-                n = len(h["packages"])
-                sec = f" ({len(h['security'])} security)" if h.get("security") else ""
-                parts.append(f"{n} package{'s' if n != 1 else ''}{sec}")
+                sec = f" ({t('tg.security', lang, count=len(h['security']))})" if h.get("security") else ""
+                parts.append(t("tg.packages", lang, count=len(h["packages"])) + sec)
             if h.get("reboot"):
-                parts.append("reboot required")
-            found.append(f"Proxmox host {esc(h['node'])}: {esc(', '.join(parts))}")
+                parts.append(t("tg.reboot_required", lang))
+            found.append(f"{esc(t('tg.host', lang, node=h['node']))}: {esc(', '.join(parts))}")
             key.append((h["node"], tuple(h.get("packages") or []), h.get("reboot")))
         key = tuple(key)
         if key == self._updates_reported:
             return
         self._updates_reported = key
         if found:
-            await self.notifier.send(f"🔔 <b>LUM – updates available</b>\n{lines(found)}")
+            await self.notifier.send(f"🔔 <b>LUM – {t('tg.updates', lang)}</b>\n{lines(found, lang)}")
 
     def _find_self(self, guests: list[dict]) -> None:
         """LUM's own container: the one named like this host (only if exactly one is)."""
@@ -366,11 +376,13 @@ class UpdateService:
         result = []
         for n in nodes:
             name = n["node"]
-            entry = {**before.get(name, {}), "node": name or "Proxmox host", "error": None}
+            entry = {**before.get(name, {}), "node": name or "Proxmox host", "error": None,
+                     "error_key": None, "error_params": {}}
             if not n["online"]:
-                entry["error"] = "node is offline"
+                entry.update(error=t("host.offline", "en"), error_key="host.offline")
             elif n["wrapper"] < HOST_CHECK_WRAPPER:
-                entry["error"] = f"needs host script {HOST_CHECK_WRAPPER} on this node"
+                entry.update(error=t("host.old_wrapper", "en", version=HOST_CHECK_WRAPPER), error_key="host.old_wrapper",
+                             error_params={"version": HOST_CHECK_WRAPPER})
             else:
                 try:
                     data = await self.host.host_check(name)
@@ -534,7 +546,7 @@ class UpdateService:
         backup=False skips the safety copy for this one update, cleanup=False the
         apt autoremove / clean after an OS update."""
         if vmid in self._busy:
-            raise RuntimeError(f"container {vmid} already has a running job")
+            raise LumError("err.guest_busy", vmid=vmid)
         job = Job(id=next(self._job_ids), vmid=vmid, kind=kind, target=target, backup=backup, cleanup=cleanup,
                   auto=auto)
         self.jobs[job.id] = job
@@ -652,7 +664,7 @@ class UpdateService:
     async def delete_snapshot(self, vmid: int, name: str) -> None:
         """Delete one lum_ snapshot; blocks the container like a job meanwhile."""
         if vmid in self._busy:
-            raise RuntimeError(f"container {vmid} has a running job")
+            raise LumError("err.guest_busy", vmid=vmid)
         self._busy.add(vmid)
         try:
             await self.host.delete_snapshot(vmid, name)
@@ -664,7 +676,7 @@ class UpdateService:
     async def delete_backup(self, vmid: int, backup_id: int) -> None:
         """Delete one vzdump backup made by LUM; blocks the guest like a job meanwhile."""
         if vmid in self._busy:
-            raise RuntimeError(f"container {vmid} has a running job")
+            raise LumError("err.guest_busy", vmid=vmid)
         self._busy.add(vmid)
         try:
             await self.host.delete_backup(vmid, backup_id)
@@ -687,9 +699,9 @@ class UpdateService:
             self.db.mark_history_backup_removed(entry["id"])
             return None
         if len(found) > 1:
-            raise ValueError("several backups match this entry – delete it under the Backups button")
+            raise LumValueError("err.backup_ambiguous")
         if found[0]["protected"]:
-            raise ValueError("the backup is protected in Proxmox – remove the protection there first")
+            raise LumValueError("err.backup_protected")
         await self.delete_backup(vmid, found[0]["id"])
         return found[0]["id"]
 
@@ -754,7 +766,7 @@ class UpdateService:
 
     def start_cleanup(self, snapshots: bool, backups: bool) -> Cleanup:
         if self.cleanup_active:
-            raise RuntimeError("snapshots and backups are already being deleted")
+            raise LumError("err.cleanup_running")
         self.cleanup = Cleanup(snapshots, backups)
         asyncio.create_task(self._run_cleanup(self.cleanup))
         return self.cleanup
@@ -827,7 +839,8 @@ class UpdateService:
             if self._maint_end and now >= self._maint_end:
                 for i in self._maint_items or []:
                     if i.state == "waiting":
-                        i.state, i.note = "cancelled", "the maintenance window ended"
+                        i.state = "cancelled"
+                        i.set_note("skip.window_ended")
             return
         begin = schedule.window_start(days, start, now) if days else None
         if begin and begin != self._last_window:
@@ -836,7 +849,7 @@ class UpdateService:
 
     def start_maintenance(self, end: datetime | None = None) -> None:
         if self.maintenance_running:
-            raise RuntimeError("the automatic updates are already running")
+            raise LumError("err.auto_running")
         self._maint_items, self._maint_end = [], end
         asyncio.create_task(self._run_maintenance())
 
@@ -898,28 +911,28 @@ class UpdateService:
     def _skip_reason(self, item: QueueItem) -> str | None:
         c = self.db.container(item.vmid)
         if not c:
-            return "no longer exists"
+            return "gone"
         if c["status"] != "running":
-            return "not running"
+            return "not_running"
         if item.kind == "os":
-            return None if c["upgradable"] else "no OS updates"
+            return None if c["upgradable"] else "no_os_updates"
         if item.kind == "restart":
             if c["vmid"] == self.self_vmid:
-                return "LUM's own container - restart it yourself"
+                return "self"
             # the maintenance window only restarts guests that need it; a bulk restart all chosen
-            return None if c["restart_required"] or not item.auto else "no restart needed"
+            return None if c["restart_required"] or not item.auto else "no_restart_needed"
         if c["type"] == "qemu":
-            return "app updates are only supported for containers"
+            return "vm"
         if c["no_app"]:
-            return "tagged no-app"
+            return "no_app"
         if not c["community_script"]:
-            return "no community-scripts app"
+            return "no_community"
         if c["app_kind"] == "os":
-            return "the app comes with the OS updates"
+            return "app_os"
         if c["app_kind"] == "builtin":
-            return "the app is updated in the app itself"
+            return "app_builtin"
         if c["app_installed"] and c["app_latest"] and not c["app_update"]:
-            return "app is up to date"
+            return "app_up_to_date"
         return None
 
     async def _run_queue(self) -> None:
@@ -949,10 +962,15 @@ class UpdateService:
             await self._check_restart(item.vmid)
         reason = self._skip_reason(item)
         if reason:
-            item.state, item.note = "skipped", reason
+            item.state = "skipped"
+            item.set_note(f"skip.{reason}")
             return
         try:
             job = self.start_job(item.vmid, item.kind, backup=item.backup, cleanup=item.cleanup, auto=item.auto)
+        except LumError as err:
+            item.state = "failed"
+            item.set_note(err.key, **err.params)
+            return
         except RuntimeError as err:
             item.state, item.note = "failed", str(err)
             return
@@ -965,7 +983,10 @@ class UpdateService:
             # refused, e.g. too little RAM - nothing was changed)
             reasons = [line[4:] for line in job.lines
                        if line.startswith(("### Error", "### Internal error", "### skipped"))]
-            item.note = reasons[-1] if reasons else "see log"
+            if reasons:
+                item.note = reasons[-1]  # from the log: stays English like the log
+            else:
+                item.set_note("skip.see_log")
             if item.note.startswith("skipped"):
                 item.state = "skipped"
 

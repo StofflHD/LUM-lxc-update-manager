@@ -13,6 +13,7 @@ import urllib.error
 import urllib.request
 
 from .config import Settings
+from .i18n import LumError, t
 
 log = logging.getLogger(__name__)
 
@@ -28,6 +29,11 @@ class Notifier:
     def __init__(self, settings: Settings, api: str = API):
         self._s = settings
         self._api = api
+
+    @property
+    def lang(self) -> str:
+        """Language of the messages (LUM_NOTIFY_LANGUAGE)."""
+        return self._s.notify_language
 
     @property
     def enabled(self) -> bool:
@@ -50,15 +56,15 @@ class Notifier:
                 detail = json.loads(err.read()).get("description", "")
             except ValueError:
                 detail = ""
-            raise RuntimeError(f"Telegram: {err.code} {detail or err.reason}") from None
+            raise LumError("err.tg_http", code=err.code, msg=detail or err.reason) from None
         except (urllib.error.URLError, TimeoutError) as err:
-            raise RuntimeError(f"Telegram not reachable: {getattr(err, 'reason', err)}") from None
+            raise LumError("err.tg_unreachable", msg=getattr(err, "reason", err)) from None
 
     async def send(self, text: str, test: bool = False) -> None:
         """Send one message; errors are logged (and raised for a test message)."""
         if not (self._s.telegram_token and self._s.telegram_chat_id):
             if test:
-                raise RuntimeError("set the Telegram bot token and chat id in the settings first")
+                raise LumError("err.tg_not_set")
             return
         try:
             await asyncio.to_thread(self._post, text)
@@ -68,9 +74,9 @@ class Notifier:
                 raise
 
 
-def lines(items: list[str]) -> str:
+def lines(items: list[str], lang: str = "en") -> str:
     """Bullet list, cut to MAX_LINES."""
     shown = [f"• {i}" for i in items[:MAX_LINES]]
     if len(items) > MAX_LINES:
-        shown.append(f"… and {len(items) - MAX_LINES} more")
+        shown.append(t("tg.more", lang, count=len(items) - MAX_LINES))
     return "\n".join(shown)

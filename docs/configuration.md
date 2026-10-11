@@ -21,6 +21,15 @@ running.
 - The GitHub and Telegram tokens are never sent back to the browser: leave the field
   empty to keep it, enter `-` to remove it.
 
+## Language
+
+The web UI is English or German: menu **☰** → *Language*. The choice is stored in the
+browser (like the theme); without one LUM follows the browser's language. Error messages
+from the server follow it too. The Telegram messages have their own setting, ☰ →
+**Settings** → *Notifications (Telegram)* → *Language of the messages*
+(`LUM_NOTIFY_LANGUAGE`). Update logs and the server log stay English. More languages:
+see [Translating](translating.md).
+
 ## Notifications (Telegram)
 
 1. In Telegram open **@BotFather**, send `/newbot` and follow it – you get the **bot
@@ -98,6 +107,7 @@ update is running.
 | `LUM_TELEGRAM_CHAT_ID` | – | Chat id of you or a group (negative), or `@channelname` |
 | `LUM_NOTIFY` | `failures` | Report updates: `failures`, `all` or `off` |
 | `LUM_NOTIFY_UPDATES` | `true` | Report available updates after the scheduled check |
+| `LUM_NOTIFY_LANGUAGE` | `en` | Language of the Telegram messages: `en`, `de` (a file in `app/static/lang`, see [Translating](translating.md)) |
 | `LUM_HISTORY_DAYS` | `365` | Finished history entries older than this are removed; `0` = keep (see [rotation](#history-and-log-rotation)) |
 | `LUM_HISTORY_MAX` | `1000` | Keep at most this many finished history entries (the newest); `0` = no limit |
 | `LUM_LOG_DAYS` | `90` | Update logs older than this are removed, the entry stays; `0` = keep |

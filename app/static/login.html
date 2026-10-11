@@ -9,27 +9,28 @@
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/theme.js"></script>
+  <script src="/static/i18n.js"></script>
 </head>
 <body class="login-page">
   <main class="login-box">
     <img class="login-logo" src="/static/logo.svg" alt="" width="56" height="56">
     <h1>LXC Update Manager</h1>
-    <p class="muted">Please log in</p>
+    <p class="muted" data-i18n="login.please">Please log in</p>
     <form id="login-form">
-      <label>Username
+      <label><span data-i18n="login.username">Username</span>
         <input name="username" autocomplete="username" required autofocus value="admin">
       </label>
-      <label>Password
+      <label><span data-i18n="login.password">Password</span>
         <input name="password" type="password" autocomplete="current-password" required>
       </label>
       <p id="login-error" class="err" role="alert" hidden></p>
       <p id="login-hint" class="muted" hidden></p>
-      <button class="primary" type="submit">Log in</button>
+      <button class="primary" type="submit" data-i18n="login.button">Log in</button>
     </form>
   </main>
   <footer class="site-footer">
     © 2026 StofflHD ·
-    <a href="https://github.com/StofflHD/LUM-lxc-update-manager" target="_blank" rel="noopener">LUM on GitHub</a>
+    <a href="https://github.com/StofflHD/LUM-lxc-update-manager" target="_blank" rel="noopener" data-i18n="login.github">LUM on GitHub</a>
   </footer>
   <script src="/static/login.js"></script>
 </body>

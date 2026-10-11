@@ -273,3 +273,6 @@ form label.check input:disabled + span { color: var(--muted); }
 #host-warning { margin: 6px 0 0; font-size: 12px; max-width: 70ch; }
 button.danger { color: var(--err); }
 button.danger:hover:not(:disabled) { border-color: var(--err); }
+
+/* i18n.js: hidden until the texts of the chosen language are there (no flash of English) */
+html.i18n-loading body { visibility: hidden; }

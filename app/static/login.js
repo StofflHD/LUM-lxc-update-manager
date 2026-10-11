@@ -7,13 +7,15 @@ function showError(msg) {
   error.hidden = !msg;
 }
 
-fetch("/api/auth/state").then((r) => r.json()).then((state) => {
+I18N.ready.then(() => {
+  document.title = `${t("login.button")} – LXC Update Manager`;
+  return fetch("/api/auth/state");
+}).then((r) => r.json()).then((state) => {
   if (!state.configured) {
-    hint.textContent = "No login has been set up yet. Run inside the container: "
-      + "cd /opt/lxc-update-manager && venv/bin/python -m app.passwd";
+    hint.textContent = t("login.no_setup");
     hint.hidden = false;
   } else if (state.demo) {
-    hint.textContent = "Demo mode: admin / demo";
+    hint.textContent = t("login.demo");
     hint.hidden = false;
   }
 }).catch(() => {});
@@ -34,11 +36,11 @@ form.addEventListener("submit", async (ev) => {
       return;
     }
     const body = await res.json().catch(() => ({}));
-    showError(body.detail || `Login failed (${res.status})`);
+    showError(body.detail || t("login.failed", { status: res.status }));
     form.password.value = "";
     form.password.focus();
   } catch {
-    showError("Server not reachable");
+    showError(t("login.unreachable"));
   } finally {
     button.disabled = false;
   }

@@ -10,6 +10,20 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.28.0] – 2026-10-11
+
+### Added
+- **Languages:** the web UI is English or German – menu ☰ → *Language* (stored in the
+  browser; without a choice the browser's language). Error messages from the server,
+  the reasons in the queue and dates follow the chosen language; the Telegram messages
+  have their own setting `LUM_NOTIFY_LANGUAGE` (*Language of the messages*). Update logs
+  and the server log stay English.
+- Every text is in one JSON file per language (`app/static/lang/en.json`, `de.json`); a
+  new file is a new language. `python -m app.i18n_check` finds missing texts. See
+  [Translating](docs/translating.md).
+- API: `GET /api/i18n`; the queue has `note_key` / `note_params`, the hosts
+  `error_key` / `error_params`.
+
 ## [0.27.0] – 2026-10-11
 
 ### Changed
@@ -652,7 +666,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.27.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/9c6e14d...main
+[0.28.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/be87aa8...main
+[0.27.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/9c6e14d...be87aa8
 [0.26.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/e9622c7...9c6e14d
 [0.26.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/e3ae7bd...e9622c7
 [0.25.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/b5ae9c4...e3ae7bd

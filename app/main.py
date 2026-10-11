@@ -14,7 +14,8 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTex
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ValidationError
 
-from . import REQUIRED_WRAPPER_VERSION, __version__, logbuffer, settings_edit
+from . import REQUIRED_WRAPPER_VERSION, __version__, i18n, logbuffer, settings_edit
+from .i18n import t
 from .apps import AppCatalog
 from .auth import COOKIE, Auth, write_credentials
 from .config import get_settings
@@ -28,8 +29,8 @@ logbuffer.install()  # the last lines for "Server log" in the web UI
 STATIC = Path(__file__).parent / "static"
 # reachable without a session
 PUBLIC = {
-    "/login", "/api/login", "/api/auth/state", "/favicon.ico",
-    "/static/style.css", "/static/login.js", "/static/theme.js",
+    "/login", "/api/login", "/api/auth/state", "/api/i18n", "/favicon.ico",
+    "/static/style.css", "/static/login.js", "/static/theme.js", "/static/i18n.js",
     "/static/logo.svg", "/static/favicon.svg", "/static/favicon-32.png", "/static/apple-touch-icon.png",
 }
 
@@ -128,6 +129,21 @@ async def require_login(request: Request, call_next):
     return await call_next(request)
 
 
+@app.middleware("http")
+async def language(request: Request, call_next):
+    """Error messages in the language of the web UI (cookie), else Accept-Language."""
+    i18n.current.set(i18n.match(request.cookies.get("lum_lang") or request.headers.get("accept-language")))
+    return await call_next(request)
+
+
+@app.get("/api/i18n")
+async def translations(lang: str = ""):
+    """The texts of the best matching language (merged over English) and the list of
+    languages, for the web UI and the login page."""
+    code = i18n.match(lang)
+    return {"lang": code, "languages": i18n.languages(), "strings": i18n.merged(code)}
+
+
 def _set_session(response: JSONResponse, username: str, request: Request) -> None:
     # behind an HTTPS reverse proxy (trusted via FORWARDED_ALLOW_IPS) the scheme is
     # https, so the cookie is marked Secure without extra configuration
@@ -145,7 +161,7 @@ def _set_session(response: JSONResponse, username: str, request: Request) -> Non
 
 def _check_lock(ip: str) -> None:
     if wait := auth().locked_for(ip):
-        raise HTTPException(429, f"Too many failed attempts. Try again in {math.ceil(wait / 60)} minutes.")
+        raise HTTPException(429, t("err.locked", count=math.ceil(wait / 60)))
 
 
 class LoginBody(BaseModel):
@@ -182,13 +198,12 @@ async def login(body: LoginBody, request: Request):
     ip = client_ip(request)
     _check_lock(ip)
     if not auth().configured:
-        raise HTTPException(503, "No login set up. Run inside the container: "
-                                 "cd /opt/lxc-update-manager && venv/bin/python -m app.passwd")
+        raise HTTPException(503, t("err.no_login"))
     if not await asyncio.to_thread(auth().check_password, body.username, body.password):
         auth().record_failure(ip)
         log.warning("failed login for %r from %s", body.username, ip)
         await asyncio.sleep(1)
-        raise HTTPException(401, "Wrong username or password")
+        raise HTTPException(401, t("err.wrong_login"))
     auth().reset_failures(ip)
     response = JSONResponse({"user": body.username})
     _set_session(response, body.username, request)
@@ -210,16 +225,16 @@ async def me(request: Request):
 @app.post("/api/password")
 async def change_password(body: PasswordBody, request: Request):
     if get_settings().auth_disabled:
-        raise HTTPException(409, "Login is disabled (LUM_AUTH_DISABLED)")
+        raise HTTPException(409, t("err.auth_disabled"))
     ip, user = client_ip(request), request.state.user
     _check_lock(ip)
     # 403, not 401: the session itself is fine, only the entered password is wrong
     if not await asyncio.to_thread(auth().check_password, user, body.current):
         auth().record_failure(ip)
         await asyncio.sleep(1)
-        raise HTTPException(403, "Current password is wrong")
+        raise HTTPException(403, t("err.wrong_current"))
     if len(body.new) < 8:
-        raise HTTPException(400, "The new password needs at least 8 characters")
+        raise HTTPException(400, t("err.pw_short"))
     await asyncio.to_thread(auth().change_password, body.new)
     # all old sessions are invalid now; hand this browser a fresh one
     response = JSONResponse({"ok": True})
@@ -295,8 +310,7 @@ def _not_self(s, vmid: int, what: str) -> None:
     """A rollback / restore stops the guest - for LUM's own container that would cut
     the job off halfway and could leave it stopped."""
     if vmid == s.self_vmid:
-        raise HTTPException(409, f"LUM runs in this container and can't {what} it itself - "
-                                 "do it in the Proxmox UI (the snapshots / backups are listed under Backups)")
+        raise HTTPException(409, t(f"err.self_{what}"))
 
 
 @app.post("/api/sync")
@@ -305,7 +319,7 @@ async def sync():
     try:
         return await svc().sync_guests()
     except Exception as err:
-        raise HTTPException(502, f"cannot read the list from the host: {err}")
+        raise HTTPException(502, t("err.list_failed", msg=err))
 
 
 @app.post("/api/refresh", status_code=202)
@@ -318,7 +332,7 @@ async def refresh():
 async def check(vmid: int):
     s = svc()
     if not s.db.container(vmid):
-        raise HTTPException(404, "unknown container")
+        raise HTTPException(404, t("err.unknown_guest"))
     await s.check(vmid)
     return s.db.container(vmid)
 
@@ -328,15 +342,15 @@ async def update(vmid: int, kind: Literal["os", "app"] = "os", backup: bool = Tr
     s = svc()
     c = s.db.container(vmid)
     if not c:
-        raise HTTPException(404, "unknown container")
+        raise HTTPException(404, t("err.unknown_guest"))
     if c["status"] != "running":
-        raise HTTPException(409, "container is not running")
+        raise HTTPException(409, t("err.not_running"))
     if kind == "app" and c["type"] == "qemu":
-        raise HTTPException(409, "app updates are only supported for LXC containers")
+        raise HTTPException(409, t("err.app_lxc_only"))
     if kind == "app" and c["no_app"]:
-        raise HTTPException(409, "the container is tagged no-app - no app updates")
+        raise HTTPException(409, t("err.no_app"))
     if kind == "app" and not c["community_script"]:
-        raise HTTPException(409, "container has no community-scripts update command")
+        raise HTTPException(409, t("err.no_community"))
     try:
         clean = get_settings().cleanup if cleanup is None else cleanup
         return s.start_job(vmid, kind, backup=backup, cleanup=clean).as_dict()
@@ -362,7 +376,7 @@ async def set_auto(body: AutoBody):
     s = svc()
     unknown = [v for v in body.vmids if not s.db.container(v)]
     if unknown:
-        raise HTTPException(404, f"unknown container(s): {', '.join(map(str, unknown))}")
+        raise HTTPException(404, t("err.unknown_guests", ids=", ".join(map(str, unknown))))
     s.db.set_auto_update(body.vmids, body.mode)
     return {"updated": len(body.vmids), "mode": body.mode}
 
@@ -371,7 +385,8 @@ async def set_auto(body: AutoBody):
 async def notify_test():
     """Send a test message with the saved Telegram settings."""
     try:
-        await svc().notifier.send("✅ <b>LUM</b>: test notification – Telegram works.", test=True)
+        s = svc()
+        await s.notifier.send(t("tg.test", s.notifier.lang), test=True)
     except RuntimeError as err:
         raise HTTPException(502, str(err))
     return {"sent": True}
@@ -398,9 +413,9 @@ async def queue_add(body: QueueBody):
     s = svc()
     unknown = [v for v in body.vmids if not s.db.container(v)]
     if unknown:
-        raise HTTPException(404, f"unknown container(s): {', '.join(map(str, unknown))}")
+        raise HTTPException(404, t("err.unknown_guests", ids=", ".join(map(str, unknown))))
     if not body.vmids:
-        raise HTTPException(400, "no guests selected")
+        raise HTTPException(400, t("err.no_selection"))
     clean = get_settings().cleanup if body.cleanup is None else body.cleanup
     added = s.enqueue(body.vmids, body.kind, body.backup, clean)
     return {"added": added, "queue": [i.as_dict() for i in s.queue]}
@@ -424,7 +439,7 @@ async def release_notes(vmid: int):
     s = svc()
     c = s.db.container(vmid)
     if not c:
-        raise HTTPException(404, "unknown container")
+        raise HTTPException(404, t("err.unknown_guest"))
     out = {"installed": c["app_installed"], "latest": c["app_latest"], "url": c["app_url"], "releases": [], "more": 0}
     if not c["app_script"] or not c["app_update"]:
         return out
@@ -449,9 +464,9 @@ async def restart(vmid: int):
     s = svc()
     c = s.db.container(vmid)
     if not c:
-        raise HTTPException(404, "unknown container")
+        raise HTTPException(404, t("err.unknown_guest"))
     if c["status"] != "running":
-        raise HTTPException(409, "container is not running")
+        raise HTTPException(409, t("err.not_running"))
     try:
         return s.start_job(vmid, "restart").as_dict()
     except RuntimeError as err:
@@ -462,36 +477,36 @@ async def restart(vmid: int):
 async def snapshots(vmid: int):
     s = svc()
     if not s.db.container(vmid):
-        raise HTTPException(404, "unknown container")
+        raise HTTPException(404, t("err.unknown_guest"))
     try:
         return await s.host.snapshots(vmid)
     except Exception as err:
-        raise HTTPException(502, f"cannot list snapshots: {err}")
+        raise HTTPException(502, t("err.list_snapshots", msg=err))
 
 
 @app.get("/api/containers/{vmid}/backups")
 async def backups(vmid: int):
     s = svc()
     if not s.db.container(vmid):
-        raise HTTPException(404, "unknown container")
+        raise HTTPException(404, t("err.unknown_guest"))
     try:
         return await s.host.backups(vmid)
     except Exception as err:
-        raise HTTPException(502, f"cannot list backups: {err}")
+        raise HTTPException(502, t("err.list_backups", msg=err))
 
 
 @app.delete("/api/containers/{vmid}/backups/{backup_id}")
 async def delete_backup(vmid: int, backup_id: int):
     s = svc()
     if not s.db.container(vmid):
-        raise HTTPException(404, "unknown container")
+        raise HTTPException(404, t("err.unknown_guest"))
     try:
         await s.delete_backup(vmid, backup_id)
     except RuntimeError as err:
         raise HTTPException(409, str(err))
     except Exception as err:
         log.warning("deleting backup %s of %s failed: %s", backup_id, vmid, err)
-        raise HTTPException(502, f"cannot delete backup: {err}")
+        raise HTTPException(502, t("err.delete_backup", msg=err))
     return {"deleted": backup_id}
 
 
@@ -499,7 +514,7 @@ async def delete_backup(vmid: int, backup_id: int):
 async def restore(vmid: int, backup: int):
     s = svc()
     if not s.db.container(vmid):
-        raise HTTPException(404, "unknown container")
+        raise HTTPException(404, t("err.unknown_guest"))
     _not_self(s, vmid, "restore")
     try:
         return s.start_job(vmid, "restore", str(backup)).as_dict()
@@ -511,16 +526,16 @@ async def restore(vmid: int, backup: int):
 async def delete_snapshot(vmid: int, name: str):
     s = svc()
     if not s.db.container(vmid):
-        raise HTTPException(404, "unknown container")
+        raise HTTPException(404, t("err.unknown_guest"))
     if not re.fullmatch(r"lum_[0-9_]{1,30}", name):
-        raise HTTPException(400, "only snapshots created by the update manager (lum_*) can be deleted")
+        raise HTTPException(400, t("err.snap_delete_lum"))
     try:
         await s.delete_snapshot(vmid, name)
     except RuntimeError as err:
         raise HTTPException(409, str(err))
     except Exception as err:
         log.warning("deleting snapshot %s of CT %s failed: %s", name, vmid, err)
-        raise HTTPException(502, f"cannot delete snapshot: {err}")
+        raise HTTPException(502, t("err.delete_snapshot", msg=err))
     return {"deleted": name}
 
 
@@ -528,10 +543,10 @@ async def delete_snapshot(vmid: int, name: str):
 async def rollback(vmid: int, snapshot: str):
     s = svc()
     if not s.db.container(vmid):
-        raise HTTPException(404, "unknown container")
+        raise HTTPException(404, t("err.unknown_guest"))
     if not re.fullmatch(r"lum_[0-9_]{1,30}", snapshot):
-        raise HTTPException(400, "only snapshots created by the update manager (lum_*) can be rolled back")
-    _not_self(s, vmid, "roll back")
+        raise HTTPException(400, t("err.snap_rollback_lum"))
+    _not_self(s, vmid, "rollback")
     try:
         return s.start_job(vmid, "rollback", snapshot).as_dict()
     except RuntimeError as err:
@@ -542,7 +557,7 @@ async def rollback(vmid: int, snapshot: str):
 async def job(job_id: int):
     j = svc().jobs.get(job_id)
     if not j:
-        raise HTTPException(404, "unknown job")
+        raise HTTPException(404, t("err.unknown_job"))
     return {**j.as_dict(), "lines": j.lines}
 
 
@@ -603,7 +618,7 @@ async def settings_save(body: SettingsBody):
     if not changes:
         return {"saved": [], "restart": False}
     if s._busy or s.refreshing or s.queue_active or s.cleanup_active or s.maintenance_running:
-        raise HTTPException(409, "An update or check is running - save again when it has finished.")
+        raise HTTPException(409, t("err.busy_save"))
     settings_edit.write(changes)
     log.info("settings changed in the web UI: %s", ", ".join(sorted(changes)))
     restart = _under_systemd()
@@ -646,7 +661,7 @@ async def import_(body: ImportBody):
     the same ID and name, history entries not there yet."""
     s, d = svc(), body.data
     if d.get("lum_export") != EXPORT_FORMAT:
-        raise HTTPException(400, "this is not a LUM export file")
+        raise HTTPException(400, t("err.not_export"))
     result: dict = {"settings": [], "guests": 0, "guests_skipped": [], "history": 0, "restart": False}
     changes: dict = {}
     if body.settings and d.get("settings"):
@@ -658,7 +673,7 @@ async def import_(body: ImportBody):
         env = settings_edit.read_env()
         changes = {k: v for k, v in values.items() if env.get(k) != v}
         if changes and (s._busy or s.refreshing or s.queue_active or s.cleanup_active or s.maintenance_running):
-            raise HTTPException(409, "An update or check is running - import again when it has finished.")
+            raise HTTPException(409, t("err.busy_import"))
     if body.guests:
         here = {c["vmid"]: c for c in s.db.containers()}
         for g in d.get("guests") or []:
@@ -701,7 +716,7 @@ async def clear_history(snapshots: bool = False, backups: bool = False):
     snapshots / vzdump backups of every managed guest (in the background)."""
     s = svc()
     if (snapshots or backups) and s.cleanup_active:
-        raise HTTPException(409, "snapshots and backups are already being deleted")
+        raise HTTPException(409, t("err.cleanup_running"))
     removed = s.db.clear_history()
     cleanup = s.start_cleanup(snapshots, backups).as_dict() if snapshots or backups else None
     return {"removed": removed, "purge": cleanup}
@@ -712,9 +727,9 @@ async def delete_history(history_id: int):
     s = svc()
     entry = s.db.history_entry(history_id)
     if not entry:
-        raise HTTPException(404, "unknown entry")
+        raise HTTPException(404, t("err.unknown_entry"))
     if entry["finished"] is None:
-        raise HTTPException(409, "this job is still running")
+        raise HTTPException(409, t("err.job_running"))
     s.db.delete_history(history_id)
     return {"removed": history_id}
 
@@ -724,23 +739,23 @@ async def delete_history_backup(history_id: int):
     s = svc()
     entry = s.db.history_entry(history_id)
     if not entry:
-        raise HTTPException(404, "unknown entry")
+        raise HTTPException(404, t("err.unknown_entry"))
     if entry["backup_kind"] != "vzdump" or entry["backup_removed"]:
-        raise HTTPException(409, "this entry has no vzdump backup (any more)")
+        raise HTTPException(409, t("err.no_vzdump"))
     if entry["finished"] is None:
-        raise HTTPException(409, "this job is still running")
+        raise HTTPException(409, t("err.job_running"))
     try:
         return {"deleted": await s.delete_history_backup(entry)}
     except (RuntimeError, ValueError) as err:
         raise HTTPException(409, str(err))
     except Exception as err:
         log.warning("deleting the backup of history entry %s failed: %s", history_id, err)
-        raise HTTPException(502, f"cannot delete backup: {err}")
+        raise HTTPException(502, t("err.delete_backup", msg=err))
 
 
 @app.get("/api/history/{history_id}/log", response_class=PlainTextResponse)
 async def history_log(history_id: int):
     text = svc().db.history_log(history_id)
     if text is None:
-        raise HTTPException(404, "unknown entry")
+        raise HTTPException(404, t("err.unknown_entry"))
     return text
