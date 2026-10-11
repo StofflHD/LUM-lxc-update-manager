@@ -7,7 +7,14 @@ const te = (key, vars) => esc(t(key, vars));
 const guestTypes = {};
 const guestLabel = (id) => `${guestTypes[id] === "qemu" ? "VM" : "CT"} ${id}`;
 
-const fmtTime = (ts) => (ts ? new Date(ts * 1000).toLocaleString(I18N.locale) : "–");
+// date and number format: "system" follows the browser / operating system (like the
+// theme), or a fixed locale - stored per browser
+const DATE_FORMATS = ["system", "de-DE", "en-GB", "en-US", "sv-SE"];
+let dateFormat = "system";
+try { dateFormat = localStorage.getItem("lum-datefmt") || "system"; } catch { /* blocked */ }
+const fmtLocale = () => (dateFormat === "system" ? undefined : dateFormat);
+
+const fmtTime = (ts) => (ts ? new Date(ts * 1000).toLocaleString(fmtLocale()) : "–");
 
 async function api(path, opts = {}) {
   // the header proves the request comes from this page (CSRF protection on the server)
@@ -155,7 +162,7 @@ function restartBadge(c) {
 }
 
 // 3.8 GB / 3,8 GB depending on the language
-const fmtNum = (n) => n.toLocaleString(I18N.locale, { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+const fmtNum = (n) => n.toLocaleString(fmtLocale(), { maximumFractionDigits: 1, minimumFractionDigits: 1 });
 const fmtKb = (kb) => (kb >= 1048576 ? `${fmtNum(kb / 1048576)} GB` : `${Math.floor(kb / 1024)} MB`);
 
 function diskBadge(c) {
@@ -603,7 +610,7 @@ async function showReleaseNotes(vmid, dlg) {
     }
     dlg.classList.add("wide");
     const releases = n.releases.map((r, i) => `<details ${i === 0 ? "open" : ""}>
-        <summary>${esc(r.name || r.tag)}<span class="when">${r.published ? esc(new Date(r.published).toLocaleDateString(I18N.locale)) : ""}</span>
+        <summary>${esc(r.name || r.tag)}<span class="when">${r.published ? esc(new Date(r.published).toLocaleDateString(fmtLocale())) : ""}</span>
           ${BREAKING.test(r.body) ? `<span class="badge warn" title="${te("notes.breaking_title")}">${te("notes.breaking")}</span>` : ""}</summary>
         <div class="note">${markdown(r.body || "") || `<p class="muted">${te("notes.no_description")}</p>`}
           ${r.cut || r.url ? `<p><a href="${esc(r.url)}" target="_blank" rel="noopener">${te(r.cut ? "notes.continue" : "notes.release_page")}</a></p>` : ""}</div>
@@ -1091,7 +1098,7 @@ async function loadServerLog() {
   const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
   try {
     const r = await api(`/api/logs?level=${$("#srvlog-level").value}`);
-    const time = (ts) => new Date(ts * 1000).toLocaleString(I18N.locale);
+    const time = (ts) => new Date(ts * 1000).toLocaleString(fmtLocale());
     srvlogText = r.lines.map((l) => `${time(l.time)} ${l.level.padEnd(7)} ${l.name}: ${l.text}`).join("\n");
     el.innerHTML = r.lines.map((l) => `<span class="lv-${esc(l.level)}">${esc(time(l.time))} ${esc(l.level.padEnd(7))} `
       + `${esc(l.name)}: ${esc(l.text)}</span>`).join("\n") || `<span class="muted">${te("srvlog.empty")}</span>`;
@@ -1369,13 +1376,19 @@ async function openSettings() {
   }
 }
 
-// language of the web UI: per browser (and as cookie for the server's messages), not in
-// .env - so it has no name and is not sent with the other settings
+// language and date format of the web UI: per browser (the language also as cookie for
+// the server's messages), not in .env - so no name, not sent with the other settings
 function languageField() {
   const options = Object.entries(I18N.languages).map(([code, name]) =>
     `<option value="${esc(code)}" lang="${esc(code)}" ${code === I18N.lang ? "selected" : ""}>${esc(name)}</option>`).join("");
+  // each format shown with an example
+  const sample = new Date(2026, 11, 31, 23, 59);
+  const example = (loc) => sample.toLocaleString(loc, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const formats = DATE_FORMATS.map((f) => `<option value="${f}" ${f === dateFormat ? "selected" : ""}>${esc(f === "system"
+    ? t("settings.date_system", { example: example(undefined) }) : example(f))}</option>`).join("");
   return `<fieldset><legend>${te("settings.language_group")}</legend>
     <label for="set-ui-language"><span>${te("settings.language")}</span><select id="set-ui-language">${options}</select></label>
+    <label for="set-date-format"><span>${te("settings.date_format")}</span><select id="set-date-format">${formats}</select></label>
   </fieldset>`;
 }
 
@@ -1399,6 +1412,8 @@ settingsForm.addEventListener("submit", async (ev) => {
   const btn = settingsForm.querySelector('button[type="submit"]');
   const lang = $("#set-ui-language")?.value;
   const newLang = lang && lang !== I18N.lang ? lang : null;
+  const fmt = $("#set-date-format")?.value;
+  const newFormat = fmt && fmt !== dateFormat ? fmt : null;
   btn.disabled = true;
   try {
     const r = await api("/api/settings", {
@@ -1407,9 +1422,16 @@ settingsForm.addEventListener("submit", async (ev) => {
       body: JSON.stringify({ values }),
     });
     if (newLang) I18N.remember(newLang); // applies with the reload below
+    if (newFormat) {
+      dateFormat = newFormat;
+      try { localStorage.setItem("lum-datefmt", newFormat); } catch { /* blocked: this page only */ }
+    }
     if (!r.saved.length) {
       if (newLang) location.reload();
-      else settingsMsg(t("settings.unchanged"));
+      else if (newFormat) {
+        settingsMsg(t("settings.display_saved"), "ok");
+        load();
+      } else settingsMsg(t("settings.unchanged"));
     } else if (r.restart) {
       settingsMsg(`${t("settings.saved", { keys: r.saved.join(", ") })} ${t("common.restarting")}`, "ok");
       if (await waitForRestart()) location.reload();

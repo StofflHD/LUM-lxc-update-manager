@@ -24,7 +24,10 @@ running.
 ## Language
 
 The web UI is English or German: ☰ → **Settings** → *Language* (a drop-down at the top,
-applied with **Save**). The choice is stored in the
+applied with **Save**). Next to it *Date and time format*: **System** (default) follows
+the browser / operating system like the theme does, or a fixed format – `31.12.2026
+23:59`, `31/12/2026 23:59`, `12/31/2026 11:59 PM` or `2026-12-31 23:59`; it applies to
+numbers (`3,8 GB` / `3.8 GB`) too. Both choices are stored in the
 browser (like the theme); without one LUM follows the browser's language. Error messages
 from the server follow it too. The Telegram messages have their own setting, ☰ →
 **Settings** → *Notifications (Telegram)* → *Language of the messages*
