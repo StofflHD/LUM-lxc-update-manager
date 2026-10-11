@@ -10,6 +10,14 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.23.5] – 2026-10-11
+
+### Fixed
+- **OS update** / **App update** above the list were usable for any selection. Now they
+  follow the rules of the row buttons: greyed out (with a tooltip) when none of the
+  selected guests has OS updates / an app update, and only the guests with something to
+  update are queued – the dialog says how many selected guests are left out.
+
 ## [0.23.4] – 2026-10-11
 
 ### Changed
@@ -593,7 +601,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.23.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/f767136...main
+[0.23.5]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/6f1db0f...main
+[0.23.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/f767136...6f1db0f
 [0.23.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/5bf830e...f767136
 [0.23.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ff2ebb5...5bf830e
 [0.23.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/898ad4f...ff2ebb5

@@ -831,14 +831,26 @@ $("#clear-history").addEventListener("click", async () => {
 
 // --- selection, bulk updates and the queue -----------------------------------------
 
+// selected guests a bulk update of this kind would update (same rules as the row buttons)
+const canUpdate = {
+  os: (c) => c.status === "running" && c.upgradable.length > 0,
+  app: (c) => c.status === "running" && c.community_script && !noAppUpdate(c) && !appUpToDate(c),
+};
+const bulkTargets = (kind) => lastContainers.filter((c) => selected.has(String(c.vmid)) && canUpdate[kind](c))
+  .map((c) => c.vmid);
+
 function renderBulk() {
   const n = selected.size;
   $("#bulk-count").textContent = n
     ? `${n} selected`
     : "Select containers and VMs to update several at once";
-  $("#bulk-os").disabled = !n;
-  const appCapable = new Set(lastContainers.filter((c) => !noAppUpdate(c)).map((c) => String(c.vmid)));
-  $("#bulk-app").disabled = ![...selected].some((v) => appCapable.has(v));
+  // like the buttons in the rows: only usable when a selected guest has something to update
+  const os = bulkTargets("os").length;
+  const app = bulkTargets("app").length;
+  $("#bulk-os").disabled = !os;
+  $("#bulk-os").title = n && !os ? "None of the selected guests has OS updates" : "";
+  $("#bulk-app").disabled = !app;
+  $("#bulk-app").title = n && !app ? "None of the selected guests has an app update" : "";
   $("#sel-none").hidden = !n;
   $("#bulk-auto").disabled = !n;
   $("#bulk-auto").title = n ? "Update the selected guests automatically in the maintenance window"
@@ -883,11 +895,11 @@ document.querySelectorAll("[data-filter]").forEach((b) => b.addEventListener("cl
 }));
 
 async function bulkUpdate(kind) {
-  const appCapable = new Set(lastContainers.filter((c) => !noAppUpdate(c)).map((c) => c.vmid));
-  const vmids = [...selected].map(Number).filter((v) => kind === "os" || appCapable.has(v));
+  const vmids = bulkTargets(kind);
+  const skipped = selected.size - vmids.length;
   const what = kind === "os" ? "OS updates" : "an app update";
-  const extra = `They run one after the other, each with its own log in the history. Guests without ${what}`
-    + (kind === "app" ? " (and VMs / self-created containers)" : "") + " are skipped; a failed update does not stop the others.";
+  const extra = "They run one after the other, each with its own log in the history; a failed update does not stop the others."
+    + (skipped ? ` ${skipped} selected guest${skipped === 1 ? " has" : "s have"} no ${what.replace(/^an /, "")} and ${skipped === 1 ? "is" : "are"} left out.` : "");
   const choice = await askUpdate(`${vmids.length} guest${vmids.length === 1 ? "" : "s"}`, kind, extra);
   if (!choice) return;
   try {

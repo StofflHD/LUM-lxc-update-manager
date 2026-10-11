@@ -40,7 +40,9 @@ note below the status line says so and shows the command to update it.
 Tick the checkboxes of the guests (or **Select all with updates**: every running guest
 with OS or app updates), then click **OS update** or **App update** above the list. The
 update dialog asks once for the backup (and for OS updates the cleanup) checkbox; it
-applies to all of them.
+applies to all of them. Like the buttons in the rows, **OS update** / **App update** above
+the list are greyed out when none of the selected guests has such an update, and the
+dialog says how many selected guests are left out because they have nothing to update.
 
 - The guests are updated **one after the other**, each exactly like a single update –
   with its own backup, cleanup, live log and history entry. A queued guest shows
