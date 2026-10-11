@@ -81,6 +81,19 @@
       </div>
     </section>
 
+    <section id="hosts-section" hidden>
+      <div class="section-head">
+        <h2>Proxmox host<span id="hosts-plural">s</span></h2>
+      </div>
+      <div class="table-wrap">
+        <table class="responsive">
+          <thead><tr><th>Node</th><th>Proxmox VE</th><th>Status</th><th>OS updates</th><th>Kernel</th><th>Last check</th></tr></thead>
+          <tbody id="hosts"></tbody>
+        </table>
+      </div>
+      <p class="muted small" id="hosts-note"></p>
+    </section>
+
     <section id="queue-section" hidden>
       <div class="section-head">
         <h2 id="queue-title">Queue</h2>

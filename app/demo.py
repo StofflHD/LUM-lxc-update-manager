@@ -104,6 +104,21 @@ class DemoHostClient:
         return [{"node": "pve1", "online": 1, "local": 1, "wrapper": REQUIRED_WRAPPER_VERSION},
                 {"node": "pve2", "online": 1, "local": 0, "wrapper": REQUIRED_WRAPPER_VERSION}]
 
+    async def host_check(self, node: str) -> dict:
+        await asyncio.sleep(0.3)
+        lists = int(time.time() - 5 * 3600)
+        if node == "pve2":  # up to date, but still on the old kernel
+            return {"node": node, "pve": "9.0.10", "kernel": "6.14.8-2-pve", "newest_kernel": "6.14.11-3-pve",
+                    "reboot_flag": 0, "lists": lists, "packages": []}
+        return {"node": node, "pve": "9.0.10", "kernel": "6.14.11-3-pve", "newest_kernel": "6.14.11-3-pve",
+                "reboot_flag": 0, "lists": lists, "packages": [
+                    "pve-manager/stable 9.0.11 all [upgradable from: 9.0.10]",
+                    "proxmox-kernel-6.14/stable 6.14.11-4 all [upgradable from: 6.14.11-3]",
+                    "libssl3t64/trixie-security 3.5.1-1+deb13u2 amd64 [upgradable from: 3.5.1-1+deb13u1]",
+                    "openssl/trixie-security 3.5.1-1+deb13u2 amd64 [upgradable from: 3.5.1-1+deb13u1]",
+                    "zfsutils-linux/stable 2.3.4-pve1 amd64 [upgradable from: 2.3.3-pve1]",
+                ]}
+
     async def list_containers(self) -> list[dict]:
         await asyncio.sleep(0.2)
         return [{"vmid": c[0], "name": c[1], "status": c[2], "tags": c[3], "type": c[7],

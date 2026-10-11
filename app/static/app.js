@@ -93,6 +93,43 @@ function appCell(c) {
   return `${name} ${badge}${held}${ahead}<br>${repo}`;
 }
 
+// the Proxmox host(s) themselves - shown only, LUM never updates or reboots them
+function hostUpdatesCell(h) {
+  if (h.error && !h.checked) return `<span class="badge warn" title="${esc(h.error)}">not checked</span>`;
+  if (!h.packages.length) return '<span class="badge ok">up to date</span>';
+  const sec = new Set(h.security);
+  const secBadge = sec.size ? ` <span class="badge err">${sec.size} security</span>` : "";
+  const key = `host-${h.node}`;
+  return `<details data-vmid="${esc(key)}" ${openDetails.has(key) ? "open" : ""}><summary><span class="badge warn">${h.packages.length} package${h.packages.length === 1 ? "" : "s"}</span>${secBadge}</summary>
+    <ul>${h.packages.map((p) => `<li${sec.has(p) ? ' class="sec"' : ""}>${esc(p)}</li>`).join("")}</ul></details>`;
+}
+
+function renderHosts(hosts) {
+  $("#hosts-section").hidden = !hosts.length;
+  if (!hosts.length) return;
+  $("#hosts-plural").hidden = hosts.length === 1;
+  $("#hosts").innerHTML = hosts.map((h) => {
+    const kernel = h.kernel
+      ? `${esc(h.kernel)}${h.newest_kernel && h.newest_kernel !== h.kernel ? `<br><span class="muted">installed: ${esc(h.newest_kernel)}</span>` : ""}`
+      : "–";
+    const stale = h.lists && Date.now() / 1000 - h.lists > 3 * 86400;
+    return `<tr>
+      <td data-label="Node"><strong>${esc(h.node)}</strong></td>
+      <td data-label="Proxmox VE">${esc(h.pve || "–")}</td>
+      <td data-label="Status">${h.reboot ? `<span class="badge warn" title="${esc(h.newest_kernel && h.newest_kernel !== h.kernel
+        ? `A newer kernel is installed (${h.newest_kernel}) – it is used after a reboot of the host`
+        : "The host asks for a reboot")}">reboot required</span>` : '<span class="badge ok">ok</span>'}${h.error
+        ? `<br><span class="badge warn" title="${esc(h.error)}">last check failed</span>` : ""}</td>
+      <td data-label="OS updates">${hostUpdatesCell(h)}</td>
+      <td data-label="Kernel">${kernel}</td>
+      <td data-label="Last check" class="muted"${h.lists ? ` title="${esc(`Package lists from ${fmtTime(h.lists)}`)}"` : ""}>${fmtTime(h.checked)}${stale
+        ? '<br><span class="badge warn" title="Proxmox refreshes them every day (pve-daily-update) – run apt update on the host">old package lists</span>' : ""}</td>
+    </tr>`;
+  }).join("");
+  $("#hosts-note").textContent = "Checked with every Check all, read only: LUM does not update or reboot the "
+    + "Proxmox host. Update it yourself: apt update && apt full-upgrade (Proxmox: not apt upgrade).";
+}
+
 // list filter: all | updates | security (stored per browser)
 let listFilter = "all";
 try { listFilter = localStorage.getItem("lum-filter") || "all"; } catch { /* blocked */ }
@@ -448,6 +485,7 @@ async function load() {
     renderSummary(containers);
     renderContainers(containers);
     renderBulk();
+    renderHosts(status.hosts || []);
     renderQueue(status.queue);
     renderHistory(history);
   } catch (err) {

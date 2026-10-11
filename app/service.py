@@ -2,6 +2,7 @@
 
 import asyncio
 import itertools
+import json
 import logging
 import re
 import socket
@@ -12,7 +13,7 @@ from datetime import datetime
 from .apps import AppCatalog, normalize
 from .config import Settings
 from . import schedule
-from .db import Database
+from .db import Database, is_security
 from .host import HostCommandError
 from .notify import Notifier, esc, lines
 
@@ -20,6 +21,7 @@ log = logging.getLogger(__name__)
 
 EXCLUDE_TAG = "no-lum"  # Proxmox tag: LUM leaves this container / VM alone
 QUEUE_CLEAR_AFTER = 15  # seconds a queue without failures stays visible after it finished
+HOST_CHECK_WRAPPER = 12  # host script version with "host-check" (updates of the Proxmox host)
 
 # exit codes of the community-scripts update with PHS_SILENT=1 that mean
 # "skipped on purpose", see tools/pve/update-apps.sh
@@ -150,6 +152,8 @@ class UpdateService:
         self.last_refresh: float | None = float(stored) if stored else None
         self.wrapper_version: int | None = None  # host script version, None = unknown
         self.nodes: list[dict] | None = None  # cluster nodes with their wrapper version
+        # updates of the Proxmox host(s) themselves, from the last "Check all" (stored)
+        self.hosts: list[dict] = json.loads(db.get_meta("hosts") or "[]")
         self.hidden: list[int] = []  # guests tagged EXCLUDE_TAG
         self.refreshing = False
         self.checking: set[int] = set()  # guests being checked right now
@@ -232,6 +236,18 @@ class UpdateService:
                 found.append(f"{esc(self._guest(c['vmid']))}: {esc(', '.join(parts))}")
                 key.append((c["vmid"], tuple(c["upgradable"]), c["app_latest"] if c["app_update"] else None,
                             c["restart_required"]))
+        for h in self.hosts:
+            if h.get("error") or not (h.get("packages") or h.get("reboot")):
+                continue
+            parts = []
+            if h.get("packages"):
+                n = len(h["packages"])
+                sec = f" ({len(h['security'])} security)" if h.get("security") else ""
+                parts.append(f"{n} package{'s' if n != 1 else ''}{sec}")
+            if h.get("reboot"):
+                parts.append("reboot required")
+            found.append(f"Proxmox host {esc(h['node'])}: {esc(', '.join(parts))}")
+            key.append((h["node"], tuple(h.get("packages") or []), h.get("reboot")))
         key = tuple(key)
         if key == self._updates_reported:
             return
@@ -332,9 +348,40 @@ class UpdateService:
             self.refresh_done = {"finished": self.last_refresh, "total": len(running),
                                  "seconds": round(self.last_refresh - progress["started"])}
             log.info("check all: %s guests in %s s", len(running), self.refresh_done["seconds"])
+            await self.check_hosts()
         finally:
             self.refreshing = False
             self.refresh_progress = None
+
+    async def check_hosts(self) -> None:
+        """Pending updates of every Proxmox node (read only; needs host script 12 there)."""
+        nodes = self.nodes or []
+        before = {h["node"]: h for h in self.hosts}
+        result = []
+        for n in nodes:
+            name = n["node"]
+            entry = {**before.get(name, {}), "node": name, "error": None}
+            if not n["online"]:
+                entry["error"] = "node is offline"
+            elif n["wrapper"] < HOST_CHECK_WRAPPER:
+                entry["error"] = f"needs host script {HOST_CHECK_WRAPPER} on this node"
+            else:
+                try:
+                    data = await self.host.host_check(name)
+                    packages = data.get("packages") or []
+                    newest, kernel = data.get("newest_kernel") or "", data.get("kernel") or ""
+                    entry.update(
+                        pve=data.get("pve") or "", kernel=kernel, newest_kernel=newest,
+                        packages=packages, security=[p for p in packages if is_security(p)],
+                        reboot=bool(data.get("reboot_flag")) or bool(newest and newest != kernel),
+                        lists=data.get("lists") or None, checked=time.time(),
+                    )
+                except (HostCommandError, OSError, ValueError) as err:
+                    log.warning("host check of node %s failed: %s", name, err)
+                    entry["error"] = str(err)
+            result.append(entry)
+        self.hosts = result
+        self.db.set_meta("hosts", json.dumps(result))
 
     async def _read_nodes(self) -> None:
         """Cluster nodes and their wrapper; unknown with host scripts < 11."""

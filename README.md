@@ -22,6 +22,8 @@ rollback with one click and checks for free space and pending restarts.
   once, one after the other; security updates are highlighted and can be filtered
 - **Automatic updates** per guest in a maintenance window (days, start, end), optionally
   with restarts
+- **Proxmox host updates** shown per node (pending packages, security updates, reboot
+  required for a new kernel) – read only, LUM never updates or reboots the host
 - **Telegram notifications** about failed (or all) updates and available updates
 - **Export / import** of settings, auto-update choices and history
 - **Restart required** – shows when services still run replaced libraries or a VM has a
@@ -95,7 +97,7 @@ LXC 101, 102 …   VM 200, 201 … (via QEMU guest agent)
 
 LUM runs in its own container and reaches the Proxmox host over SSH with a key that may
 only call the host script (`lxc-update-wrapper`). The script accepts a fixed set of verbs
-(`version`, `list`, `nodes`, `info`, `check`, `upgrade`, `app-version`, `pkg-version`, `app-update`,
+(`version`, `list`, `nodes`, `host-check`, `info`, `check`, `upgrade`, `app-version`, `pkg-version`, `app-update`,
 `restart-needed`, `restart`, `space`, `snapshot`, `snapshots`, `prune-snapshots`, `delete-snapshot`,
 `rollback`, `backup`, `prune-backups`, `backups`, `delete-backup`, `restore-backup`),
 validates every argument, refuses containers and VMs tagged `no-lum` and only ever touches snapshots named `lum_*` and backups with the note

@@ -251,6 +251,7 @@ async def status():
     s, cfg = svc(), get_settings()
     return {
         "refreshing": s.refreshing,
+        "hosts": s.hosts,  # updates of the Proxmox host(s) themselves
         # progress of "Check all" (elapsed in seconds), and the result of the last one
         "refresh": {**s.refresh_progress, "elapsed": round(time.time() - s.refresh_progress["started"])}
         if s.refresh_progress else None,

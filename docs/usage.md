@@ -25,6 +25,7 @@
 | | `low disk: … free` | Less free space in `/` than an update needs – see [Free space](#free-space-before-an-update). |
 | | `restart required` · **Restart** | After updates the guest should be restarted – hover the badge for the reason, see [Restart after updates](#restart-after-updates). |
 | | **Backups** | The guest's LUM snapshots (**Rollback**, **Delete**) and vzdump backups (**Restore**, **Delete**) – see [Backup, cleanup and rollback](#backup-cleanup-and-rollback). Greyed out when the guest has none (counted with every check; stopped guests with **Check all**). |
+| Proxmox host(s) | Node · Proxmox VE · Status · OS updates · Kernel | Pending updates of the host itself and *reboot required* – read only, see [Proxmox host updates](#proxmox-host-updates). |
 | Queue | **Log** · **Cancel remaining** · **Clear** | Progress of a bulk update, see below. |
 | History | `ID` · Name | Guest of the entry; the name stays visible after the guest was removed. |
 | | **Rollback** · **Delete** | Roll back to / delete the snapshot made before that update. With vzdump: **Delete** removes the backup made before that update (not protected ones). |
@@ -273,6 +274,34 @@ badge and is checked again within about a minute. The same look-up keeps the
 running/stopped status current and adds new guests.
 
 Needs host script 7 or newer; with an older one nothing is shown.
+
+## Proxmox host updates
+
+With every **Check all** LUM also looks at the Proxmox host itself – every node in a
+cluster – and shows the section **Proxmox host(s)** below the list:
+
+- **Proxmox VE** version of the node;
+- **OS updates**: pending packages of the host (click for the list), security updates
+  highlighted;
+- **Kernel**: the running one, and the newest installed one if that differs – then the
+  node shows **reboot required** (also when the host sets the reboot flag);
+- **Last check**, and **old package lists** when they are more than three days old.
+
+This is **read only**. LUM does not run `apt update` on the host – it uses the package
+lists Proxmox refreshes itself every day (`pve-daily-update`) – and it never updates or
+reboots the host: a reboot stops every guest, LUM's own container included, and in a
+cluster the order of nodes and the migration of guests are the admin's decision. Update
+the host in its shell (or the Proxmox UI → node → **Updates**):
+
+```bash
+apt update && apt full-upgrade
+```
+
+(`full-upgrade`, not `upgrade` – Proxmox needs it for new dependencies.) With Telegram
+notifications on, the message after the scheduled check lists host updates too.
+
+Needs host script 12 or newer on every node; a node with an older one shows *not
+checked*.
 
 ## VMs
 

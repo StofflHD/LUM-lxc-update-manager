@@ -18,6 +18,9 @@
 #   version                   version of this script (WRAPPER_VERSION)
 #   list                      JSON list of all containers and VMs (with "type" and "node")
 #   nodes                     JSON list of the cluster nodes with their wrapper version
+#   host-check [node]         the Proxmox host itself, read only: JSON with upgradable
+#                             packages (apt lists as refreshed daily by Proxmox), PVE
+#                             version, running / newest kernel, reboot flag
 #   info     <vmid>           pkg=<apt|apk|unknown> / community=<0|1> / script=<ct script name>
 #   check    <vmid>           one upgradable package per line
 #   upgrade  <vmid> [clean|keep]  OS upgrade (streams output; for VMs at the end), then
@@ -54,7 +57,7 @@
 set -euo pipefail
 
 # bump when verbs are added or changed; LUM checks it and asks for a host update
-WRAPPER_VERSION=11
+WRAPPER_VERSION=12
 WRAPPER_PATH=/usr/local/bin/lxc-update-wrapper
 # guests with this Proxmox tag are off limits for LUM (every verb except list/version)
 EXCLUDE_TAG="no-lum"
@@ -254,6 +257,40 @@ case "$VERB" in
       my ($n, $on, $loc, $v) = split;
       push @all, { node => $n, online => $on + 0, local => $loc + 0, wrapper => $v + 0 };
       END { print JSON::PP->new->canonical->encode(\@all) }
+    '
+    ;;
+
+  host-check)
+    # Updates of the Proxmox host itself - read only. No "apt-get update" here: the
+    # package lists are the ones Proxmox refreshes every day (pve-daily-update), their
+    # age is part of the answer. In a cluster: the node given, through its wrapper.
+    TARGET="${ARGS[1]:-$NODE}"
+    [[ $TARGET =~ ^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$ ]] || die "invalid node name"
+    if [[ $TARGET != "$NODE" ]]; then
+      [[ -z ${LUM_FWD:-} ]] || die "this is node $NODE, not $TARGET"
+      ip=$(cluster_nodes | awk -v n="$TARGET" '$1 == n && $3 == 1 && $2 != "-" {print $2}')
+      [[ -n $ip ]] || die "node $TARGET is unknown or offline"
+      exec ssh -o BatchMode=yes -o ConnectTimeout=10 "root@$ip" "LUM_FWD=1 $WRAPPER_PATH host-check $TARGET"
+    fi
+    newest=$(ls -1 /boot/vmlinuz-* 2>/dev/null | sed 's|^/boot/vmlinuz-||' | sort -V | tail -n 1 || true)
+    reboot=0
+    [[ -f /var/run/reboot-required ]] && reboot=1
+    {
+      echo "node=$NODE"
+      echo "pve=$(pveversion 2>/dev/null | sed -n 's|^pve-manager/\([^/ ]*\).*|\1|p' || true)"
+      echo "kernel=$(uname -r)"
+      echo "newest_kernel=$newest"
+      echo "reboot_flag=$reboot"
+      echo "lists=$(stat -c %Y /var/cache/apt/pkgcache.bin 2>/dev/null || echo 0)"
+      LANG=C.UTF-8 LC_ALL=C.UTF-8 apt list --upgradable 2>/dev/null | tail -n +2 | sed 's/^/pkg=/' || true
+    } | perl -MJSON::PP -ne '
+      chomp; my ($k, $v) = split /=/, $_, 2; next unless defined $v;
+      if ($k eq "pkg") { push @{ $r{packages} }, $v } else { $r{$k} = $v }
+      END {
+        $r{packages} //= [];
+        $_ += 0 for @r{qw(reboot_flag lists)};
+        print JSON::PP->new->canonical->encode(\%r);
+      }
     '
     ;;
 
