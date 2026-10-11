@@ -10,6 +10,15 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.26.1] – 2026-10-11
+
+### Fixed
+- The Proxmox host section could stay hidden: the host check only ran with **Check
+  all**, needed the node list and stopped at the first unexpected SSH error. Now it also
+  runs when LUM starts and with **Refresh list**, falls back to the host LUM talks to
+  when the node list is unknown, and shows an error per node instead of nothing. The
+  server log has a line *host check: …* with the result.
+
 ## [0.26.0] – 2026-10-11
 
 **Host script** (version 12) – run the installer with `--update` on the Proxmox host (in
@@ -636,7 +645,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.26.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/e3ae7bd...main
+[0.26.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/e9622c7...main
+[0.26.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/e3ae7bd...e9622c7
 [0.25.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/b5ae9c4...e3ae7bd
 [0.24.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/3bf52e4...b5ae9c4
 [0.23.5]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/6f1db0f...3bf52e4

@@ -104,7 +104,8 @@ class DemoHostClient:
         return [{"node": "pve1", "online": 1, "local": 1, "wrapper": REQUIRED_WRAPPER_VERSION},
                 {"node": "pve2", "online": 1, "local": 0, "wrapper": REQUIRED_WRAPPER_VERSION}]
 
-    async def host_check(self, node: str) -> dict:
+    async def host_check(self, node: str = "") -> dict:
+        node = node or "pve1"
         await asyncio.sleep(0.3)
         lists = int(time.time() - 5 * 3600)
         if node == "pve2":  # up to date, but still on the old kernel

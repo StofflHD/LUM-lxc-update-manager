@@ -355,12 +355,18 @@ class UpdateService:
 
     async def check_hosts(self) -> None:
         """Pending updates of every Proxmox node (read only; needs host script 12 there)."""
-        nodes = self.nodes or []
+        nodes = self.nodes
+        if not nodes:
+            # node list unknown: at least the host LUM talks to (the wrapper's own node)
+            if (self.wrapper_version or 0) < HOST_CHECK_WRAPPER:
+                log.info("host check skipped: needs host script %s (have %s)", HOST_CHECK_WRAPPER, self.wrapper_version)
+                return
+            nodes = [{"node": "", "online": 1, "wrapper": self.wrapper_version}]
         before = {h["node"]: h for h in self.hosts}
         result = []
         for n in nodes:
             name = n["node"]
-            entry = {**before.get(name, {}), "node": name, "error": None}
+            entry = {**before.get(name, {}), "node": name or "Proxmox host", "error": None}
             if not n["online"]:
                 entry["error"] = "node is offline"
             elif n["wrapper"] < HOST_CHECK_WRAPPER:
@@ -368,6 +374,7 @@ class UpdateService:
             else:
                 try:
                     data = await self.host.host_check(name)
+                    entry["node"] = name or data.get("node") or entry["node"]
                     packages = data.get("packages") or []
                     newest, kernel = data.get("newest_kernel") or "", data.get("kernel") or ""
                     entry.update(
@@ -376,12 +383,14 @@ class UpdateService:
                         reboot=bool(data.get("reboot_flag")) or bool(newest and newest != kernel),
                         lists=data.get("lists") or None, checked=time.time(),
                     )
-                except (HostCommandError, OSError, ValueError) as err:
-                    log.warning("host check of node %s failed: %s", name, err)
-                    entry["error"] = str(err)
+                except Exception as err:  # one node must not hide the others
+                    log.warning("host check of node %s failed: %s", name or "(local)", err)
+                    entry["error"] = str(err) or type(err).__name__
             result.append(entry)
         self.hosts = result
         self.db.set_meta("hosts", json.dumps(result))
+        log.info("host check: %s", ", ".join(
+            f"{h['node']}: {h['error'] or str(len(h.get('packages') or [])) + ' updates'}" for h in result) or "no nodes")
 
     async def _read_nodes(self) -> None:
         """Cluster nodes and their wrapper; unknown with host scripts < 11."""
@@ -401,6 +410,7 @@ class UpdateService:
             vmid = int(g["vmid"])
             if vmid in added + restarted and g.get("status") == "running" and vmid not in self._busy:
                 asyncio.create_task(self.check(vmid))
+        asyncio.create_task(self.check_hosts())  # also after a start (startup_sync)
         return {"added": added, "removed": removed, "hidden": self.hidden}
 
     async def check(self, vmid: int) -> None:

@@ -95,10 +95,11 @@ class HostClient:
         """Cluster nodes: [{"node", "online", "local", "wrapper"}] (wrapper 0 = missing)"""
         return json.loads(await self._run("nodes", timeout=120))
 
-    async def host_check(self, node: str) -> dict:
+    async def host_check(self, node: str = "") -> dict:
         """The Proxmox host itself: {"node", "pve", "kernel", "newest_kernel", "reboot_flag",
         "lists" (time of the package lists), "packages" (apt list --upgradable lines)}"""
-        return json.loads(await self._run("host-check", node, timeout=120))
+        args = (node,) if node else ()  # without: the host LUM talks to
+        return json.loads(await self._run("host-check", *args, timeout=120))
 
     async def list_containers(self) -> list[dict]:
         return json.loads(await self._run("list"))

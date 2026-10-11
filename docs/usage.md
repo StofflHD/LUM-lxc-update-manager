@@ -277,7 +277,8 @@ Needs host script 7 or newer; with an older one nothing is shown.
 
 ## Proxmox host updates
 
-With every **Check all** LUM also looks at the Proxmox host itself – every node in a
+With every **Check all** (and when LUM starts, and with **Refresh list**) LUM also looks
+at the Proxmox host itself – every node in a
 cluster – and shows the section **Proxmox host(s)** below the list:
 
 - **Proxmox VE** version of the node;
