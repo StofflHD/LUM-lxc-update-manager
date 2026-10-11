@@ -10,6 +10,15 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.29.0] – 2026-10-11
+
+### Removed
+- The old tag name `self-created` (renamed to `no-app` in 0.27.0) is no longer
+  recognised, and `/api/containers` no longer has the field `self_created` (use
+  `no_app`). **Before updating:** give containers that still have `self-created` the tag
+  `no-app` (`pct set <CTID> --tags "no-app"`, keep other tags with `;`), otherwise LUM
+  offers their app updates again.
+
 ## [0.28.7] – 2026-10-11
 
 ### Fixed
@@ -730,7 +739,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.28.7]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/71e3004...main
+[0.29.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/92b2374...main
+[0.28.7]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/71e3004...92b2374
 [0.28.6]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/61d5548...71e3004
 [0.28.5]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/a6d8e48...334f56c
 [0.28.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/72334a0...a6d8e48

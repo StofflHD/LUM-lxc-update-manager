@@ -50,9 +50,8 @@ HISTORY_COLS = ("h.id, h.vmid, h.kind, h.started, h.finished, h.success, h.backu
 
 
 # Proxmox tag: a container built by hand that happens to look like a community-script
-# one (/usr/bin/update) - OS updates only, no app version check, no app update.
-# "self-created" is the old name of the tag (LUM < 0.27) and still works.
-NO_APP_TAGS = {"no-app", "self-created"}
+# one (/usr/bin/update) - OS updates only, no app version check, no app update
+NO_APP_TAG = "no-app"
 
 # "apt list --upgradable" line: "openssl/stable-security 3.5.7-1~deb13u3 amd64 [...]";
 # Ubuntu lists several suites: "libssl3t64/noble-updates,noble-security ...".
@@ -205,8 +204,7 @@ class Database:
             d["restart_required"] = d["restart_reboot"] or bool(d["restart_services"])
             d["community_script"] = bool(d["community_script"])
             d["tags"] = [t for t in d["tags"].split(";") if t]
-            d["no_app"] = bool(NO_APP_TAGS & {t.lower() for t in d["tags"]})
-            d["self_created"] = d["no_app"]  # old name in the API (LUM < 0.27)
+            d["no_app"] = NO_APP_TAG in {t.lower() for t in d["tags"]}
             if d["no_app"]:  # takes effect at once, before the next check
                 d["community_script"] = False
             d["app_update"] = not d["no_app"] and is_update(d["app_installed"], d["app_latest"])
