@@ -101,25 +101,6 @@ only call the host script (`lxc-update-wrapper`). The script accepts a fixed set
 validates every argument, refuses containers and VMs tagged `no-lum` and only ever touches snapshots named `lum_*` and backups with the note
 `lxc-update-manager`. LUM never gets a shell on the host.
 
-## Roadmap
-
-- [x] App version detection and non-interactive app updates for community scripts
-- [x] Version detection for Codeberg, GitLab, Git tags, PyPI and npm, pinned versions
-- [x] VM support via the QEMU guest agent
-- [x] Snapshot / vzdump before updates, cleanup, rollback
-- [x] Login / authentication for the web UI
-- [x] Restore and delete vzdump backups from the web UI
-- [x] Update several guests in one go (select or "Select all with updates"), run as a queue
-- [x] Highlight security updates (`*-security`) with their own badge and filter
-- [x] "Restart required" after kernel / library updates, with a restart button
-- [x] Check free disk space (guest and vzdump storage) before an update
-- [x] Optional cleanup after an update (`apt autoremove` / `apt clean`)
-- [x] Schedules / maintenance windows, auto-update per container
-- [x] Notifications via a Telegram bot
-- [x] Export / import of settings and history
-- [x] Multiple nodes / cluster
-- [x] Release notes of the new app version in the update dialog
-
 ## License
 
 Copyright (C) 2026 StofflHD
