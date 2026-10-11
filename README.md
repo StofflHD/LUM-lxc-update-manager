@@ -40,7 +40,8 @@ rollback with one click and checks for free space and pending restarts.
   deleted from there; clearing it can delete all of LUM's snapshots and backups too;
   old entries and logs are rotated automatically (configurable)
 - **Secure by design** – the host only allows a fixed set of commands, LUM touches only
-  its own snapshots and backups; login with lockout and CSRF protection
+  its own snapshots and backups; login with lockout, CSRF protection, a strict Content
+  Security Policy and only https links and downloads from outside
 - **Responsive** web UI with light and dark theme, date format of the system, a settings
   page and the server log, works behind a reverse proxy
 - **Easy installer** for the Proxmox host and an `update` command inside the container

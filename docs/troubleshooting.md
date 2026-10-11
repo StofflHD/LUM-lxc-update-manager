@@ -30,6 +30,9 @@
 | Live log stays empty behind a proxy | WebSockets not passed through, or the public host name is lost – see [Reverse proxy](reverse-proxy.md). |
 | Everyone is locked out after wrong passwords behind a proxy | Set `FORWARDED_ALLOW_IPS` to the proxy IP. |
 | `update` says *up to date* right after a release | GitHub caches for a few minutes – wait or use `update --force`. |
+| LUM stays blank in a dashboard (iframe, e.g. Homepage or a Home Assistant panel) | On purpose since 0.28.6: `X-Frame-Options: DENY` and the CSP forbid showing LUM inside another page (clickjacking). Open it in its own tab, or link to it. |
+| Browser console: *Error with Permissions-Policy header: Unrecognized feature …* | Not from LUM – a reverse proxy (or an extension) adds a `Permissions-Policy` header with features the browser doesn't know. Harmless; remove them from the proxy's header snippet if they bother you. |
+| Browser console: *Refused to … because it violates the Content Security Policy* | Something tries to load code into LUM that isn't LUM's own – usually a browser extension or a proxy injecting scripts. LUM itself needs nothing from outside. |
 | Forgot the password | `pct exec <CTID> -- bash -c 'cd /opt/lxc-update-manager && venv/bin/python -m app.passwd'` |
 
 ## Logs

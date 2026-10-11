@@ -372,5 +372,12 @@ The web UI has one admin account. The installer asks for username and password
   see [`FORWARDED_ALLOW_IPS`](reverse-proxy.md)).
 - Protection against other websites (CSRF): API calls that change something need the
   header `X-Requested-With: lum`, WebSockets check the origin.
+- Security headers: a strict `Content-Security-Policy` (only LUM's own scripts and
+  styles), `X-Frame-Options: DENY` (LUM can't be shown inside another page),
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`.
+- Data from outside – community scripts, GitHub, Codeberg, GitLab, PyPI, npm – is only
+  fetched over https, and only `https://` links from there are shown.
+- The *Change password* dialog has a hidden username field, so password managers store
+  the new password for the right account.
 - The connection itself is plain **HTTP** on port 8080. For access from outside your home
   network use a [reverse proxy](reverse-proxy.md) with HTTPS.
