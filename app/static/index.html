@@ -89,7 +89,7 @@
           <tbody id="hosts"></tbody>
         </table>
       </div>
-      <p class="muted small" data-i18n="hosts.note">Checked with every Check all, read only: LUM does not update or reboot the Proxmox host. Update it yourself: apt update &amp;&amp; apt full-upgrade (Proxmox: not apt upgrade).</p>
+      <p class="muted small" data-i18n="hosts.note">Read only: LUM checks the Proxmox host with every "Check all", but never updates or reboots it. Update it yourself in the shell of the host with "apt update &amp;&amp; apt full-upgrade" – on Proxmox always "full-upgrade": "apt upgrade" leaves out new packages such as a new kernel.</p>
     </section>
 
     <section id="queue-section" hidden>

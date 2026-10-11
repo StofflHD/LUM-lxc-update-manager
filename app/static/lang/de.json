@@ -170,7 +170,7 @@
   "auto.run_ok": "Jetzt ausführen",
   "hosts.title_one": "Proxmox-Host",
   "hosts.title_other": "Proxmox-Hosts",
-  "hosts.note": "Wird bei jedem \"Alle prüfen\" geprüft, nur lesend: LUM aktualisiert den Proxmox-Host nicht und startet ihn nicht neu. Selbst aktualisieren: apt update && apt full-upgrade (bei Proxmox nicht apt upgrade).",
+  "hosts.note": "Nur lesend: LUM prüft den Proxmox-Host bei jedem „Alle prüfen“, aktualisiert ihn aber nie und startet ihn nie neu. Selbst aktualisieren in der Shell des Hosts mit „apt update && apt full-upgrade“ – bei Proxmox immer „full-upgrade“: „apt upgrade“ lässt neue Pakete wie einen neuen Kernel aus.",
   "hosts.installed": "installiert: {kernel}",
   "hosts.ok": "ok",
   "hosts.reboot": "Neustart nötig",

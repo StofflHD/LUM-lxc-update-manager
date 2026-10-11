@@ -10,6 +10,13 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.28.4] – 2026-10-11
+
+### Changed
+- Clearer note below the Proxmox host table, with the commands in quotes: LUM only
+  checks the host; update it with "apt update && apt full-upgrade" – on Proxmox always
+  "full-upgrade", since "apt upgrade" leaves out new packages such as a new kernel.
+
 ## [0.28.3] – 2026-10-11
 
 ### Changed
@@ -690,7 +697,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.28.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/c4eced6...main
+[0.28.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/72334a0...main
+[0.28.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/c4eced6...72334a0
 [0.28.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/d1db7c7...c4eced6
 [0.28.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ddb5ee7...d1db7c7
 [0.28.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/be87aa8...ddb5ee7
