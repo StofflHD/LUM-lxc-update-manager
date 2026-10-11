@@ -309,6 +309,8 @@
       <button id="pw-close" type="button" data-i18n-aria="common.close" aria-label="Close">✕</button>
     </div>
     <form id="pw-form">
+      <!-- for password managers: which account the new password belongs to -->
+      <input name="username" autocomplete="username" readonly hidden>
       <label><span data-i18n="pw.current">Current password</span>
         <input name="current" type="password" autocomplete="current-password" required>
       </label>

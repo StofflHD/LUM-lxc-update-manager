@@ -276,3 +276,6 @@ button.danger:hover:not(:disabled) { border-color: var(--err); }
 
 /* i18n.js: hidden until the texts of the chosen language are there (no flash of English) */
 html.i18n-loading body { visibility: hidden; }
+
+/* the hidden attribute always wins (e.g. over "form input { display: block }") */
+[hidden] { display: none !important; }

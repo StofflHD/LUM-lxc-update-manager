@@ -1277,6 +1277,7 @@ $("#snap-close").addEventListener("click", () => $("#snap-dialog").close());
 api("/api/me").then((me) => {
   if (!me.auth_enabled) return;
   $("#user").textContent = me.user;
+  pwForm.username.value = me.user;
   $("#menu-account").hidden = false;
   $("#logout").hidden = false;
 }).catch(() => {});
@@ -1469,6 +1470,7 @@ $("#settings-cancel").addEventListener("click", () => $("#settings-dialog").clos
 $("#pw-open").addEventListener("click", () => {
   setMenu(false);
   pwForm.reset();
+  pwForm.username.value = $("#user").textContent;
   pwMsg("");
   $("#pw-dialog").showModal();
 });
@@ -1486,6 +1488,7 @@ pwForm.addEventListener("submit", async (ev) => {
       body: JSON.stringify({ current: pwForm.current.value, new: pwForm.new.value }),
     });
     pwForm.reset();
+    pwForm.username.value = $("#user").textContent;
     pwMsg(t("pw.changed"), "ok");
   } catch (err) {
     pwMsg(err.message, "err");

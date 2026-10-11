@@ -10,6 +10,14 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.28.7] – 2026-10-11
+
+### Fixed
+- The *Change password* dialog has a hidden username field, so password managers save
+  the new password for the right account (Chrome: *Password forms should have username
+  fields*). Elements with the `hidden` attribute now always stay hidden, whatever other
+  styles say.
+
 ## [0.28.6] – 2026-10-11
 
 ### Security
@@ -722,7 +730,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.28.6]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/61d5548...main
+[0.28.7]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/71e3004...main
+[0.28.6]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/61d5548...71e3004
 [0.28.5]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/a6d8e48...334f56c
 [0.28.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/72334a0...a6d8e48
 [0.28.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/c4eced6...72334a0
