@@ -19,13 +19,50 @@ A new file there is a new language: it shows up in ☰ → **Settings** → *Lan
    `nl.json`, `pt-BR.json` (lower-case language, optionally `-` and the upper-case
    country).
 2. Set the two entries at the top:
-   - `"_name"` – the language's own name for the menu, e.g. `"Français"`;
-   - `"_locale"` – the locale for dates and numbers, e.g. `"fr-FR"`.
-3. Translate the values (right side), never the keys (left side).
-4. Check it (see below), try it in the demo, open a pull request.
+   - `"_name"` – the language's own name for the drop-down, e.g. `"Français"`;
+   - `"_locale"` – the locale of the language, e.g. `"fr-FR"` (dates and numbers follow
+     the user's *Date and time format* setting, by default the system).
+3. Translate the values (right side), never the keys (left side). Save the file as UTF-8.
+4. Check it and try it (see below).
 
 A missing key is not an error at runtime: that text is shown in English. So a language
 can also start half translated.
+
+## Contributing a translation to LUM
+
+New languages and fixes to existing ones are welcome.
+
+**With git and GitHub** (the usual way):
+
+1. Fork [StofflHD/LUM-lxc-update-manager](https://github.com/StofflHD/LUM-lxc-update-manager)
+   on GitHub and clone your fork.
+2. Create a branch, e.g. `git checkout -b lang-fr`.
+3. Add or change `app/static/lang/<code>.json` as described above – only that file;
+   the language shows up in LUM by itself.
+4. Run the check and look at it in the demo (see [Development](development.md) for the
+   setup):
+
+   ```bash
+   .venv/bin/python -m app.i18n_check
+   LUM_DEMO=true .venv/bin/uvicorn app.main:app --port 8080
+   ```
+
+   Open <http://localhost:8080> (login `admin` / `demo`), choose the language in ☰ →
+   **Settings** → *Language*, go through the list, the dialogs (update, backups,
+   settings, clear history, export / import) and the login page. Longer words can
+   break buttons on a phone – try a narrow window too.
+5. Commit, push, and open a pull request against `main`. Say in it which language it is
+   and whether everything is translated.
+
+**Without git:** open an [issue](https://github.com/StofflHD/LUM-lxc-update-manager/issues)
+and attach the translated `<code>.json` (zipped, if GitHub refuses the file type).
+
+## Keeping a translation up to date
+
+New LUM versions add texts – only to `en.json` at first; they appear in English in the
+other languages until someone translates them. `python -m app.i18n_check` lists them
+as *missing (shown in English)*: translate those keys and open a pull request as above.
+The [Changelog](../CHANGELOG.md) says which features are new.
 
 ## Rules for the texts
 

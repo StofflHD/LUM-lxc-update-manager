@@ -15,6 +15,10 @@
 | *Telegram: 401 Unauthorized* | The bot token is wrong – copy it again from @BotFather. |
 | *Host script missing or outdated on node …* | Run the installer with `--update` on the node of the LUM container; it installs the host script on all online nodes. If it warns for a node: check that `ssh root@<node-ip>` works from that node (cluster SSH). |
 | *… is on node …, which is offline* | The guest's node is down; it is managed again when the node is back. |
+| Section *Proxmox host(s)* missing, or a node shows *not checked* | Needs host script 12 on every node: run the installer with `--update` on the host. ☰ → **Server log** has a line *host check: …* with the result per node (offline, old host script, or the error). |
+| A node shows *old package lists* | Proxmox refreshes them daily (`pve-daily-update.timer`); run `apt update` on the host, or check that the timer is enabled. |
+| Web UI in the wrong language, or English texts in another language | Choose it in ☰ → **Settings** → *Display* → *Language* (stored per browser; without a choice the browser's language). Single English texts: not translated yet in that language – see [Translating](translating.md). |
+| Telegram messages in the wrong language | They have their own setting: *Notifications (Telegram)* → *Language of the messages* (`LUM_NOTIFY_LANGUAGE`). |
 | Queue: a guest is *skipped* | Nothing to do (no pending packages, app up to date, VM for an app update) or the community script refused – the *Note* column says why. |
 | No security updates shown for an Alpine guest | apk has no separate security repository – see [Security updates](usage.md#security-updates). |
 | Update fails at the snapshot step | The guest's storage has no snapshot support – use `LUM_BACKUP_MODE=vzdump`. |

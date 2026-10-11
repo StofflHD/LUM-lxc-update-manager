@@ -9,9 +9,13 @@ installer, all options with comments in [.env.example](../.env.example)).
 
 Menu **☰** → **Settings** edits the most common options: check interval, parallel checks,
 GitHub token, free space and cleanup, all backup options, the auto-update window, the
-Telegram notifications, history and log rotation, session lifetime, Secure cookie and the reverse proxy IP(s). LUM validates the input, writes `.env` (comments and other lines are kept) and
-restarts itself; the page reloads when LUM is back. Saving is refused while an update is
-running.
+Telegram notifications (with the language of the messages), history and log rotation,
+session lifetime, Secure cookie and the reverse proxy IP(s). LUM validates the input,
+writes `.env` (comments and other lines are kept) and restarts itself; the page reloads
+when LUM is back. Saving is refused while an update is running.
+
+At the top, the group *Display* (theme, language, date format) is not part of **Save**:
+it is about this browser only and applies at once – see [Display](#display).
 
 - The connection to the Proxmox host (IP, port, user) is shown but **not** editable there:
   a wrong value would lock LUM out, and the SSH host key is pinned to the IP. Use the

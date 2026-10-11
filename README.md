@@ -41,8 +41,8 @@ rollback with one click and checks for free space and pending restarts.
   old entries and logs are rotated automatically (configurable)
 - **Secure by design** – the host only allows a fixed set of commands, LUM touches only
   its own snapshots and backups; login with lockout and CSRF protection
-- **Responsive** web UI with light and dark theme, a settings page and the server log,
-  works behind a reverse proxy
+- **Responsive** web UI with light and dark theme, date format of the system, a settings
+  page and the server log, works behind a reverse proxy
 - **Easy installer** for the Proxmox host and an `update` command inside the container
 
 <p>
@@ -75,14 +75,14 @@ options – see [VMs](docs/usage.md#vms).
 
 | | |
 |---|---|
-| [Using LUM](docs/usage.md) | Web UI, bulk updates, security updates, app updates, free space, backups and rollback, cleanup, restart, VMs, login |
+| [Using LUM](docs/usage.md) | Web UI, bulk updates, automatic updates, security updates, app updates, free space, backups and rollback, cleanup, restart, Proxmox host updates, VMs, tags, login |
 | [Installation and updates](docs/installation.md) | Installer options, unattended install, updating, uninstall |
 | [Reverse proxy](docs/reverse-proxy.md) | HTTPS with Nginx Proxy Manager, nginx, Caddy or Traefik |
-| [Configuration](docs/configuration.md) | All settings in `.env` |
+| [Configuration](docs/configuration.md) | Settings dialog, theme / language / date format, Telegram, history rotation, export / import, all options in `.env` |
 | [Troubleshooting](docs/troubleshooting.md) | Common problems and fixes, logs |
 | [API](docs/api.md) | HTTP API of the web UI |
 | [Development](docs/development.md) | Demo mode without Proxmox |
-| [Translating](docs/translating.md) | Language files, adding a language |
+| [Translating](docs/translating.md) | Language files, adding a language, contributing a translation |
 | [Changelog](CHANGELOG.md) | What changed in which version |
 
 ## How it works
@@ -105,6 +105,13 @@ only call the host script (`lxc-update-wrapper`). The script accepts a fixed set
 `rollback`, `backup`, `prune-backups`, `backups`, `delete-backup`, `restore-backup`),
 validates every argument, refuses containers and VMs tagged `no-lum` and only ever touches snapshots named `lum_*` and backups with the note
 `lxc-update-manager`. LUM never gets a shell on the host.
+
+## Contributing
+
+Bug reports and ideas: [issues](https://github.com/StofflHD/LUM-lxc-update-manager/issues).
+Translations are especially welcome – a new language is a single JSON file, see
+[Translating](docs/translating.md) for how to make one and send it in. For code changes
+see [Development](docs/development.md) (demo mode without Proxmox).
 
 ## License
 
