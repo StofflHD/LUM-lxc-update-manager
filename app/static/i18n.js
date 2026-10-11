@@ -47,9 +47,13 @@
   I18N.t = t;
   I18N.has = function (key) { return I18N.strings[key] != null; };
   I18N.apply = apply;
-  I18N.set = function (lang) {
-    try { localStorage.setItem(STORE, lang); } catch (e) { /* blocked: this page only */ }
+  // store the choice (applies with the next page load)
+  I18N.remember = function (lang) {
+    try { localStorage.setItem(STORE, lang); } catch (e) { /* blocked: the cookie still works */ }
     remember(lang);
+  };
+  I18N.set = function (lang) {
+    I18N.remember(lang);
     location.reload();
   };
   window.t = t;

@@ -10,7 +10,7 @@ JSON file per language in [`app/static/lang/`](../app/static/lang):
 | `en.json` | English – the reference; every text exists here |
 | `de.json` | German |
 
-A new file there is a new language: it shows up in menu **☰** → *Language* and as
+A new file there is a new language: it shows up in ☰ → **Settings** → *Language* and as
 *Language of the messages* in the Telegram settings – nothing else needs to be changed.
 
 ## Adding a language

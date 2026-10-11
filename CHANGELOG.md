@@ -10,6 +10,13 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.28.1] – 2026-10-11
+
+### Changed
+- The language of the web UI is chosen in ☰ → **Settings** → *Language* (a drop-down at
+  the top, applied with **Save**) instead of a list in the menu – clearer with many
+  languages. It is still stored per browser, not in `.env`.
+
 ## [0.28.0] – 2026-10-11
 
 ### Added
@@ -666,7 +673,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.28.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/be87aa8...main
+[0.28.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ddb5ee7...main
+[0.28.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/be87aa8...ddb5ee7
 [0.27.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/9c6e14d...be87aa8
 [0.26.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/e9622c7...9c6e14d
 [0.26.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/e3ae7bd...e9622c7

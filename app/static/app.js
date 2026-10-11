@@ -1318,17 +1318,6 @@ document.querySelectorAll("[data-theme-choice]").forEach((b) => b.addEventListen
   applyTheme(choice);
 }));
 
-// --- language, stored per browser (and as cookie for the server's messages) -----------
-
-function renderLanguages() {
-  $("#lang-choices").innerHTML = Object.entries(I18N.languages).map(([code, name]) =>
-    `<button role="menuitemradio" data-lang="${esc(code)}" aria-checked="${code === I18N.lang}" lang="${esc(code)}">${esc(name)}</button>`).join("");
-}
-$("#lang-choices").addEventListener("click", (ev) => {
-  const b = ev.target.closest("[data-lang]");
-  if (b && b.dataset.lang !== I18N.lang) I18N.set(b.dataset.lang);
-});
-
 // --- settings (.env) ----------------------------------------------------------------
 
 const settingsForm = $("#settings-form");
@@ -1372,12 +1361,22 @@ async function openSettings() {
   try {
     const { fields, restart_supported: canRestart } = await api("/api/settings");
     const groups = [...new Set(fields.map((f) => f.group))];
-    $("#settings-fields").innerHTML = groups.map((g) => `<fieldset><legend>${esc(tOr(groupKey(g), g))}</legend>
+    $("#settings-fields").innerHTML = languageField() + groups.map((g) => `<fieldset><legend>${esc(tOr(groupKey(g), g))}</legend>
       ${fields.filter((f) => f.group === g).map(fieldHtml).join("")}</fieldset>`).join("");
     if (!canRestart) settingsMsg(t("settings.no_systemd"));
   } catch (err) {
     $("#settings-fields").innerHTML = `<p class="err">${esc(err.message)}</p>`;
   }
+}
+
+// language of the web UI: per browser (and as cookie for the server's messages), not in
+// .env - so it has no name and is not sent with the other settings
+function languageField() {
+  const options = Object.entries(I18N.languages).map(([code, name]) =>
+    `<option value="${esc(code)}" lang="${esc(code)}" ${code === I18N.lang ? "selected" : ""}>${esc(name)}</option>`).join("");
+  return `<fieldset><legend>${te("settings.language_group")}</legend>
+    <label for="set-ui-language"><span>${te("settings.language")}</span><select id="set-ui-language">${options}</select></label>
+  </fieldset>`;
 }
 
 async function waitForRestart() {
@@ -1398,6 +1397,8 @@ settingsForm.addEventListener("submit", async (ev) => {
     values[el.name] = el.type === "checkbox" ? el.checked : el.value;
   }
   const btn = settingsForm.querySelector('button[type="submit"]');
+  const lang = $("#set-ui-language")?.value;
+  const newLang = lang && lang !== I18N.lang ? lang : null;
   btn.disabled = true;
   try {
     const r = await api("/api/settings", {
@@ -1405,8 +1406,10 @@ settingsForm.addEventListener("submit", async (ev) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ values }),
     });
+    if (newLang) I18N.remember(newLang); // applies with the reload below
     if (!r.saved.length) {
-      settingsMsg(t("settings.unchanged"));
+      if (newLang) location.reload();
+      else settingsMsg(t("settings.unchanged"));
     } else if (r.restart) {
       settingsMsg(`${t("settings.saved", { keys: r.saved.join(", ") })} ${t("common.restarting")}`, "ok");
       if (await waitForRestart()) location.reload();
@@ -1452,7 +1455,6 @@ pwForm.addEventListener("submit", async (ev) => {
 
 // the texts first (i18n.js), then the first render
 I18N.ready.then(() => {
-  renderLanguages();
   renderBulk();
   load();
   setInterval(load, 5000);

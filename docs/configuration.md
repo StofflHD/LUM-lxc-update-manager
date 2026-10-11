@@ -23,7 +23,8 @@ running.
 
 ## Language
 
-The web UI is English or German: menu **☰** → *Language*. The choice is stored in the
+The web UI is English or German: ☰ → **Settings** → *Language* (a drop-down at the top,
+applied with **Save**). The choice is stored in the
 browser (like the theme); without one LUM follows the browser's language. Error messages
 from the server follow it too. The Telegram messages have their own setting, ☰ →
 **Settings** → *Notifications (Telegram)* → *Language of the messages*
