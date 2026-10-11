@@ -321,7 +321,10 @@ class UpdateService:
                 await self.check(vmid)
                 progress["done"] += 1
 
-            await asyncio.gather(*(one(vmid) for vmid in running))
+            stopped = [int(c["vmid"]) for c in containers
+                        if int(c["vmid"]) not in running and int(c["vmid"]) not in self._busy]
+            await asyncio.gather(*(one(vmid) for vmid in running),
+                                 *(self.count_restore_points(vmid) for vmid in stopped))
             self.last_refresh = time.time()
             self.db.set_meta("last_refresh", str(self.last_refresh))
             self.refresh_done = {"finished": self.last_refresh, "total": len(running),
@@ -373,6 +376,7 @@ class UpdateService:
                 )
                 return
             await self._check_disk(vmid)
+            await self.count_restore_points(vmid)
             if info.script and not (self.db.container(vmid) or {}).get("self_created"):
                 await self._check_app(vmid, info.script)
 
@@ -384,6 +388,16 @@ class UpdateService:
         except (HostCommandError, OSError, ValueError) as err:
             log.debug("disk check %s: %s", vmid, err)
             self.db.set_disk(vmid, None, None)
+
+    async def count_restore_points(self, vmid: int) -> None:
+        """How many snapshots / vzdump backups LUM made of the guest (the Backups button is
+        greyed out without any); unknown (button usable) if either list can't be read."""
+        try:
+            count = len(await self.host.snapshots(vmid)) + len(await self.host.backups(vmid))
+        except (HostCommandError, OSError, ValueError) as err:
+            log.debug("cannot count snapshots/backups of %s: %s", vmid, err)
+            count = None
+        self.db.set_restore_points(vmid, count)
 
     def low_disk(self, c: dict) -> bool:
         free = c.get("disk_free_kb")
@@ -501,6 +515,8 @@ class UpdateService:
         if not job.queued:
             asyncio.create_task(self._notify_job(job))
         await self.check(job.vmid)
+        if job.kind == "restore":
+            await self.count_restore_points(job.vmid)
         if job.kind == "restart":  # the guest may still be booting: try again a few times
             for _ in range(3):
                 if not (self.db.container(job.vmid) or {}).get("last_error"):
@@ -582,6 +598,7 @@ class UpdateService:
         try:
             await self.host.delete_snapshot(vmid, name)
             self.db.mark_snapshots_removed(vmid, [name])
+            self.db.restore_point_removed(vmid)
         finally:
             self._busy.discard(vmid)
 
@@ -593,6 +610,7 @@ class UpdateService:
         try:
             await self.host.delete_backup(vmid, backup_id)
             self.db.mark_backup_removed(vmid, backup_id)
+            self.db.restore_point_removed(vmid)
         finally:
             self._busy.discard(vmid)
 

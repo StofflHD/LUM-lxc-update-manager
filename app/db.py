@@ -90,6 +90,8 @@ class Database:
                 "uptime": "INTEGER",  # seconds, from the host's list: a drop means a restart
                 "auto_update": "TEXT",  # off | os | all: updated in the maintenance window
                 "node": "TEXT",  # cluster node the guest runs on
+                # LUM's snapshots + vzdump backups of the guest (NULL: not counted yet)
+                "restore_points": "INTEGER",
             },
             "history": {
                 "backup_kind": "TEXT",
@@ -164,6 +166,17 @@ class Database:
         with self._conn:
             self._conn.execute(
                 "UPDATE containers SET disk_free_kb=?, disk_size_kb=? WHERE vmid=?", (free_kb, size_kb, vmid)
+            )
+
+    def set_restore_points(self, vmid: int, count: int | None) -> None:
+        with self._conn:
+            self._conn.execute("UPDATE containers SET restore_points=? WHERE vmid=?", (count, vmid))
+
+    def restore_point_removed(self, vmid: int) -> None:
+        with self._conn:
+            self._conn.execute(
+                "UPDATE containers SET restore_points=MAX(restore_points - 1, 0) WHERE vmid=? AND restore_points IS NOT NULL",
+                (vmid,),
             )
 
     def set_app_result(

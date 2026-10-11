@@ -182,7 +182,9 @@ function renderContainers(all) {
           class="${c.app_update ? "primary" : ""}"${appUpToDate(c) ? ` title="${esc(`No app update found – ${c.app_installed} is the latest version`)}"` : ""}>App update</button>`}
         ${running && c.restart_required ? `<button data-act="restart" data-id="${c.vmid}" ${c.busy ? "disabled" : ""}
           title="Reboot the ${c.type === "qemu" ? "VM" : "container"} so it runs the updated code">Restart</button>` : ""}
-        <button data-act="backups" data-id="${c.vmid}" ${c.busy ? "disabled" : ""} title="Snapshots and vzdump backups: roll back, restore, delete">Backups</button>
+        <button data-act="backups" data-id="${c.vmid}" ${c.busy || c.restore_points === 0 ? "disabled" : ""}
+          title="${c.restore_points === 0 ? "No snapshots or vzdump backups made by LUM"
+            : "Snapshots and vzdump backups: roll back, restore, delete"}">Backups</button>
       </td>
     </tr>`;
   }).join("") || `<tr><td colspan="8" class="muted">${all.length

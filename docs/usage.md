@@ -24,7 +24,7 @@
 | | **App update** | Community-script app update; the dialog shows the [release notes](#release-notes) of the new versions. Highlighted when a newer app version exists, greyed out when the version check found nothing newer (without a version check – Docker, *Version unknown* – it stays usable). Not shown for VMs, containers tagged `self-created`, apps *updated with the OS packages* and apps with *no update via the script*. |
 | | `low disk: … free` | Less free space in `/` than an update needs – see [Free space](#free-space-before-an-update). |
 | | `restart required` · **Restart** | After updates the guest should be restarted – hover the badge for the reason, see [Restart after updates](#restart-after-updates). |
-| | **Backups** | The guest's LUM snapshots (**Rollback**, **Delete**) and vzdump backups (**Restore**, **Delete**) – see [Backup, cleanup and rollback](#backup-cleanup-and-rollback). |
+| | **Backups** | The guest's LUM snapshots (**Rollback**, **Delete**) and vzdump backups (**Restore**, **Delete**) – see [Backup, cleanup and rollback](#backup-cleanup-and-rollback). Greyed out when the guest has none (counted with every check; stopped guests with **Check all**). |
 | Queue | **Log** · **Cancel remaining** · **Clear** | Progress of a bulk update, see below. |
 | History | `ID` · Name | Guest of the entry; the name stays visible after the guest was removed. |
 | | **Rollback** · **Delete** | Roll back to / delete the snapshot made before that update. With vzdump: **Delete** removes the backup made before that update (not protected ones). |
