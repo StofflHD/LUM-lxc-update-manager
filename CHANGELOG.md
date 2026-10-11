@@ -10,6 +10,16 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.28.3] – 2026-10-11
+
+### Changed
+- The theme moved from the menu into ☰ → **Settings** as a drop-down (System / Light /
+  Dark), next to language and date format in the new group *Display* – all three apply to
+  this browser only. The menu now holds only configuration, actions and the account.
+- Theme, language and date format apply as soon as they are chosen – no **Save**, so they
+  also work while an update runs (**Save** is refused then). Switching the language
+  reloads the page and asks first if other settings were changed but not saved.
+
 ## [0.28.2] – 2026-10-11
 
 ### Changed
@@ -680,7 +690,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.28.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/d1db7c7...main
+[0.28.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/c4eced6...main
+[0.28.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/d1db7c7...c4eced6
 [0.28.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ddb5ee7...d1db7c7
 [0.28.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/be87aa8...ddb5ee7
 [0.27.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/9c6e14d...be87aa8

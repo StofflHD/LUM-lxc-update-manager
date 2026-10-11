@@ -21,18 +21,24 @@ running.
 - The GitHub and Telegram tokens are never sent back to the browser: leave the field
   empty to keep it, enter `-` to remove it.
 
-## Language
+## Display
 
-The web UI is English or German: ☰ → **Settings** → *Language* (a drop-down at the top,
-applied with **Save**). Next to it *Date and time format*: **System** (default) follows
-the browser / operating system like the theme does, or a fixed format – `31.12.2026
-23:59`, `31/12/2026 23:59`, `12/31/2026 11:59 PM` or `2026-12-31 23:59`; it applies to
-numbers (`3,8 GB` / `3.8 GB`) too. Both choices are stored in the
-browser (like the theme); without one LUM follows the browser's language. Error messages
-from the server follow it too. The Telegram messages have their own setting, ☰ →
-**Settings** → *Notifications (Telegram)* → *Language of the messages*
-(`LUM_NOTIFY_LANGUAGE`). Update logs and the server log stay English. More languages:
-see [Translating](translating.md).
+The group *Display* at the top of ☰ → **Settings** is about this browser only – stored
+there, not in `.env`. A choice applies at once, without **Save** (also while an update
+runs); changing the language reloads the page and asks first if other settings in the
+dialog were changed but not saved yet:
+
+- **Theme:** *System* (default, follows the operating system), *Light* or *Dark*.
+- **Language** of the web UI: English or German. Without a choice LUM follows the
+  browser's language. Error messages from the server follow it too; update logs and the
+  server log stay English.
+- **Date and time format:** *System* (default) follows the browser / operating system,
+  or a fixed format – `31.12.2026 23:59`, `31/12/2026 23:59`, `12/31/2026 11:59 PM` or
+  `2026-12-31 23:59`. It applies to numbers (`3,8 GB` / `3.8 GB`) too.
+
+The Telegram messages have their own language setting: *Notifications (Telegram)* →
+*Language of the messages* (`LUM_NOTIFY_LANGUAGE`). More languages: see
+[Translating](translating.md).
 
 ## Notifications (Telegram)
 

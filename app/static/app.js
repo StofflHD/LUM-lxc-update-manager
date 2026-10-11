@@ -1304,26 +1304,20 @@ document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape") setMenu(false);
 });
 
-// --- theme (System / Light / Dark), stored per browser ------------------------------
+// --- theme (System / Light / Dark), stored per browser; theme.js applies it on load ------
 
-function applyTheme(choice) {
+let theme = "system";
+try { theme = localStorage.getItem("lum-theme") || "system"; } catch { /* blocked */ }
+
+function setTheme(choice) {
+  theme = choice;
   if (choice === "light" || choice === "dark") document.documentElement.dataset.theme = choice;
   else delete document.documentElement.dataset.theme;
-  document.querySelectorAll("[data-theme-choice]").forEach((b) => {
-    b.setAttribute("aria-checked", String(b.dataset.themeChoice === (choice || "system")));
-  });
-}
-let storedTheme = "system";
-try { storedTheme = localStorage.getItem("lum-theme") || "system"; } catch { /* blocked */ }
-applyTheme(storedTheme);
-document.querySelectorAll("[data-theme-choice]").forEach((b) => b.addEventListener("click", () => {
-  const choice = b.dataset.themeChoice;
   try {
     if (choice === "system") localStorage.removeItem("lum-theme");
     else localStorage.setItem("lum-theme", choice);
-  } catch { /* blocked: still applies until reload */ }
-  applyTheme(choice);
-}));
+  } catch { /* blocked: applies until reload */ }
+}
 
 // --- settings (.env) ----------------------------------------------------------------
 
@@ -1370,14 +1364,21 @@ async function openSettings() {
     const groups = [...new Set(fields.map((f) => f.group))];
     $("#settings-fields").innerHTML = languageField() + groups.map((g) => `<fieldset><legend>${esc(tOr(groupKey(g), g))}</legend>
       ${fields.filter((f) => f.group === g).map(fieldHtml).join("")}</fieldset>`).join("");
+    settingsLoaded = JSON.stringify(settingsValues());
     if (!canRestart) settingsMsg(t("settings.no_systemd"));
   } catch (err) {
     $("#settings-fields").innerHTML = `<p class="err">${esc(err.message)}</p>`;
   }
 }
 
-// language and date format of the web UI: per browser (the language also as cookie for
-// the server's messages), not in .env - so no name, not sent with the other settings
+// the .env values in the dialog, and as they were when it opened
+const settingsValues = () => Object.fromEntries([...settingsForm.querySelectorAll("[name]")]
+  .map((el) => [el.name, el.type === "checkbox" ? el.checked : el.value]));
+let settingsLoaded = "";
+
+// theme, language and date format of the web UI: per browser (the language also as
+// cookie for the server's messages), not in .env - so no name, not sent with "Save".
+// They apply as soon as they are chosen, also while an update runs.
 function languageField() {
   const options = Object.entries(I18N.languages).map(([code, name]) =>
     `<option value="${esc(code)}" lang="${esc(code)}" ${code === I18N.lang ? "selected" : ""}>${esc(name)}</option>`).join("");
@@ -1386,11 +1387,35 @@ function languageField() {
   const example = (loc) => sample.toLocaleString(loc, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
   const formats = DATE_FORMATS.map((f) => `<option value="${f}" ${f === dateFormat ? "selected" : ""}>${esc(f === "system"
     ? t("settings.date_system", { example: example(undefined) }) : example(f))}</option>`).join("");
+  const themes = ["system", "light", "dark"].map((v) =>
+    `<option value="${v}" ${v === theme ? "selected" : ""}>${te(`settings.theme_${v}`)}</option>`).join("");
   return `<fieldset><legend>${te("settings.language_group")}</legend>
+    <p class="muted small">${te("settings.display_note")}</p>
+    <label for="set-theme"><span>${te("settings.theme")}</span><select id="set-theme">${themes}</select></label>
     <label for="set-ui-language"><span>${te("settings.language")}</span><select id="set-ui-language">${options}</select></label>
     <label for="set-date-format"><span>${te("settings.date_format")}</span><select id="set-date-format">${formats}</select></label>
   </fieldset>`;
 }
+
+$("#settings-fields").addEventListener("change", async (ev) => {
+  const el = ev.target;
+  if (el.id === "set-theme") {
+    setTheme(el.value);
+  } else if (el.id === "set-date-format") {
+    dateFormat = el.value;
+    try { localStorage.setItem("lum-datefmt", el.value); } catch { /* blocked: this page only */ }
+    load(); // the list behind the dialog in the new format
+  } else if (el.id === "set-ui-language") {
+    // the page reloads in the new language: don't lose changes not saved yet
+    if (JSON.stringify(settingsValues()) !== settingsLoaded && !await ask({
+      title: t("settings.lang_unsaved_title"), text: t("settings.lang_unsaved_text"), ok: t("settings.lang_unsaved_ok"), danger: true,
+    })) {
+      el.value = I18N.lang;
+      return;
+    }
+    I18N.set(el.value);
+  }
+});
 
 async function waitForRestart() {
   // first wait until it went away (or 6 s passed), then until it answers again
@@ -1410,10 +1435,6 @@ settingsForm.addEventListener("submit", async (ev) => {
     values[el.name] = el.type === "checkbox" ? el.checked : el.value;
   }
   const btn = settingsForm.querySelector('button[type="submit"]');
-  const lang = $("#set-ui-language")?.value;
-  const newLang = lang && lang !== I18N.lang ? lang : null;
-  const fmt = $("#set-date-format")?.value;
-  const newFormat = fmt && fmt !== dateFormat ? fmt : null;
   btn.disabled = true;
   try {
     const r = await api("/api/settings", {
@@ -1421,17 +1442,8 @@ settingsForm.addEventListener("submit", async (ev) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ values }),
     });
-    if (newLang) I18N.remember(newLang); // applies with the reload below
-    if (newFormat) {
-      dateFormat = newFormat;
-      try { localStorage.setItem("lum-datefmt", newFormat); } catch { /* blocked: this page only */ }
-    }
     if (!r.saved.length) {
-      if (newLang) location.reload();
-      else if (newFormat) {
-        settingsMsg(t("settings.display_saved"), "ok");
-        load();
-      } else settingsMsg(t("settings.unchanged"));
+      settingsMsg(t("settings.unchanged"));
     } else if (r.restart) {
       settingsMsg(`${t("settings.saved", { keys: r.saved.join(", ") })} ${t("common.restarting")}`, "ok");
       if (await waitForRestart()) location.reload();
