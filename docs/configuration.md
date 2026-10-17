@@ -60,7 +60,7 @@ What is reported:
 |---|---|
 | **Report updates** `failures` (default) | a single update, rollback, restore or restart that failed; after a bulk or automatic update one summary if anything failed |
 | **Report updates** `all` | every one of them, and a summary after every bulk / automatic update |
-| **Report available updates after the scheduled check** | the guests with pending packages (security ones counted), app updates and *restart required*, and the Proxmox hosts with pending packages or *reboot required* – only when that differs from the last message |
+| **Report available updates after the scheduled check** | the guests with pending packages (security ones counted), app updates and *restart required*, and the Proxmox hosts with pending packages or *reboot required* – only when something **new** came up since the last message (a new package or package version, a new app version, *restart / reboot required*); lines with something new are marked 🆕. Updates installed meanwhile don't trigger a message, and a restart of LUM doesn't repeat it. |
 
 LUM only sends to Telegram (`api.telegram.org`, HTTPS); it never reads messages, so the
 bot can't be used to control LUM.

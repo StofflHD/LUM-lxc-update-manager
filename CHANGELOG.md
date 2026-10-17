@@ -10,6 +10,16 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.29.1] – 2026-10-17
+
+### Changed
+- The Telegram message *updates available* is sent only when something **new** came up
+  since the last one – a new package or package version, a new app version, *restart /
+  reboot required*. It no longer comes again when guests were updated meanwhile (the
+  list got shorter) or after a restart of LUM (what was reported is stored). Stopped
+  guests and hosts that could not be checked keep what was reported, so they don't
+  trigger it again when they are back. Lines with something new are marked 🆕.
+
 ## [0.29.0] – 2026-10-11
 
 ### Removed
@@ -739,7 +749,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.29.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/92b2374...main
+[0.29.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/567b589...main
+[0.29.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/92b2374...567b589
 [0.28.7]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/71e3004...92b2374
 [0.28.6]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/61d5548...71e3004
 [0.28.5]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/a6d8e48...334f56c

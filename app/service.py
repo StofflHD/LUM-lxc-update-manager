@@ -173,7 +173,9 @@ class UpdateService:
         self._queue_task: asyncio.Task | None = None
         self.cleanup: Cleanup | None = None
         self.notifier = notifier or Notifier(settings)
-        self._updates_reported: tuple | None = None  # what the last "updates available" said
+        # every update the last "updates available" message reported (stored: a restart
+        # of LUM doesn't send the same message again)
+        self._updates_reported: set[str] = set(json.loads(db.get_meta("updates_reported") or "[]"))
         # maintenance window: the run in progress, the date of the last window, a summary
         self._maint_items: list[QueueItem] | None = None
         self._maint_end: datetime | None = None
@@ -227,13 +229,23 @@ class UpdateService:
         await self.notifier.send(text)
 
     async def notify_updates(self) -> None:
-        """After the scheduled check: which guests have updates (only when that changed)."""
+        """After the scheduled check: which guests have updates. Sent only when something
+        is new since the last message - a new package (version), app version, restart
+        required; updates that were installed meanwhile don't trigger a message."""
         if not (self.notifier.enabled and self._s.notify_updates):
             return
         lang = self.notifier.lang
-        found, key = [], []
+        found, current = [], set()
+        unseen: list[str] = []  # stopped guests, hosts whose check failed: keep what was reported
+
+        def line(label: str, parts: list[str], items: set[str]) -> None:
+            current.update(items)
+            new = "🆕 " if items - self._updates_reported else ""  # what this message adds
+            found.append(f"{new}{esc(label)}: {esc(', '.join(parts))}")
+
         for c in self.db.containers():
             if c["status"] != "running":
+                unseen.append(f"{c['vmid']}:")
                 continue
             parts = []
             if c["upgradable"]:
@@ -244,11 +256,15 @@ class UpdateService:
             if c["restart_required"]:
                 parts.append(t("tg.restart_required", lang))
             if parts:
-                found.append(f"{esc(self._guest(c['vmid']))}: {esc(', '.join(parts))}")
-                key.append((c["vmid"], tuple(c["upgradable"]), c["app_latest"] if c["app_update"] else None,
-                            c["restart_required"]))
+                v = c["vmid"]
+                line(self._guest(v), parts, {f"{v}:pkg:{p}" for p in c["upgradable"]}
+                     | ({f"{v}:app:{c['app_latest']}"} if c["app_update"] else set())
+                     | ({f"{v}:restart"} if c["restart_required"] else set()))
         for h in self.hosts:
-            if h.get("error") or not (h.get("packages") or h.get("reboot")):
+            if h.get("error"):
+                unseen.append(f"host:{h['node']}:")
+                continue
+            if not (h.get("packages") or h.get("reboot")):
                 continue
             parts = []
             if h.get("packages"):
@@ -256,13 +272,18 @@ class UpdateService:
                 parts.append(t("tg.packages", lang, count=len(h["packages"])) + sec)
             if h.get("reboot"):
                 parts.append(t("tg.reboot_required", lang))
-            found.append(f"{esc(t('tg.host', lang, node=h['node']))}: {esc(', '.join(parts))}")
-            key.append((h["node"], tuple(h.get("packages") or []), h.get("reboot")))
-        key = tuple(key)
-        if key == self._updates_reported:
-            return
-        self._updates_reported = key
-        if found:
+            n = h["node"]
+            line(t("tg.host", lang, node=n), parts, {f"host:{n}:pkg:{p}" for p in h.get("packages") or []}
+                 | ({f"host:{n}:reboot"} if h.get("reboot") else set()))
+        new = current - self._updates_reported
+        # a guest that wasn't looked at this time (stopped) keeps what was reported, so its
+        # updates don't count as new when it runs again
+        current |= {i for i in self._updates_reported if i.startswith(tuple(unseen))} if unseen else set()
+        # remember the current state either way: what was installed meanwhile is dropped,
+        # so it counts as new again should it come back
+        self._updates_reported = current
+        self.db.set_meta("updates_reported", json.dumps(sorted(current)))
+        if new:
             await self.notifier.send(f"🔔 <b>LUM – {t('tg.updates', lang)}</b>\n{lines(found, lang)}")
 
     def _find_self(self, guests: list[dict]) -> None:
