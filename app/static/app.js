@@ -256,7 +256,16 @@ function backupCell(h) {
 
 const historyById = {};
 
-function renderHistory(list) {
+// the newest HISTORY_STEP entries, "Show more" adds HISTORY_STEP each (kept until reload);
+// one more is fetched than shown, to know whether there are more
+const HISTORY_STEP = 10;
+let historyLimit = HISTORY_STEP;
+
+function renderHistory(all) {
+  const list = all.slice(0, historyLimit);
+  $("#history-more").hidden = all.length <= historyLimit && historyLimit <= HISTORY_STEP;
+  $("#history-show-more").hidden = all.length <= historyLimit;
+  $("#history-show-less").hidden = historyLimit <= HISTORY_STEP;
   list.forEach((h) => { historyById[h.id] = h; });
   $("#history").innerHTML = list.map((h) => {
     const canRollback = h.kind !== "rollback" && h.backup_kind === "snapshot" && !h.backup_removed && h.finished;
@@ -279,6 +288,13 @@ function renderHistory(list) {
   }).join("") || `<tr><td colspan="7" class="muted">${te("history.empty")}</td></tr>`;
   renderTasks();
 }
+
+$("#history-show-more").addEventListener("click", () => { historyLimit += HISTORY_STEP; load(); });
+$("#history-show-less").addEventListener("click", () => {
+  historyLimit = HISTORY_STEP;
+  load();
+  $("#history").closest("section").scrollIntoView({ block: "start" });
+});
 
 // Own confirm/message dialog. window.confirm()/alert() can be switched off by
 // the browser ("prevent this page from creating additional dialogs"), after
@@ -450,7 +466,7 @@ function backupText(b) {
 
 async function load() {
   try {
-    const [status, containers, history] = await Promise.all([api("/api/status"), api("/api/containers"), api("/api/history")]);
+    const [status, containers, history] = await Promise.all([api("/api/status"), api("/api/containers"), api(`/api/history?limit=${historyLimit + 1}`)]);
     const offline = (status.nodes || []).filter((n) => !n.online).length;
     $("#status").textContent = (status.refreshing ? `${t("status.checking")} · ` : "")
       + t("status.last_check", { time: fmtTime(status.last_refresh) })

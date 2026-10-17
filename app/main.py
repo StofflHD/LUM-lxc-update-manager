@@ -740,8 +740,9 @@ async def server_log(level: Literal["INFO", "WARNING", "ERROR"] = "INFO"):
 
 
 @app.get("/api/history")
-async def history():
-    return svc().db.history()
+async def history(limit: int = 50):
+    """The newest finished and running entries (limit 1-1000)."""
+    return svc().db.history(max(1, min(limit, 1000)))
 
 
 @app.delete("/api/history")

@@ -111,12 +111,16 @@
         <h2 data-i18n="history.title">History</h2>
         <button id="clear-history" type="button" data-i18n="history.clear">Clear history</button>
       </div>
-      <div class="table-wrap scroll" id="history-wrap">
+      <div class="table-wrap">
         <table class="responsive">
           <thead><tr><th data-i18n="col.time">Time</th><th data-i18n="col.id">ID</th><th data-i18n="col.name">Name</th>
             <th data-i18n="col.type">Type</th><th data-i18n="col.result">Result</th><th data-i18n="col.backup">Backup</th><th></th></tr></thead>
           <tbody id="history"></tbody>
         </table>
+      </div>
+      <div class="history-more" id="history-more" hidden>
+        <button type="button" id="history-show-more" data-i18n="history.show_more">Show more</button>
+        <button type="button" id="history-show-less" data-i18n="history.show_less">Show less</button>
       </div>
     </section>
   </main>

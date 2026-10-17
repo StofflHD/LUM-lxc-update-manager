@@ -218,6 +218,8 @@
   "history.title": "History",
   "history.clear": "Clear history",
   "history.empty": "No updates run yet.",
+  "history.show_more": "Show more",
+  "history.show_less": "Show less",
   "history.entry": "History #{id}",
   "history.snapshot": "Snapshot",
   "history.backup_removed_title": "deleted (cleanup, Delete or a restore)",

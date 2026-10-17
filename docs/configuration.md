@@ -79,8 +79,8 @@ LUM tidies up its history by itself – right after a start and then every hour 
 
 Running updates are never touched. Rotation only removes history entries and logs – the
 snapshots and vzdump backups stay (under the **Backups** button of the guest). The
-history in the web UI shows the newest 50 entries; the export contains all that are
-kept. Imported entries are rotated like the others.
+history in the web UI shows the newest 10 entries (**Show more** for the others); the
+export contains all that are kept. Imported entries are rotated like the others.
 
 The same hourly run also keeps memory and disk small:
 

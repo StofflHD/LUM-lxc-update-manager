@@ -218,6 +218,8 @@
   "history.title": "Verlauf",
   "history.clear": "Verlauf leeren",
   "history.empty": "Noch keine Updates ausgeführt.",
+  "history.show_more": "Mehr anzeigen",
+  "history.show_less": "Weniger anzeigen",
   "history.entry": "Verlauf #{id}",
   "history.snapshot": "Snapshot",
   "history.backup_removed_title": "gelöscht (Aufräumen, Löschen oder eine Wiederherstellung)",

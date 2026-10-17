@@ -280,8 +280,6 @@ html.i18n-loading body { visibility: hidden; }
 /* the hidden attribute always wins (e.g. over "form input { display: block }") */
 [hidden] { display: none !important; }
 
-/* the history scrolls in its own box, so a long history doesn't make the page endless;
-   the column titles stay on top */
-.table-wrap.scroll { max-height: 60vh; overflow-y: auto; }
-.table-wrap.scroll thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); box-shadow: 0 1px 0 var(--border); }
-@media (max-width: 1100px) { .table-wrap.scroll { max-height: 75vh; } }
+/* the history shows the newest entries; "Show more" below (no scroll box of its own:
+   a wheel over it would stick to the box instead of scrolling the page) */
+.history-more { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }

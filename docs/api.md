@@ -38,7 +38,7 @@ something need the header `X-Requested-With: lum`. Error messages (`detail`) com
 | DELETE | `/api/containers/{id}/backups/{backup_id}` | Delete one LUM vzdump backup (not protected ones) |
 | POST | `/api/containers/{id}/restore?backup={backup_id}` | Restore the guest from a LUM vzdump backup → job |
 | GET | `/api/logs?level=INFO\|WARNING\|ERROR` | LUM's log since its start (the last `LUM_SERVER_LOG_LINES` lines, default 2000, no access log) |
-| GET | `/api/history` · `/api/history/{id}/log` | History (with the guest `name`, `auto` = started by the maintenance window) / stored log |
+| GET | `/api/history?limit=50` · `/api/history/{id}/log` | History, newest first (`limit` 1–1000, default 50; with the guest `name`, `auto` = started by the maintenance window) / stored log |
 | DELETE | `/api/history/{id}` · `/api/history` | Remove one / all finished entries (snapshots and backups are kept) |
 | DELETE | `/api/history?snapshots=true&backups=true` | Remove all finished entries and also delete all of LUM's snapshots and/or vzdump backups (background; progress in `/api/status` → `purge`) |
 | DELETE | `/api/history/{id}/backup` | Delete the vzdump backup made before that update; `deleted: null` if it no longer exists |
