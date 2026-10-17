@@ -287,6 +287,7 @@ async def status():
     return {
         "refreshing": s.refreshing,
         "hosts": s.hosts,  # updates of the Proxmox host(s) themselves
+        "hosts_checking": sorted(s.hosts_checking),  # nodes being checked ("" = all)
         # progress of "Check all" (elapsed in seconds), and the result of the last one
         "refresh": {**s.refresh_progress, "elapsed": round(time.time() - s.refresh_progress["started"])}
         if s.refresh_progress else None,
@@ -331,6 +332,18 @@ def _not_self(s, vmid: int, what: str) -> None:
     the job off halfway and could leave it stopped."""
     if vmid == s.self_vmid:
         raise HTTPException(409, t(f"err.self_{what}"))
+
+
+@app.post("/api/hosts/check", status_code=202)
+async def hosts_check(node: str = ""):
+    """Check the Proxmox host(s) for pending updates now - one node, or all without."""
+    s = svc()
+    if node and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]{0,62}", node):
+        raise HTTPException(400, t("err.unknown_entry"))
+    if (node or "") in s.hosts_checking or "" in s.hosts_checking:
+        return {"started": False}
+    asyncio.create_task(s.check_hosts(node or None))
+    return {"started": True}
 
 
 @app.post("/api/sync")

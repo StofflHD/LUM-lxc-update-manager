@@ -168,6 +168,7 @@ class UpdateService:
         self.nodes: list[dict] | None = None  # cluster nodes with their wrapper version
         # updates of the Proxmox host(s) themselves, from the last "Check all" (stored)
         self.hosts: list[dict] = json.loads(db.get_meta("hosts") or "[]")
+        self.hosts_checking: set[str] = set()  # nodes being checked right now ("" = all)
         self.hidden: list[int] = []  # guests tagged EXCLUDE_TAG
         self.refreshing = False
         self.checking: set[int] = set()  # guests being checked right now
@@ -389,8 +390,17 @@ class UpdateService:
             self.refreshing = False
             self.refresh_progress = None
 
-    async def check_hosts(self) -> None:
-        """Pending updates of every Proxmox node (read only; needs host script 12 there)."""
+    async def check_hosts(self, only: str | None = None) -> None:
+        """Pending updates of every Proxmox node, or only of the node <only> (read only;
+        needs host script 12 there)."""
+        busy = only or ""
+        self.hosts_checking.add(busy)
+        try:
+            await self._check_hosts(only)
+        finally:
+            self.hosts_checking.discard(busy)
+
+    async def _check_hosts(self, only: str | None) -> None:
         nodes = self.nodes
         if not nodes:
             # node list unknown: at least the host LUM talks to (the wrapper's own node)
@@ -399,9 +409,15 @@ class UpdateService:
                 return
             nodes = [{"node": "", "online": 1, "wrapper": self.wrapper_version}]
         before = {h["node"]: h for h in self.hosts}
+        if only and only not in {n["node"] for n in nodes}:
+            only = None  # unknown node (or the list is unknown): check all
         result = []
         for n in nodes:
             name = n["node"]
+            if only and name != only:  # another node: keep what is known
+                if name in before:
+                    result.append(before[name])
+                continue
             entry = {**before.get(name, {}), "node": name or "Proxmox host", "error": None,
                      "error_key": None, "error_params": {}}
             if not n["online"]:

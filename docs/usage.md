@@ -25,7 +25,7 @@
 | | `low disk: … free` | Less free space in `/` than an update needs – see [Free space](#free-space-before-an-update). |
 | | `restart required` · **Restart** | After updates the guest should be restarted – hover the badge for the reason, see [Restart after updates](#restart-after-updates). |
 | | **Backups** | The guest's LUM snapshots (**Rollback**, **Delete**) and vzdump backups (**Restore**, **Delete**) – see [Backup, cleanup and rollback](#backup-cleanup-and-rollback). Greyed out when the guest has none (counted with every check; stopped guests with **Check all**). |
-| Proxmox host(s) | Node · Proxmox VE · Status · OS updates · Kernel | Pending updates of the host itself and *reboot required* – read only, see [Proxmox host updates](#proxmox-host-updates). |
+| Proxmox host(s) | Node · Proxmox VE · Status · OS updates · Kernel · **Check** | Pending updates of the host itself and *reboot required* – read only; **Check** checks this node again now. See [Proxmox host updates](#proxmox-host-updates). |
 | Queue | **Log** · **Cancel remaining** · **Clear** | Progress of a bulk update, see below. |
 | History | `ID` · Name | Guest of the entry; the name stays visible after the guest was removed. |
 | | **Rollback** · **Delete** | Roll back to / delete the snapshot made before that update. With vzdump: **Delete** removes the backup made before that update (not protected ones). |
@@ -279,8 +279,8 @@ Needs host script 7 or newer; with an older one nothing is shown.
 
 ## Proxmox host updates
 
-With every **Check all** (and when LUM starts, and with **Refresh list**) LUM also looks
-at the Proxmox host itself – every node in a
+With every **Check all** (and when LUM starts, with **Refresh list**, and with the
+**Check** button of a node) LUM also looks at the Proxmox host itself – every node in a
 cluster – and shows the section **Proxmox host(s)** below the list:
 
 - **Proxmox VE** version of the node;

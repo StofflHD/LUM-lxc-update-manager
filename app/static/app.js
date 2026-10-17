@@ -116,6 +116,8 @@ function hostUpdatesCell(h) {
 
 const hostError = (h) => (h.error_key ? t(h.error_key, h.error_params || {}) : h.error);
 
+let hostsChecking = [];
+
 function renderHosts(hosts) {
   $("#hosts-section").hidden = !hosts.length;
   if (!hosts.length) return;
@@ -137,6 +139,9 @@ function renderHosts(hosts) {
       <td data-label="${te("col.kernel")}">${kernel}</td>
       <td data-label="${te("col.last_check")}" class="muted"${h.lists ? ` title="${te("hosts.lists_from", { time: fmtTime(h.lists) })}"` : ""}>${fmtTime(h.checked)}${stale
         ? `<br><span class="badge warn" title="${te("hosts.old_lists_title")}">${te("hosts.old_lists")}</span>` : ""}</td>
+      <td class="actions">${hostsChecking.includes(h.node) || hostsChecking.includes("")
+        ? `<button disabled><span class="spinner"></span>${te("action.checking")}</button>`
+        : `<button data-act="hostcheck" data-node="${esc(h.node)}" title="${te("hosts.check_title")}">${te("action.check")}</button>`}</td>
     </tr>`;
   }).join("");
 }
@@ -499,7 +504,7 @@ async function load() {
     $("#refresh").disabled = Boolean(status.refresh);
     $("#refresh").innerHTML = status.refresh ? `<span class="spinner"></span>${te("action.checking")}` : te("header.check_all");
     // while something is checked, look more often so the progress moves
-    if (status.refresh || containers.some((c) => c.checking)) {
+    if (status.refresh || containers.some((c) => c.checking) || (status.hosts_checking || []).length) {
       clearTimeout(fastLoad);
       fastLoad = setTimeout(load, 1500);
     }
@@ -512,6 +517,7 @@ async function load() {
     renderSummary(containers);
     renderContainers(containers);
     renderBulk();
+    hostsChecking = status.hosts_checking || [];
     renderHosts(status.hosts || []);
     renderQueue(status.queue);
     renderHistory(history);
@@ -721,6 +727,12 @@ document.addEventListener("click", async (ev) => {
       case "backups":
         await showBackups(id);
         break;
+      case "hostcheck":
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner"></span>${te("action.checking")}`;
+        await api(`/api/hosts/check?node=${encodeURIComponent(btn.dataset.node)}`, { method: "POST" });
+        setTimeout(load, 300);
+        return;
       case "delbackup": {
         const when = fmtTime(Number(btn.dataset.backup));
         const guest = guestLabel(id);
