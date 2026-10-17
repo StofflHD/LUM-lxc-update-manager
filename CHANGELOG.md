@@ -10,6 +10,12 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.29.3] – 2026-10-17
+
+### Fixed
+- With the mouse over the history, the page no longer stops scrolling: when the history
+  reaches its top or end, the wheel scrolls the page on.
+
 ## [0.29.2] – 2026-10-17
 
 ### Fixed
@@ -764,7 +770,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.29.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/819f555...main
+[0.29.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/fb03cbd...main
+[0.29.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/819f555...fb03cbd
 [0.29.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/567b589...819f555
 [0.29.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/92b2374...567b589
 [0.28.7]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/71e3004...92b2374
