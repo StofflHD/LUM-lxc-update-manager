@@ -82,6 +82,14 @@ snapshots and vzdump backups stay (under the **Backups** button of the guest). T
 history in the web UI shows the newest 50 entries; the export contains all that are
 kept. Imported entries are rotated like the others.
 
+The same hourly run also keeps memory and disk small:
+
+- **Finished jobs** leave the memory an hour after they ended (their log is in the
+  history; **Log** in the queue then shows it from there).
+- **The database file** (`data/lum.db`) is compacted (`VACUUM`) when at least a quarter
+  of it and 4 MB are unused – e.g. after the rotation removed many logs or after
+  **Clear history**. Otherwise SQLite keeps that space in the file for new entries.
+
 ## Export and import
 
 ☰ → **Export …** downloads a JSON file, ☰ → **Import …** reads it back – into the same

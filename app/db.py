@@ -1,10 +1,13 @@
 import json
+import logging
 import re
 import sqlite3
 import time
 from pathlib import Path
 
 from .versions import is_ahead, is_update
+
+log = logging.getLogger(__name__)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS containers (
@@ -334,6 +337,21 @@ class Database:
                      now - log_days * 86400),
                 ).rowcount
         return removed, logs
+
+    def compact(self, min_free_mb: float = 4, min_free_share: float = 0.25) -> bool:
+        """SQLite keeps the space of deleted rows in the file (and reuses it). When much
+        of the file is unused - after the rotation or "Clear history" - VACUUM rewrites
+        it smaller. True if it did."""
+        page = self._conn.execute("PRAGMA page_size").fetchone()[0]
+        pages = self._conn.execute("PRAGMA page_count").fetchone()[0]
+        free = self._conn.execute("PRAGMA freelist_count").fetchone()[0]
+        if free * page < min_free_mb * 1024 * 1024 or free < pages * min_free_share:
+            return False
+        before = pages * page
+        self._conn.execute("VACUUM")
+        after = self._conn.execute("PRAGMA page_count").fetchone()[0] * page
+        log.info("database compacted: %.1f MB -> %.1f MB", before / 1e6, after / 1e6)
+        return True
 
     def clear_history(self) -> int:
         """Remove all finished entries, returns how many."""

@@ -22,6 +22,8 @@ log = logging.getLogger(__name__)
 
 EXCLUDE_TAG = "no-lum"  # Proxmox tag: LUM leaves this container / VM alone
 QUEUE_CLEAR_AFTER = 15  # seconds a queue without failures stays visible after it finished
+JOB_KEEP = 3600  # seconds a finished job stays in memory; its log is in the history
+JOB_LINKS = 5000  # job id -> history entry of removed jobs (for the queue's Log button)
 HOST_CHECK_WRAPPER = 12  # host script version with "host-check" (updates of the Proxmox host)
 
 # exit codes of the community-scripts update with PHS_SILENT=1 that mean
@@ -46,6 +48,8 @@ class Job:
     lines: list[str] = field(default_factory=list)
     done: bool = False
     success: bool | None = None
+    finished: float | None = None  # when it ended (finished jobs leave memory after JOB_KEEP)
+    history_id: int | None = None
     _listeners: set[asyncio.Queue] = field(default_factory=set)
     _finished: asyncio.Event = field(default_factory=asyncio.Event)
 
@@ -68,7 +72,7 @@ class Job:
         self._listeners.discard(q)
 
     def finish(self, success: bool) -> None:
-        self.done, self.success = True, success
+        self.done, self.success, self.finished = True, success, time.time()
         for q in self._listeners:
             q.put_nowait(None)
         self._listeners.clear()
@@ -154,6 +158,7 @@ class UpdateService:
         self.catalog = catalog
         self.jobs: dict[int, Job] = {}
         self._job_ids = itertools.count(1)
+        self.job_history: dict[int, int] = {}  # removed jobs: id -> history entry
         self._busy: set[int] = set()  # vmids with a running job
         self._check_sem = asyncio.Semaphore(settings.max_parallel_checks)
         # the last "Check all" - stored, so a restart doesn't trigger a new one
@@ -578,7 +583,7 @@ class UpdateService:
         return job
 
     async def _guarded(self, job: Job, run) -> None:
-        history_id = self.db.start_history(job.vmid, job.kind, job.target, job.auto)
+        history_id = job.history_id = self.db.start_history(job.vmid, job.kind, job.target, job.auto)
         log.info("job %s: %s of %s started%s", job.id, job.kind, job.vmid, " (auto)" if job.auto else "")
         success = False
         try:
@@ -775,6 +780,22 @@ class UpdateService:
         removed, logs = self.db.rotate(s.history_days, s.history_max, s.log_days)
         if removed or logs:
             log.info("history rotation: %s entries and %s logs removed", removed, logs)
+
+    def prune_jobs(self, keep: float = JOB_KEEP) -> int:
+        """Drop finished jobs from memory after an hour - otherwise every job and its
+        whole log would stay until LUM restarts. Their logs are in the history; the job
+        id keeps pointing there (the queue's Log button)."""
+        cutoff = time.time() - keep
+        old = [j for j in self.jobs.values() if j.done and j.finished and j.finished < cutoff]
+        for j in old:
+            del self.jobs[j.id]
+            if j.history_id:
+                self.job_history[j.id] = j.history_id
+        while len(self.job_history) > JOB_LINKS:  # oldest first (dicts keep insertion order)
+            del self.job_history[next(iter(self.job_history))]
+        if old:
+            log.info("%s finished jobs removed from memory", len(old))
+        return len(old)
 
     def busy(self, vmid: int) -> bool:
         return vmid in self._busy
@@ -1021,12 +1042,15 @@ class UpdateService:
 
 
 async def housekeeping(service: UpdateService, seconds: int = 3600) -> None:
-    """History and log rotation: right after the start, then every hour."""
+    """Right after the start, then every hour: history and log rotation, finished jobs
+    out of memory, and give unused space in the database file back."""
     while True:
-        try:
-            service.rotate()
-        except Exception:
-            log.exception("history rotation failed")
+        for name, step in (("history rotation", service.rotate), ("job cleanup", service.prune_jobs),
+                           ("database compaction", service.db.compact)):
+            try:
+                step()
+            except Exception:
+                log.exception("%s failed", name)
         await asyncio.sleep(seconds)
 
 

@@ -575,10 +575,17 @@ async def rollback(vmid: int, snapshot: str):
 
 @app.get("/api/jobs/{job_id}")
 async def job(job_id: int):
-    j = svc().jobs.get(job_id)
-    if not j:
+    s = svc()
+    j = s.jobs.get(job_id)
+    if j:
+        return {**j.as_dict(), "lines": j.lines}
+    # finished a while ago and out of memory: the log from the history
+    entry = s.db.history_entry(s.job_history.get(job_id, 0))
+    if not entry:
         raise HTTPException(404, t("err.unknown_job"))
-    return {**j.as_dict(), "lines": j.lines}
+    return {"id": job_id, "vmid": entry["vmid"], "kind": entry["kind"], "target": entry["detail"],
+            "done": True, "success": bool(entry["success"]),
+            "lines": (s.db.history_log(entry["id"]) or "").splitlines()}
 
 
 @app.websocket("/ws/jobs/{job_id}")

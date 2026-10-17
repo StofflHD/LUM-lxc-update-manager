@@ -32,7 +32,9 @@
 | | **Log** · **Remove** | Show the stored log / remove the entry (the snapshot or backup is kept). Old entries and logs are removed automatically, see [History and log rotation](configuration.md#history-and-log-rotation). |
 | | **Clear history** | Removes all finished entries (running updates stay). Two optional checkboxes also delete **all snapshots** and/or **all vzdump backups** LUM made, for every guest it manages – see [Backup, cleanup and rollback](#backup-cleanup-and-rollback). |
 
-Below 1100 px window width every row turns into a card. The footer shows the version.
+Below 1100 px window width every row turns into a card. The history scrolls in its own
+box (the column titles stay on top), so a long history doesn't make the page endless.
+The footer shows the version.
 If the host script on the Proxmox host is older than this LUM version needs, a yellow
 note below the status line says so and shows the command to update it.
 

@@ -10,6 +10,21 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.29.2] – 2026-10-17
+
+### Fixed
+- Finished jobs stayed in memory with their whole log until LUM restarted. They now
+  leave it an hour after they ended; **Log** in the queue then shows the log from the
+  history.
+- The database file never shrank: SQLite keeps the space of deleted entries. Every hour
+  LUM now compacts it (`VACUUM`) when at least a quarter of it and 4 MB are unused, e.g.
+  after the rotation or **Clear history**.
+
+### Changed
+- The history scrolls in its own box (at most 60 % of the window height, 75 % on small
+  screens) with the column titles staying on top – a long history no longer makes the
+  page endless.
+
 ## [0.29.1] – 2026-10-17
 
 ### Changed
@@ -749,7 +764,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.29.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/567b589...main
+[0.29.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/819f555...main
+[0.29.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/567b589...819f555
 [0.29.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/92b2374...567b589
 [0.28.7]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/71e3004...92b2374
 [0.28.6]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/61d5548...71e3004
