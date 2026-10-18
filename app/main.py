@@ -16,7 +16,7 @@ from pydantic import BaseModel, ValidationError
 
 from . import REQUIRED_WRAPPER_VERSION, __version__, i18n, logbuffer, settings_edit
 from .i18n import t
-from .apps import AppCatalog
+from .apps import AppCatalog, AppSource
 from .auth import COOKIE, Auth, write_credentials
 from .config import get_settings
 from .db import Database
@@ -479,6 +479,8 @@ async def release_notes(vmid: int):
     src = await s.catalog.source(c["app_script"])
     if not src:
         return out
+    if src.kind == "pihole":  # the notes of the part (Core / Web / FTL) that has the update
+        src = AppSource("github", repo=c["app_repo"])
     try:
         notes = await s.catalog.release_notes(src, c["app_installed"], c["app_latest"])
     except Exception as err:  # rate limit, network: the update itself still works

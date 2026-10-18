@@ -10,6 +10,24 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.31.0] – 2026-10-18
+
+**Host script** (version 13) – run the installer with `--update` on the Proxmox host (in
+a cluster on the node of the LUM container; it updates all nodes).
+
+### Added
+- **Pi-hole app updates:** Pi-hole updates itself (`pihole -up`) and was shown as
+  *updated with the OS packages* without an **App update** button. LUM now reads the
+  installed versions of Core, Web and FTL from `/etc/pihole/versions` and compares them
+  with their GitHub releases; the part with a newer release is shown, with its release
+  notes. Host script verb `app-info` (a fixed list of version files).
+
+### Fixed
+- Community scripts whose update runs `apt upgrade` **and** updates the app itself (an
+  own updater, a downloaded `.deb` or archive) were taken for *updated with the OS
+  packages* and lost their **App update** button: Tdarr, NextPVR, Podman Home Assistant
+  (and Pi-hole, see above). They show *Version unknown* now and can be updated.
+
 ## [0.30.0] – 2026-10-17
 
 ### Added
@@ -790,7 +808,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.30.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/1a96b75...main
+[0.31.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/aed4ada...main
+[0.30.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/1a96b75...aed4ada
 [0.29.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/fa62eee...1a96b75
 [0.29.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/fb03cbd...fa62eee
 [0.29.2]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/819f555...fb03cbd

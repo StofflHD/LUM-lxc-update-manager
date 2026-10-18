@@ -10,13 +10,14 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from .apps import AppCatalog, normalize
+from .apps import PIHOLE_PARTS, AppCatalog, AppSource, normalize
 from .config import Settings
 from . import schedule
 from .db import Database, is_security
 from .host import HostCommandError
 from .i18n import LumError, LumValueError, t
 from .notify import Notifier, esc, lines
+from .versions import is_update
 
 log = logging.getLogger(__name__)
 
@@ -565,6 +566,9 @@ class UpdateService:
         if not src:
             self.db.set_app_result(vmid, script, None, None, None)
             return
+        if src.kind == "pihole":
+            await self._check_pihole(vmid, script)
+            return
         installed = None
         try:
             if src.kind in ("github", "codeberg", "gitlab", "gh_tag"):
@@ -579,6 +583,27 @@ class UpdateService:
             note = "held back by the community script" + (f": {src.pin_reason}" if src.pin_reason else "")
         self.db.set_app_result(vmid, script, src.label or None, normalize(installed or "") or None, latest,
                                src.kind, src.url or None, note)
+
+    async def _check_pihole(self, vmid: int, script: str) -> None:
+        """Pi-hole is three parts (Core, Web, FTL) with releases of their own; "pihole -up"
+        updates all. Shown: the first part with a newer release, else the Core version."""
+        try:
+            versions = await self.host.app_info(vmid, "pihole")
+        except (HostCommandError, OSError, ValueError) as err:  # e.g. host script < 13
+            log.warning("Pi-hole versions in %s: %s", vmid, err)
+            self.db.set_app_result(vmid, script, None, None, None, "none")
+            return
+        shown = None
+        for name, repo, key in PIHOLE_PARTS:
+            installed = normalize(versions.get(key, "")) or None
+            latest = await self.catalog.latest(AppSource("github", repo=repo))
+            if shown is None:
+                shown = (repo, installed, latest)  # Core, unless a part has an update
+            if installed and latest and is_update(installed, latest):
+                shown = (repo, installed, latest)
+                break
+        repo, installed, latest = shown
+        self.db.set_app_result(vmid, script, repo, installed, latest, "pihole", f"https://github.com/{repo}/releases")
 
     # --- jobs --------------------------------------------------------------
 

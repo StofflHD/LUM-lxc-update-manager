@@ -88,12 +88,13 @@ class AppSource:
 
     @property
     def has_versions(self) -> bool:
-        return self.kind in ("github", "codeberg", "gitlab", "gh_tag", "pypi", "npm")
+        return self.kind in ("github", "codeberg", "gitlab", "gh_tag", "pypi", "npm", "pihole")
 
     @property
     def url(self) -> str:
         return {
             "github": f"https://github.com/{self.repo}/releases",
+            "pihole": f"https://github.com/{self.repo}/releases",
             "gh_tag": f"https://github.com/{self.repo}/tags",
             "codeberg": f"https://codeberg.org/{self.repo}/releases",
             "gitlab": f"{self.host or 'https://gitlab.com'}/{self.repo}/-/releases",
@@ -159,6 +160,22 @@ def _first_package(args: str) -> str | None:
     return None
 
 
+# signs that an update_script() updates the app itself, not only the OS packages
+_APP_WORK = re.compile(
+    r"\s-up\b"                                    # e.g. pihole -up
+    r"|(?:^|\s)\./[A-Za-z]"                        # runs a downloaded updater: ./Tdarr_Updater
+    r"|\bdpkg\s+-i\s+(?!\S*repo)"                  # installs a downloaded .deb (not a repo package)
+    r"|\bbash\s+<\(\s*curl"                         # an installer from the net
+    r"|\.(?:zip|tar\.gz|tgz)\b",                     # downloads an archive
+    re.M,
+)
+
+# Pi-hole: its three parts and where their releases are
+PIHOLE_PARTS = (("Core", "pi-hole/pi-hole", "CORE_VERSION"),
+                ("Web", "pi-hole/web", "WEB_VERSION"),
+                ("FTL", "pi-hole/FTL", "FTL_VERSION"))
+
+
 def parse_script(text: str, script: str) -> AppSource:
     """Work out where the app's version comes from (see module docstring)."""
     calls = []
@@ -211,9 +228,14 @@ def parse_script(text: str, script: str) -> AppSource:
             pkg = _first_package(m.group(1))
             if pkg:
                 return AppSource(kind, repo=pkg)
+    # Pi-hole updates itself ("pihole -up"); its versions are in /etc/pihole/versions
+    if re.search(r"\bpihole\s+-up\b", body):
+        return AppSource("pihole", app="pihole", repo=PIHOLE_PARTS[0][1])
     if re.search(r"run_os_update|apt(?:-get)?\s+(?:-y\s+)?(?:upgrade|dist-upgrade)|apk\s+(?:-U\s+)?upgrade", body) \
             and "fetch_and_deploy" not in body:
-        return AppSource("os")
+        # OS packages only if the update does nothing else - an own updater, a .deb or
+        # archive of the app makes it a real app update (Tdarr, NextPVR, ...)
+        return AppSource("none" if _APP_WORK.search(body) else "os")
     return AppSource("none")
 
 

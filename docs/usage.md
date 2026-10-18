@@ -135,6 +135,11 @@ script itself checks:
 | no check, but deploys the app's release (`fetch_and_deploy_*_release`) | as above | `~/.<app>` |
 | no check, `pip install … --upgrade` | PyPI | `pip show` in the container |
 | no check, `npm … -g` | npm registry | `npm ls -g` in the container |
+| `pihole -up` (Pi-hole updates itself) | GitHub releases of Pi-hole Core, Web and FTL | `/etc/pihole/versions` in the container (host script 13) |
+
+**Pi-hole** has three parts with releases of their own; `pihole -up` updates all of them.
+LUM shows the first part that has a newer release (link and release notes of that part,
+e.g. `pi-hole/FTL`), otherwise the Core version.
 
 Like the community scripts LUM takes the *highest* stable release (no drafts or
 pre-releases, only tags with the script's prefix, if any). When a script **pins** a
@@ -147,7 +152,10 @@ Apps without a usable source show a hint instead of a version, and can still be 
 
 - **updated with the OS packages** – the app comes from apt/apk (e.g. Zammad); its
   updates show up as OS updates. The **App update** button is hidden for these: the
-  community script's update would only run the OS update as well.
+  community script's update would only run the OS update as well. Only scripts whose
+  update does nothing else count here – if it also runs an updater of the app or
+  installs a downloaded package or archive (e.g. Tdarr, NextPVR), the app shows *Version
+  unknown* and keeps its **App update** button.
 - **no update via the script** – the community script's update only prints a hint and
   changes nothing (e.g. UniFi OS Server, Whisparr: *"The app offers a built-in
   updater"*; Cosmos updates itself; Frigate needs a new container). Update these in the

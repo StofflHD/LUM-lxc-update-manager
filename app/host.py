@@ -120,6 +120,12 @@ class HostClient:
         out = await self._run("check", vmid, timeout=600)
         return [line.strip() for line in out.splitlines() if line.strip()]
 
+    async def app_info(self, vmid: int, app: str) -> dict[str, str]:
+        """KEY=value lines of an app's own version file (host script 13), e.g. Pi-hole's
+        CORE_VERSION / WEB_VERSION / FTL_VERSION."""
+        out = await self._run("app-info", vmid, app)
+        return dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
+
     async def app_version(self, vmid: int, app: str) -> str:
         return (await self._run("app-version", vmid, app)).strip()
 

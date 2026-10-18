@@ -28,6 +28,8 @@
 #                             keep = no cleanup; without (LUM < 0.15) = apt autoremove
 #   app-version <vmid> <app>  installed app version (~/.<app>, written by the check_for_* / fetch_and_deploy_* helpers)
 #   pkg-version <vmid> <pip|npm> <package>  installed version of a pip / npm package
+#   app-info <vmid> <app>     version file of an app with its own updater (fixed list:
+#                             pihole = /etc/pihole/versions)
 #   app-update <vmid>         community-scripts "update" in silent mode (PHS_SILENT=1), LXC only
 #                             exit 75 = needs interactive mode, 113 = under-provisioned,
 #                             114 = /boot storage low
@@ -57,7 +59,7 @@
 set -euo pipefail
 
 # bump when verbs are added or changed; LUM checks it and asks for a host update
-WRAPPER_VERSION=12
+WRAPPER_VERSION=13
 WRAPPER_PATH=/usr/local/bin/lxc-update-wrapper
 # guests with this Proxmox tag are off limits for LUM (every verb except list/version)
 EXCLUDE_TAG="no-lum"
@@ -332,6 +334,16 @@ case "$VERB" in
     else
       in_guest 60 "npm ls -g --depth=0 $PKG 2>/dev/null | grep -oE '$PKG@[^ ]+' | head -n1 | sed 's/.*@//'; true"
     fi
+    ;;
+
+  app-info)
+    # apps that update themselves (e.g. "pihole -up") keep their versions in a file of
+    # their own - a fixed list, never a path from outside
+    require_vmid; require_running
+    case "${ARGS[2]:-}" in
+      pihole) in_guest 60 'cat /etc/pihole/versions 2>/dev/null; true' ;;
+      *) die "unknown app for app-info" ;;
+    esac
     ;;
 
   check)

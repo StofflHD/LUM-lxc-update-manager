@@ -159,6 +159,10 @@ class DemoHostClient:
         label = "VM" if _ct(vmid)[7] == "qemu" else "container"
         return self._fake_stream([f"restarting {label} {vmid}", "shutting down …", "starting …", "restart done"])
 
+    async def app_info(self, vmid: int, app: str) -> dict[str, str]:
+        # no Pi-hole among the demo guests; the shape of /etc/pihole/versions
+        return {"CORE_VERSION": "v6.1", "WEB_VERSION": "v6.2", "FTL_VERSION": "v6.2.3"}
+
     async def app_version(self, vmid: int, app: str) -> str:
         if vmid in self._updated:  # after a demo app update report the real latest version
             src = await self._catalog.source(_ct(vmid)[5])
