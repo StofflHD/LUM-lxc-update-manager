@@ -133,6 +133,7 @@ script itself checks:
 | `check_for_gl_release` | highest stable GitLab release (also self-hosted GitLab) | `~/.<app>` |
 | `check_for_gh_tag` | newest GitHub tag | `~/.<app>` |
 | no check, but deploys the app's release (`fetch_and_deploy_*_release`) | as above | `~/.<app>` |
+| no check, reads the release itself (`get_latest_github_release` → `~/.<app>`, e.g. Technitium DNS) | highest stable GitHub release | `~/.<app>` |
 | no check, `pip install … --upgrade` | PyPI | `pip show` in the container |
 | no check, `npm … -g` | npm registry | `npm ls -g` in the container |
 | `pihole -up` (Pi-hole updates itself) | GitHub releases of Pi-hole Core, Web and FTL | `/etc/pihole/versions` in the container (host script 13) |

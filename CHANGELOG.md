@@ -10,6 +10,15 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.31.1] – 2026-11-22
+
+### Fixed
+- **Technitium DNS** (and apps like it) showed no version and no **App update** button:
+  their community script reads the latest version itself with `get_latest_github_release`
+  and writes it to `~/.<app>` instead of using a `check_for_*` / `fetch_and_deploy_*`
+  helper. LUM now recognises that pattern and compares with the GitHub release. No host
+  script change needed.
+
 ## [0.31.0] – 2026-10-18
 
 **Host script** (version 13) – run the installer with `--update` on the Proxmox host (in
@@ -808,7 +817,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.31.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/aed4ada...main
+[0.31.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/c211999...main
+[0.31.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/aed4ada...c211999
 [0.30.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/1a96b75...aed4ada
 [0.29.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/fa62eee...1a96b75
 [0.29.3]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/fb03cbd...fa62eee

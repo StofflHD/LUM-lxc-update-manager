@@ -67,6 +67,14 @@ _CHECK = re.compile(
     r'(?P<args>(?:[ \t]+"[^"\n]*")+)'
 )
 _ARG = re.compile(r'"([^"\n]*)"')
+# VAR=$(get_latest_github_release "owner/repo") ... echo "${VAR}" >~/.<app>  (Technitium DNS):
+# the GitHub repo gives the latest version, ~/.<app> holds the installed one
+_GLR_FILE = re.compile(
+    r'(?P<var>\w+)=\$\(\s*get_latest_github_release\s+"(?P<repo>[^"\n]+/[^"\n]+)"\s*\)'
+    r'.*?echo\s+"?\$\{?(?P=var)\}?"?\s*>\s*(?:~|"?\$HOME)/\.(?P<app>[A-Za-z0-9_.-]+)',
+    re.S,
+)
+
 _DEPLOY = re.compile(
     r'fetch_and_deploy_(?P<kind>gh|codeberg|gl)_release[ \t]+"(?P<app>[^"\n]+)"[ \t]+"(?P<repo>[^"\n]+/[^"\n]+)"'
 )
@@ -218,6 +226,13 @@ def parse_script(text: str, script: str) -> AppSource:
         if app and (app in want or want in app):
             kind = {"gh": "github", "codeberg": "codeberg", "gl": "gitlab"}[m.group("kind")]
             return AppSource(kind, app=m.group("app").lower().replace(" ", ""), repo=m.group("repo"))
+    # no helper, but the script reads the latest version itself with get_latest_github_release
+    # and writes it to ~/.<app> (e.g. Technitium DNS). Take that repo as the app's version,
+    # but only when ~/.<app> matches the script - the call may be for a dependency.
+    for m in _GLR_FILE.finditer(body):
+        app = re.sub(r"[^a-z0-9]", "", m.group("app").lower())
+        if app and (app in want or want in app):
+            return AppSource("github", app=m.group("app").lower().replace(" ", ""), repo=m.group("repo"))
     # Docker first: such scripts may pip-install helper tools (e.g. runlike)
     if re.search(r"\bdocker\b", body):
         return AppSource("docker")
