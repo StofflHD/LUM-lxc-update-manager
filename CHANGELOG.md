@@ -10,6 +10,13 @@ Update an installation with `update` inside the LUM container. When an entry say
 **host script**, also run the installer on the Proxmox host:
 `bash <(curl -fsSL https://raw.githubusercontent.com/StofflHD/LUM-lxc-update-manager/main/install.sh) --update`
 
+## [0.32.0] – 2026-11-25
+
+### Added
+- **Select all needing a restart** button above the list, next to **Select all with
+  updates**: selects every running guest with *restart required* (not LUM's own
+  container) for the bulk **Restart**.
+
 ## [0.31.1] – 2026-11-22
 
 ### Fixed
@@ -817,7 +824,8 @@ First release.
 - Login with a scrypt-hashed password, signed session cookies and rate limiting.
 - Easy installer for the Proxmox host, installs straight from GitHub.
 
-[0.31.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/c211999...main
+[0.32.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/ae6ec37...main
+[0.31.1]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/c211999...ae6ec37
 [0.31.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/aed4ada...c211999
 [0.30.0]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/1a96b75...aed4ada
 [0.29.4]: https://github.com/StofflHD/LUM-lxc-update-manager/compare/fa62eee...1a96b75

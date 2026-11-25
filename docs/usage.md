@@ -12,7 +12,7 @@
 | | **☰** menu | *Configuration:* **Settings** – also theme, language and date format of the web UI (see [Configuration](configuration.md#in-the-web-ui) and [Display](configuration.md#display)), **Export …** / **Import …** (see [Export and import](configuration.md#export-and-import)) · *Actions:* **Run auto-update now**, **Send test notification** (see [Notifications](configuration.md#notifications-telegram)), **Server log** (see [Troubleshooting](troubleshooting.md#logs)) · *Account:* **Change password** (not shown without login). |
 | Status line | | Last check (and the next one), backup mode, guests hidden by the `no-lum` tag (hover for their IDs), the next automatic update, the cluster nodes, result of **Refresh list**, and a yellow note when the host script is outdated (in a cluster: on which node). |
 | Above the list | **All** · **With updates** · **Security** | Filter the list: every guest, only guests with OS or app updates, only guests with security updates (stored in the browser). Bulk selections only include visible guests. |
-| | **Select all with updates** · **Clear selection** · **OS update** · **App update** · **Restart** | Update several guests in one go – see [Updating several guests](#updating-several-guests). |
+| | **Select all with updates** · **Select all needing a restart** · **Clear selection** · **OS update** · **App update** · **Restart** | Select and update (or restart) several guests in one go – see [Updating several guests](#updating-several-guests) and [Restart after updates](#restart-after-updates). |
 | | **Auto-update …** | Update the selected guests automatically in the maintenance window – see [Automatic updates](#automatic-updates-maintenance-window). |
 | Each row | ☐ `ID` · `LXC`/`VM` · node | Checkbox for a bulk update (the one in the header selects all running guests). Container or VM; in a [cluster](installation.md#proxmox-cluster) also its node. VMs need the QEMU guest agent, otherwise **no guest agent** is shown. |
 | | `auto: off` · `auto: OS` · `auto: OS + app` | Below the name: click to set the [automatic updates](#automatic-updates-maintenance-window) of this guest. |
@@ -41,7 +41,9 @@ note below the status line says so and shows the command to update it.
 ## Updating several guests
 
 Tick the checkboxes of the guests (or **Select all with updates**: every running guest
-with OS or app updates), then click **OS update** or **App update** above the list. The
+with OS or app updates; **Select all needing a restart**: every running guest with
+*restart required*, for the **Restart** button), then click **OS update** or **App
+update** above the list. The
 update dialog asks once for the backup (and for OS updates the cleanup) checkbox; it
 applies to all of them. Like the buttons in the rows, **OS update** / **App update** above
 the list are greyed out when none of the selected guests has such an update, and the

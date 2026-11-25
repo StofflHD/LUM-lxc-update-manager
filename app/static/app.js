@@ -950,6 +950,12 @@ $("#sel-updates").addEventListener("click", () => {
   if (!selected.size) notice(t("notice.no_updates"));
 });
 
+// guests that need a restart (same rule as the bulk Restart button: not LUM's own)
+$("#sel-restart").addEventListener("click", () => {
+  setSelection(visibleGuests(lastContainers).filter((c) => c.restart_required && canUpdate.restart(c)).map((c) => c.vmid));
+  if (!selected.size) notice(t("notice.no_restart"));
+});
+
 $("#sel-none").addEventListener("click", () => setSelection([]));
 
 document.querySelectorAll("[data-filter]").forEach((b) => b.addEventListener("click", () => {
