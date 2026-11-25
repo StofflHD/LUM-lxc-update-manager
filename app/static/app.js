@@ -918,6 +918,10 @@ function renderBulk() {
   const restart = bulkTargets("restart").length;
   $("#bulk-restart").disabled = !restart;
   $("#bulk-restart").title = !n ? "" : t(restart ? "bulk.restart_title" : "bulk.no_restart");
+  // the "select all …" buttons are greyed out when there is nothing to select
+  const visible = visibleGuests(lastContainers);
+  $("#sel-updates").disabled = !visible.some(hasUpdates);
+  $("#sel-restart").disabled = !visible.some((c) => c.restart_required && canUpdate.restart(c));
   $("#sel-none").hidden = !n;
   $("#bulk-auto").disabled = !n;
   $("#bulk-auto").title = t(n ? "bulk.auto_title" : "bulk.auto_hint");
