@@ -269,10 +269,11 @@ services) and a **Restart** button. It reboots the container or VM (`pct reboot`
 **Restart**. The badge is gone as soon as the restart is done. A restart is never done
 automatically.
 
-**Several at once:** tick the guests and click **Restart** above the list – every
-selected running guest is restarted, **all at the same time** (whether it needs it or
-not), each with its own history entry, shown in the [queue](#updating-several-guests).
-LUM's own container is left out – restart it with its own button.
+**Several at once:** tick the guests (or **Select all needing a restart**: every running
+guest with *restart required*) and click **Restart** above the list – every selected
+running guest is restarted, **all at the same time** (whether it needs it or not), each
+with its own history entry, shown in the [queue](#updating-several-guests). LUM's own
+container is left out – restart it with its own button.
 
 **LUM's own container** (found by its host name, marked **LUM** in the list) can be
 restarted the same way: the host reboots it a few seconds after the job is stored, LUM
